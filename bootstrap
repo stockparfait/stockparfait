@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# Copyright 2022 Stock Parfait
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# Stop the script on the first error.
+trap 'bootstrap failed on line ${LINENO}"; exit 1' ERR
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ROOT="${DIR}"
+
+echo "Current dir: ${DIR}"
+echo "Root dir: ${ROOT}"
+
+if ! which go > /dev/null; then
+    echo "  WARNING: Couldn't find Go installation."
+    echo "  Please download & install Go at https://golang.org/dl/"
+    exit 1
+fi
+
+mkdir -p "${ROOT}/bin" "${ROOT}/pkg"
+
+# Create bin/bashrc and bin/activate for setting up a Go environment.
+cat <<EOF > "${ROOT}/bin/bashrc"
+if [ -f "\${HOME}/.bashrc" ]; then
+   . "\${HOME}/.bashrc"
+fi
+GOPATH="$ROOT"
+export GOPATH
+GO111MODULE="on"
+export GO111MODULE
+PATH="$ROOT/bin":"\$PATH"
+export PATH
+PS1="(go) \$PS1"
+export PS1
+EOF
+
+cat <<EOF > "${ROOT}/bin/activate"
+#!/bin/bash
+
+bash --rcfile "${ROOT}/bin/bashrc"
+EOF
+
+chmod u+x "${ROOT}/bin/activate"
