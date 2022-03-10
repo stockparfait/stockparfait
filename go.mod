@@ -1,4 +1,4 @@
-module github.com/stockparfait/stockparfait/src
+module github.com/stockparfait/stockparfait
 
 go 1.16
 
