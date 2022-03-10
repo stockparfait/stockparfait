@@ -1,0 +1,6 @@
+# Mac OS file system junk.
+.DS_Store
+
+# Output of the go coverage tool
+.coverage
+src/coverage.html
