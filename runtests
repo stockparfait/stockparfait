@@ -22,7 +22,9 @@ ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "${ROOT}"
 
 echo "Activating Go environment in ${ROOT}"
-source "${ROOT}/bin/bashrc"
+source "${ROOT}/gopath/bin/bashrc"
+
+PACKAGES="$@"
 
 if [ "$TEST_RECORD" = "1" ]; then
     echo "*** Running tests in RECORD mode ***"
@@ -31,81 +33,60 @@ fi
 echo "GOROOT: `go env GOROOT`"
 echo "GOPATH: `go env GOPATH`"
 
-modules=("src")
-
 COVERAGE_PROFILE="${ROOT}/.coverage"
 COVERAGERC=".coveragerc"
 COVERAGE_HTML="coverage.html"
 DEFAULT_MIN_COVERAGE=75
 
-tests_failed=()
-coverage_low=()
+tests_failed=0
+coverage_low=0
 code_warnings=()
 rm -f "$COVERAGE_PROFILE"
 GOTEST_ARGS=()
 
-for d in "${modules[@]}"; do
-    path="${ROOT}/${d}"
-    cd "$path"
-    if ! go test -coverprofile "${COVERAGE_PROFILE}_tmp" "${GOTEST_ARGS[@]}" ./...; then
-	tests_failed=("${tests_failed[@]}" "$path")
-    fi
-    go tool cover -html="${COVERAGE_PROFILE}_tmp" -o "${COVERAGE_HTML}"
-    echo "Wrote ${path}/${COVERAGE_HTML} - open in a browser to see coverage."
-    if [ -f "${path}/${COVERAGERC}" ]; then
-	min_coverage=`jsonread "${path}/${COVERAGERC}" min_coverage "$DEFAULT_MIN_COVERAGE"`
-    else
+if ! go test -coverprofile "${COVERAGE_PROFILE}" "${GOTEST_ARGS[@]}" "${PACKAGES[@]}"; then
+	tests_failed=1
+fi
+go tool cover -html="${COVERAGE_PROFILE}" -o "${COVERAGE_HTML}"
+echo "Wrote ${ROOT}/${COVERAGE_HTML} - open in a browser to see coverage."
+if [ -f "${ROOT}/${COVERAGERC}" ]; then
+	min_coverage=`jsonread "${ROOT}/${COVERAGERC}" min_coverage "$DEFAULT_MIN_COVERAGE"`
+else
 	min_coverage="$DEFAULT_MIN_COVERAGE"
-    fi
-    if [ -f "${COVERAGE_PROFILE}_tmp" ]; then
-	if ! gocovcheck "${COVERAGE_PROFILE}_tmp" "$min_coverage"; then
-	    coverage_low=("${coverage_low[@]}" "$d")
-	fi
-	cat "${COVERAGE_PROFILE}_tmp" >> "$COVERAGE_PROFILE"
-	rm -f "${COVERAGE_PROFILE}_tmp"
-    fi
+fi
 
-    if ! go vet ./... ; then
+if ! go vet "${PACKAGES[@]}"; then
 	code_warnings=("${code_warnings[@]}" "go vet has warnings")
-    fi
-    # golint returns code 0 even when it fails. We'd have to check its output,
-    # and run it again to print warnings to stdout.
-    if [[ ! -z $(golint ./...) ]] ; then
+fi
+# golint returns code 0 even when it fails. We'd have to check its output,
+# and run it again to print warnings to stdout.
+if [[ ! -z $(golint "${PACKAGES[@]}") ]] ; then
 	code_warnings=("${code_warnings[@]}" "golint has warnings")
-	golint ./...
-    fi
-    if [ ! -z $(gofmt -l -s .) ]; then
+	golint "${PACKAGES[@]}"
+fi
+if [ ! -z $(gofmt -l -s "${PACKAGES[@]}") ]; then
 	echo "WARNING: the following files are not formatted correctly:"
 	gofmt -l -s .
 	echo "Please run 'make gofmt'."
 	code_warnings=("${code_warnings[@]}" "need to run 'make gofmt'")
-    fi
-done
+fi
 
-cd "${ROOT}"
 if [ -f "${ROOT}/${COVERAGERC}" ] && [ -f "$COVERAGE_PROFILE" ]; then
     global_min_coverage=`jsonread "${ROOT}/${COVERAGERC}" min_coverage "$DEFAULT_MIN_COVERAGE"`
-    echo "Overall coverage:"
     if ! gocovcheck "$COVERAGE_PROFILE" "$global_min_coverage"; then
-	coverage_low=("${coverage_low[@]}" "Global coverage across all packages is low")
+	coverage_low=1
     fi
 fi
 
 exit_code=0
 
-if [ ${#tests_failed[@]} -ne 0 ]; then
-    echo "Tests failed in packages:"
-    for pkg in "${tests_failed[@]}"; do
-	echo "  $pkg"
-    done
+if [ ${tests_failed} -ne 0 ]; then
+    echo "Tests failed."
     exit_code=1
 fi
 
-if [ ${#coverage_low[@]} -ne 0 ]; then
-    echo "Insufficient coverage in packages:"
-    for pkg in "${coverage_low[@]}"; do
-	echo "  $pkg"
-    done
+if [ ${coverage_low} -ne 0 ]; then
+    echo "Insufficient coverage."
     exit_code=1
 fi
 
