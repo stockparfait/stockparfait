@@ -20,23 +20,22 @@ INSTALLS=./stockparfait
 
 all:
 	@echo "Please pick a target:"
-	@echo "  make init      - initialize the development environment"
-	@echo "  make install   - compile and install all the binaries"
-	@echo "  make test      - run tests"
-	@echo "  make gofmt     - format all *.go files"
-	@echo "  make goconvey  - start a goconvey session (Crtl-C to exit)"
+	@echo "  make init     - initialize the development environment"
+	@echo "  make install  - compile and install all the binaries"
+	@echo "  make test     - run tests"
+	@echo "  make gofmt    - format all *.go files"
+	@echo "  make goconvey - start a goconvey session (Crtl-C to exit)"
 	@echo "  make clean    - delete object files and other temporary files"
 	@echo "  make pristine - clean + delete everything created by bootstrap"
 
 init:
 	./bootstrap
 	/bin/bash -c "source $(GOPATH)/bin/bashrc && \
-		go install github.com/smartystreets/goconvey && \
-		go install golang.org/x/lint/golint && \
-		go install golang.org/x/tools/cmd/godoc && \
-		go install github.com/sergey-a-berezin/gocovcheck && \
-		go install github.com/sergey-a-berezin/gocovcheck/jsonread && \
-		go install github.com/sergey-a-berezin/gocovcheck/gitbasedversion"
+		go install github.com/smartystreets/goconvey@v1.7.2 && \
+		go install honnef.co/go/tools/cmd/staticcheck@2021.1.2 && \
+		go install github.com/sergey-a-berezin/gocovcheck/gocovcheck@v1.2.0 && \
+		go install github.com/sergey-a-berezin/gocovcheck/jsonread@v1.2.0 && \
+		go install github.com/sergey-a-berezin/gocovcheck/gitbasedversion@v1.2.0"
 	@echo "Bootstrap done!"
 
 install:

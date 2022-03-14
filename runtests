@@ -16,7 +16,7 @@
 
 
 # Stop the script on the first error.
-trap 'runtests failed on line ${LINENO}"; exit 1' ERR
+trap 'echo "runtests failed on line ${LINENO}"; exit 1' ERR
 
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "${ROOT}"
@@ -34,7 +34,7 @@ echo "GOROOT: `go env GOROOT`"
 echo "GOPATH: `go env GOPATH`"
 
 COVERAGE_PROFILE="${ROOT}/.coverage"
-COVERAGERC=".coveragerc"
+COVERAGERC="coverage.config"
 COVERAGE_HTML="coverage.html"
 DEFAULT_MIN_COVERAGE=75
 
@@ -58,22 +58,20 @@ fi
 if ! go vet "${PACKAGES[@]}"; then
 	code_warnings=("${code_warnings[@]}" "go vet has warnings")
 fi
-# golint returns code 0 even when it fails. We'd have to check its output,
-# and run it again to print warnings to stdout.
-if [[ ! -z $(golint "${PACKAGES[@]}") ]] ; then
-	code_warnings=("${code_warnings[@]}" "golint has warnings")
-	golint "${PACKAGES[@]}"
+
+if ! staticcheck "${PACKAGES[@]}"; then
+	code_warnings=("${code_warnings[@]}" "staticcheck has warnings")
 fi
-if [ ! -z $(gofmt -l -s "${PACKAGES[@]}") ]; then
+
+if [[ ! -z $(gofmt -l -s "${PACKAGES[@]}") ]]; then
 	echo "WARNING: the following files are not formatted correctly:"
-	gofmt -l -s .
+	gofmt -l -s "${PACKAGES[@]}"
 	echo "Please run 'make gofmt'."
 	code_warnings=("${code_warnings[@]}" "need to run 'make gofmt'")
 fi
 
-if [ -f "${ROOT}/${COVERAGERC}" ] && [ -f "$COVERAGE_PROFILE" ]; then
-    global_min_coverage=`jsonread "${ROOT}/${COVERAGERC}" min_coverage "$DEFAULT_MIN_COVERAGE"`
-    if ! gocovcheck "$COVERAGE_PROFILE" "$global_min_coverage"; then
+if [ -f "$COVERAGE_PROFILE" ]; then
+    if ! gocovcheck "$COVERAGE_PROFILE" "$min_coverage"; then
 	coverage_low=1
     fi
 fi
