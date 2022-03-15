@@ -54,6 +54,17 @@ func TestSchema(t *testing.T) {
 			So(d.String(), ShouldEqual, "2009-11-09")
 		})
 
+		Convey("converts to and from time correctly", func() {
+			d := NewDate(2019, 1, 2)
+			t := d.ToTime()
+			So(t.Year(), ShouldEqual, d.Year())
+			So(t.Month(), ShouldEqual, d.Month())
+			So(t.Day(), ShouldEqual, d.Day())
+			var d2 Date
+			d2.FromTime(t)
+			So(d2, ShouldResemble, *d)
+		})
+
 		Convey("converts to Datetime correctly", func() {
 			d := NewDate(2019, 1, 2)
 			So(d.ToDatetime(), ShouldResemble, NewDatetime(2019, 1, 2, 0, 0, 0, 0))
@@ -74,6 +85,11 @@ func TestSchema(t *testing.T) {
 			So(MaxDate(d1, d2, d3), ShouldEqual, d2)
 		})
 
+		Convey("Mondey works correctly", func() {
+			// Jan 2, 2019 is Wednesday.
+			So(NewDate(2019, 1, 2).Monday(), ShouldResemble, NewDate(2018, 12, 31))
+		})
+
 		Convey("MonthStart works correctly", func() {
 			So(NewDate(2018, 2, 14).MonthStart(), ShouldResemble, NewDate(2018, 2, 1))
 		})
@@ -90,6 +106,7 @@ func TestSchema(t *testing.T) {
 		Convey("creates new value correctly", func() {
 			d := NewDatetime(2019, 1, 2, 3, 4, 5, 99)
 			So(d.Msec, ShouldEqual, uint32((3*3600+4*60+5)*1000+99))
+			So(d.String(), ShouldEqual, "2019-01-02T03:04:05.099")
 		})
 
 		Convey("correctly computes YearsTill", func() {

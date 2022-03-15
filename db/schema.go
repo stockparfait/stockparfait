@@ -80,7 +80,7 @@ func (d *Date) ToDatetime() *Datetime {
 	return NewDatetime(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0)
 }
 
-// String converts to built-in string.
+// String representation of the value.
 func (d *Date) String() string {
 	return fmt.Sprintf("%04d-%02d-%02d", d.Year(), d.Month(), d.Day())
 }
@@ -175,7 +175,7 @@ func (d *Datetime) YearsTill(d2 *Datetime) float64 {
 	return float64(dt) / float64(year)
 }
 
-// String converts to the string representation.
+// String representation of the value.
 func (d *Datetime) String() string {
 	return fmt.Sprintf("%04d-%02d-%02dT%02d:%02d:%02d.%03d", d.Year(), d.Month(),
 		d.Day(), d.Hour(), d.Minute(), d.Second(), d.Millisecond())
