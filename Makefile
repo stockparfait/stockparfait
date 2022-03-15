@@ -15,7 +15,7 @@
 
 GOPATH=gopath
 # Space separated list of package paths.
-PACKAGES=./stockparfait
+PACKAGES=./db ./stockparfait
 INSTALLS=./stockparfait
 
 all:
