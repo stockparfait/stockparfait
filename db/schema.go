@@ -15,11 +15,9 @@
 package db
 
 import (
-	"context"
 	"fmt"
 	"time"
 
-	"go.chromium.org/luci/common/clock"
 	"go.chromium.org/luci/common/errors"
 )
 
@@ -64,15 +62,17 @@ func (d *Date) Year() uint16 { return d.YearVal }
 func (d *Date) Month() uint8 { return d.MonthVal }
 func (d *Date) Day() uint8   { return d.DayVal }
 
-// DateToday returns today's date in New York timezone.
-func DateToday(ctx context.Context) (*Date, error) {
+// DateInNY returns today's date in New York timezone.
+func DateInNY(now time.Time) *Date {
 	tz := "America/New_York"
 	location, err := time.LoadLocation(tz)
 	if err != nil {
-		return nil, errors.Annotate(err, "DateToday: failed to load timezone %s", tz).Err()
+		panic(errors.Annotate(err, "DateInNY: failed to load timezone %s", tz).Err())
 	}
-	now := clock.Now(ctx).In(location)
-	return NewDate(uint16(now.Year()), uint8(now.Month()), uint8(now.Day())), nil
+	t := now.In(location)
+	var d Date
+	d.FromTime(t)
+	return &d
 }
 
 // ToDatetime converts to Datetime value at midnight.

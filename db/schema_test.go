@@ -15,12 +15,9 @@
 package db
 
 import (
-	"context"
 	"math"
 	"testing"
 	"time"
-
-	"go.chromium.org/luci/common/clock/testclock"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -45,12 +42,10 @@ func TestSchema(t *testing.T) {
 	})
 
 	Convey("Date type", t, func() {
-		Convey("gets today's date", func() {
+		Convey("creates New York's date", func() {
 			// 2am UTC is the previous day in NY
 			now := time.Date(2009, time.November, 10, 2, 0, 0, 0, time.UTC)
-			ctx, _ := testclock.UseTime(context.Background(), now)
-			d, err := DateToday(ctx)
-			So(err, ShouldBeNil)
+			d := DateInNY(now)
 			So(d.String(), ShouldEqual, "2009-11-09")
 		})
 
@@ -63,6 +58,11 @@ func TestSchema(t *testing.T) {
 			var d2 Date
 			d2.FromTime(t)
 			So(d2, ShouldResemble, *d)
+		})
+
+		Convey("converts to string correctly", func() {
+			d := NewDate(2019, 1, 2)
+			So(d.String(), ShouldEqual, "2019-01-02")
 		})
 
 		Convey("converts to Datetime correctly", func() {
