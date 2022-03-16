@@ -17,6 +17,7 @@ package db
 import (
 	"math"
 	"testing"
+	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -41,9 +42,11 @@ func TestSchema(t *testing.T) {
 	})
 
 	Convey("Date type", t, func() {
-		Convey("gets today's date", func() {
-			// Smoke test, since it's time dependent.
-			So(func() { DateToday() }, ShouldNotPanic)
+		Convey("creates New York's date", func() {
+			// 2am UTC is the previous day in NY
+			now := time.Date(2009, time.November, 10, 2, 0, 0, 0, time.UTC)
+			d := DateInNY(now)
+			So(d.String(), ShouldEqual, "2009-11-09")
 		})
 
 		Convey("converts to and from time correctly", func() {

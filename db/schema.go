@@ -62,16 +62,16 @@ func (d *Date) Year() uint16 { return d.YearVal }
 func (d *Date) Month() uint8 { return d.MonthVal }
 func (d *Date) Day() uint8   { return d.DayVal }
 
-// DateToday returns today's date in New York timezone.
-func DateToday() *Date {
+// DateInNY returns today's date in New York timezone.
+func DateInNY(now time.Time) *Date {
 	tz := "America/New_York"
 	location, err := time.LoadLocation(tz)
 	if err != nil {
-		panic(errors.Annotate(err, "DateToday: failed to load timezone %s", tz).Err())
+		panic(errors.Annotate(err, "DateInNY: failed to load timezone %s", tz).Err())
 	}
-	now := time.Now().In(location)
+	t := now.In(location)
 	var d Date
-	d.FromTime(now)
+	d.FromTime(t)
 	return &d
 }
 
