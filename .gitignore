@@ -1,9 +1,6 @@
 # Mac OS file system junk.
 .DS_Store
 
-# Local GOPATH
-gopath
-
 # Output of the go coverage tool
 .coverage
 coverage.html
