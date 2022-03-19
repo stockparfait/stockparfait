@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package stockparfait implements the main engine.
-package stockparfait
+package main
 
 import (
 	"fmt"
