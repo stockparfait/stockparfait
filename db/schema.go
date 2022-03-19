@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"time"
 
-	"go.chromium.org/luci/common/errors"
+	"github.com/stockparfait/errors"
 )
 
 // lessLex is a lexicographic ordering on the slices of int.
@@ -67,7 +67,7 @@ func DateInNY(now time.Time) *Date {
 	tz := "America/New_York"
 	location, err := time.LoadLocation(tz)
 	if err != nil {
-		panic(errors.Annotate(err, "DateInNY: failed to load timezone %s", tz).Err())
+		panic(errors.Annotate(err, "DateInNY: failed to load timezone %s", tz))
 	}
 	t := now.In(location)
 	var d Date

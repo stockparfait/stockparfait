@@ -12,13 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package stockparfait implements the main engine.
-package stockparfait
+package main
 
 import (
-	"fmt"
+	"testing"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
-func main() {
-	fmt.Println("Hello, World!")
+func TestMain(t *testing.T) {
+	Convey("main works", t, func() {
+		So(main, ShouldNotPanic)
+	})
 }

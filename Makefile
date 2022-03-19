@@ -13,10 +13,8 @@
 # limitations under the License.
 
 
-GOPATH=gopath
-# Space separated list of package paths.
-PACKAGES=./db ./stockparfait
-INSTALLS=./stockparfait
+INSTALLS=.
+GOPATH=$(shell go env GOPATH)
 
 all:
 	@echo "Please pick a target:"
@@ -25,35 +23,27 @@ all:
 	@echo "  make test     - run tests"
 	@echo "  make gofmt    - format all *.go files"
 	@echo "  make goconvey - start a goconvey session (Crtl-C to exit)"
-	@echo "  make clean    - delete object files and other temporary files"
-	@echo "  make pristine - clean + delete everything created by bootstrap"
+	@echo "  make clean    - delete generated files"
 
 init:
-	./bootstrap
-	/bin/bash -c "source $(GOPATH)/bin/bashrc && \
-		go install github.com/smartystreets/goconvey@v1.7.2 && \
-		go install honnef.co/go/tools/cmd/staticcheck@2021.1.2 && \
-		go install github.com/sergey-a-berezin/gocovcheck/gocovcheck@v1.2.0 && \
-		go install github.com/sergey-a-berezin/gocovcheck/jsonread@v1.2.0 && \
-		go install github.com/sergey-a-berezin/gocovcheck/gitbasedversion@v1.2.0"
+	go install github.com/smartystreets/goconvey@v1.7.2
+	go install honnef.co/go/tools/cmd/staticcheck@2021.1.2
+	go install github.com/sergey-a-berezin/gocovcheck@v1.3.0
+	go install github.com/sergey-a-berezin/gocovcheck/jsonread@v1.3.0
 	@echo "Bootstrap done!"
 
 install:
-	(source "$(GOPATH)/bin/bashrc"; go install $(INSTALLS))
+	go install $(INSTALLS)
 
 test:
-	./runtests $(PACKAGES)
+	./runtests
 
 gofmt:
-	/bin/bash -c "source $(GOPATH)/bin/bashrc && gofmt -s -w $(PACKAGES)"
+	gofmt -s -w .
 
 goconvey:
-	/bin/bash -c "source $(GOPATH)/bin/bashrc; goconvey -excludedDirs gopath"
+	$(GOPATH)/bin/goconvey
 
 clean:
 	rm -f ".coverage"
 	rm -f "coverage.html"
-
-pristine: clean
-	chmod -R u+w "$(GOPATH)/pkg"
-	rm -rf "$(GOPATH)"

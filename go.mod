@@ -3,6 +3,7 @@ module github.com/stockparfait/stockparfait
 go 1.16
 
 require (
+	github.com/gopherjs/gopherjs v0.0.0-20210901121439-eee08aaf2717 // indirect
 	github.com/smartystreets/goconvey v1.7.2
-	go.chromium.org/luci v0.0.0-20220315003823-14650da9818b
+	github.com/stockparfait/errors v0.0.1
 )

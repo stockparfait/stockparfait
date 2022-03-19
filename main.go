@@ -12,16 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package stockparfait
+package main
 
 import (
-	"testing"
-
-	. "github.com/smartystreets/goconvey/convey"
+	"fmt"
 )
 
-func TestMain(t *testing.T) {
-	Convey("main works", t, func() {
-		So(main, ShouldNotPanic)
-	})
+func main() {
+	fmt.Println("Hello, World!")
 }
