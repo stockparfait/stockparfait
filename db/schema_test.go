@@ -110,8 +110,13 @@ func TestSchema(t *testing.T) {
 
 		Convey("TestAction works", func() {
 			d := *NewDate(2019, 1, 2)
-			So(TestAction(d, 1.01, 2.0, true), ShouldResemble,
-				&ActionRow{Date: d, Dividend: 1.01, Split: 2.0, Active: true})
+			So(TestAction(d, 0.98, 0.5, true), ShouldResemble,
+				&ActionRow{
+					Date:           d,
+					DividendFactor: 0.98,
+					SplitFactor:    0.5,
+					Active:         true,
+				})
 		})
 
 	})

@@ -152,19 +152,19 @@ func TestTicker(ticker string) *TickerRow {
 
 // ActionRow is a row in the actions table. Size: 16 bytes (13+padding).
 type ActionRow struct {
-	Date     Date
-	Dividend float32 // dividend adjustment factor
-	Split    float32 // split adjustment factor
-	Active   bool
+	Date           Date
+	DividendFactor float32 // dividend adjustment factor (1.0 = no dividend)
+	SplitFactor    float32 // split adjustment factor (1.0 = no split)
+	Active         bool
 }
 
 // TestAction creates an ActionRow for use in tests.
 func TestAction(date Date, dividend, split float32, active bool) *ActionRow {
 	return &ActionRow{
-		Date:     date,
-		Dividend: dividend,
-		Split:    split,
-		Active:   active,
+		Date:           date,
+		DividendFactor: dividend,
+		SplitFactor:    split,
+		Active:         active,
 	}
 }
 
@@ -194,7 +194,7 @@ func TestPrice(date Date, close, dv float32) *PriceRow {
 // ResampledRow is a multi-day bar with some additional daily statistics.  Size:
 // 48 bytes (46+padding).
 type ResampledRow struct {
-	Open         float32
+	Open         float32 // split-adjusted prices
 	High         float32
 	Low1         float32 // low before high
 	Low2         float32 // low at or after high
@@ -203,7 +203,7 @@ type ResampledRow struct {
 	DateOpen     Date
 	DateHigh     Date
 	DateClose    Date
-	Dividends    float32 // split-adjusted dividends
+	Dividends    float32 // split-adjusted dollar dividends
 	// Sum of relative daily movements within the bar: sum(|p(t+1)-p(t)|/p(t)).
 	// Note, that it always has NumSamples-1 samples.
 	SumRelativeMove float32
