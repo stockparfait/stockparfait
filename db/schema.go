@@ -67,17 +67,12 @@ func DateInNY(now time.Time) *Date {
 	tz := "America/New_York"
 	location, err := time.LoadLocation(tz)
 	if err != nil {
-		panic(errors.Annotate(err, "DateInNY: failed to load timezone %s", tz))
+		panic(errors.Annotate(err, "failed to load timezone %s", tz))
 	}
 	t := now.In(location)
 	var d Date
 	d.FromTime(t)
 	return &d
-}
-
-// ToDatetime converts to Datetime value at midnight.
-func (d *Date) ToDatetime() *Datetime {
-	return NewDatetime(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0)
 }
 
 // String representation of the value.
@@ -136,65 +131,101 @@ func MaxDate(dates ...*Date) *Date {
 	return max
 }
 
-// Datetime records date and time as '2006-01-02 15:04:05.sss'. No timezone is
-// assumed. The representation is chosen to fit the struct into 8 bytes.
-type Datetime struct {
-	YearVal  uint16
-	MonthVal uint8
-	DayVal   uint8
-	Msec     uint32 // time of the day in milliseconds
+// TickerRow is a row in the tickers table.
+type TickerRow struct {
+	Ticker      string
+	Active      bool   // whether it is currently listed
+	Exchange    string // the primary exchange trading this ticker
+	Name        string // the company name
+	Category    string
+	Sector      string
+	Industry    string
+	Location    string
+	SECFiling   string // URL
+	CompanySite string // URL
 }
 
-// NewDatetime is the constructor for Datetime object.
-func NewDatetime(year uint16, month, day, hour, minute, second uint8, msec uint32) *Datetime {
-	var d Datetime
-	d.SetFields(year, month, day, hour, minute, second, msec)
-	return &d
+// TestTicker creates a TickerRow instance for use in tests.
+func TestTicker(ticker string) *TickerRow {
+	return &TickerRow{Ticker: ticker}
 }
 
-// SetFields assigns self to the given date and time.
-func (d *Datetime) SetFields(year uint16, month, day, hour, minute, second uint8, msec uint32) {
-	d.YearVal = year
-	d.MonthVal = month
-	d.DayVal = day
-	d.Msec = (uint32(hour)*3600+60*uint32(minute)+uint32(second))*1000 + uint32(msec)
+// ActionRow is a row in the actions table. Size: 16 bytes (13+padding).
+type ActionRow struct {
+	Date     Date
+	Dividend float32 // dividend adjustment factor
+	Split    float32 // split adjustment factor
+	Active   bool
 }
 
-func (d *Datetime) Year() uint16        { return d.YearVal }
-func (d *Datetime) Month() uint8        { return d.MonthVal }
-func (d *Datetime) Day() uint8          { return d.DayVal }
-func (d *Datetime) Hour() uint8         { return uint8(d.Msec / 3600000) }
-func (d *Datetime) Minute() uint8       { return uint8((d.Msec % 3600000) / 60000) }
-func (d *Datetime) Second() uint8       { return uint8((d.Msec % 60000) / 1000) }
-func (d *Datetime) Millisecond() uint32 { return d.Msec % 1000 }
-
-// YearsTill computes the number of years between d and d2.
-func (d *Datetime) YearsTill(d2 *Datetime) float64 {
-	year := time.Duration(3600 * (24*365 + 6) * 1000_000_000)
-	dt := d2.ToTime().Sub(d.ToTime())
-	return float64(dt) / float64(year)
+// TestAction creates an ActionRow for use in tests.
+func TestAction(date Date, dividend, split float32, active bool) *ActionRow {
+	return &ActionRow{
+		Date:     date,
+		Dividend: dividend,
+		Split:    split,
+		Active:   active,
+	}
 }
 
-// String representation of the value.
-func (d *Datetime) String() string {
-	return fmt.Sprintf("%04d-%02d-%02dT%02d:%02d:%02d.%03d", d.Year(), d.Month(),
-		d.Day(), d.Hour(), d.Minute(), d.Second(), d.Millisecond())
+// PriceRow is a row in the prices table. It is intended for daily price points.
+// Size: 24 bytes.
+type PriceRow struct {
+	Date         Date
+	Open         float32
+	High         float32
+	Low          float32
+	Close        float32
+	DollarVolume float32
 }
 
-// Before compares two Datetime objects for strict inequality (self < d2).
-func (d *Datetime) Before(d2 *Datetime) bool {
-	return lessLex([]int{int(d.Year()), int(d.Month()), int(d.Day()), int(d.Msec)},
-		[]int{int(d2.Year()), int(d2.Month()), int(d2.Day()), int(d2.Msec)})
+// TestPrice creates a PriceRow instance for use in tests.
+func TestPrice(date Date, close, dv float32) *PriceRow {
+	return &PriceRow{
+		Date:         date,
+		Open:         close,
+		High:         close,
+		Low:          close,
+		Close:        close,
+		DollarVolume: dv,
+	}
 }
 
-// After compares two Datetime objects for strict inequality (self > d2).
-func (d *Datetime) After(d2 *Datetime) bool {
-	return d2.Before(d)
+// ResampledRow is a multi-day bar with some additional daily statistics.  Size:
+// 48 bytes (46+padding).
+type ResampledRow struct {
+	Open         float32
+	High         float32
+	Low1         float32 // low before high
+	Low2         float32 // low at or after high
+	Close        float32
+	DollarVolume float32
+	DateOpen     Date
+	DateHigh     Date
+	DateClose    Date
+	Dividends    float32 // split-adjusted dividends
+	// Sum of relative daily movements within the bar: sum(|p(t+1)-p(t)|/p(t)).
+	// Note, that it always has NumSamples-1 samples.
+	SumRelativeMove float32
+	NumSamples      uint16
+	Active          bool // if ticker is active at bar's close
 }
 
-// ToTime converts Datetime to Time in UTC.
-func (d *Datetime) ToTime() time.Time {
-	return time.Date(int(d.Year()), time.Month(d.Month()), int(d.Day()),
-		int(d.Hour()), int(d.Minute()), int(d.Second()),
-		int(d.Millisecond()*1000000), time.UTC)
+// TestResampled creates a new ResampledRow for use in tests.
+func TestResampled(dateOpen, dateClose Date, open, high, low, close, dv float32, active bool) *ResampledRow {
+	return &ResampledRow{
+		Open:            open,
+		High:            high,
+		Low1:            low,
+		Low2:            low,
+		Close:           close,
+		DollarVolume:    dv,
+		DateOpen:        dateOpen,
+		DateHigh:        dateOpen,
+		DateClose:       dateClose,
+		Dividends:       0.0,
+		SumRelativeMove: 10.0,
+		NumSamples:      1000.0,
+		Active:          active,
+	}
 }
