@@ -15,9 +15,9 @@
 package db
 
 import (
-	"math"
 	"testing"
 	"time"
+	"unsafe"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -65,11 +65,6 @@ func TestSchema(t *testing.T) {
 			So(d.String(), ShouldEqual, "2019-01-02")
 		})
 
-		Convey("converts to Datetime correctly", func() {
-			d := NewDate(2019, 1, 2)
-			So(d.ToDatetime(), ShouldResemble, NewDatetime(2019, 1, 2, 0, 0, 0, 0))
-		})
-
 		Convey("compares the dates correctly", func() {
 			So(NewDate(2019, 10, 15).After(NewDate(2018, 11, 25)), ShouldBeTrue)
 			So(NewDate(2019, 10, 15).Before(NewDate(2019, 11, 25)), ShouldBeTrue)
@@ -85,7 +80,7 @@ func TestSchema(t *testing.T) {
 			So(MaxDate(d1, d2, d3), ShouldEqual, d2)
 		})
 
-		Convey("Mondey works correctly", func() {
+		Convey("Monday works correctly", func() {
 			// Jan 2, 2019 is Wednesday.
 			So(NewDate(2019, 1, 2).Monday(), ShouldResemble, NewDate(2018, 12, 31))
 		})
@@ -102,26 +97,54 @@ func TestSchema(t *testing.T) {
 		})
 	})
 
-	Convey("Datetime type", t, func() {
-		Convey("creates new value correctly", func() {
-			d := NewDatetime(2019, 1, 2, 3, 4, 5, 99)
-			So(d.Msec, ShouldEqual, uint32((3*3600+4*60+5)*1000+99))
-			So(d.String(), ShouldEqual, "2019-01-02T03:04:05.099")
+	Convey("TickerRow", t, func() {
+		Convey("TestTicker works", func() {
+			So(TestTicker("AAA").Ticker, ShouldEqual, "AAA")
+		})
+	})
+
+	Convey("ActionRow", t, func() {
+		Convey("has correct size", func() {
+			So(unsafe.Sizeof(ActionRow{}), ShouldEqual, 16)
 		})
 
-		Convey("correctly computes YearsTill", func() {
-			d := NewDatetime(2019, 1, 1, 0, 0, 0, 0)
-			d2 := NewDatetime(2021, 7, 1, 0, 0, 0, 0)
-			So(math.Round(d.YearsTill(d2)*10.0)/10.0, ShouldEqual, 2.5)
+		Convey("TestAction works", func() {
+			d := *NewDate(2019, 1, 2)
+			So(TestAction(d, 0.98, 0.5, true), ShouldResemble,
+				&ActionRow{
+					Date:           d,
+					DividendFactor: 0.98,
+					SplitFactor:    0.5,
+					Active:         true,
+				})
 		})
 
-		Convey("compares the dates correctly", func() {
-			So(NewDatetime(2019, 10, 15, 1, 2, 3, 55).Before(
-				NewDatetime(2019, 10, 15, 1, 2, 3, 55)), ShouldBeFalse)
-			So(NewDatetime(2019, 10, 15, 0, 0, 0, 0).After(
-				NewDatetime(2018, 11, 25, 0, 0, 0, 0)), ShouldBeTrue)
-			So(NewDatetime(2019, 10, 15, 1, 2, 3, 55).Before(
-				NewDatetime(2019, 10, 15, 1, 2, 3, 56)), ShouldBeTrue)
+	})
+
+	Convey("PriceRow", t, func() {
+		Convey("has correct size", func() {
+			So(unsafe.Sizeof(PriceRow{}), ShouldEqual, 24)
+		})
+
+		Convey("TestPrice works", func() {
+			d := *NewDate(2019, 1, 2)
+			p := TestPrice(d, 100.0, 1000.0)
+			So(p.Date, ShouldResemble, d)
+			So(p.Close, ShouldEqual, 100.0)
+			So(p.DollarVolume, ShouldEqual, 1000.0)
+		})
+	})
+
+	Convey("ResampledRow", t, func() {
+		Convey("has correct size", func() {
+			So(unsafe.Sizeof(ResampledRow{}), ShouldEqual, 48)
+		})
+
+		Convey("TestResampled works", func() {
+			do := *NewDate(2019, 1, 1)
+			dc := *NewDate(2019, 4, 1)
+			r := TestResampled(do, dc, 10.0, 12.0, 9.0, 11.0, 1000.0, true)
+			So(r.Close, ShouldEqual, 11.0)
 		})
 	})
 }
