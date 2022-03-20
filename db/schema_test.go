@@ -55,9 +55,8 @@ func TestSchema(t *testing.T) {
 			So(t.Year(), ShouldEqual, d.Year())
 			So(t.Month(), ShouldEqual, d.Month())
 			So(t.Day(), ShouldEqual, d.Day())
-			var d2 Date
-			d2.FromTime(t)
-			So(d2, ShouldResemble, *d)
+			d2 := NewDateFromTime(t)
+			So(d2, ShouldResemble, d)
 		})
 
 		Convey("converts to string correctly", func() {
@@ -73,11 +72,11 @@ func TestSchema(t *testing.T) {
 		})
 
 		Convey("MaxDate works correctly", func() {
-			So(MaxDate(), ShouldBeNil)
+			So(MaxDate().IsZero(), ShouldBeTrue)
 			d1 := NewDate(2018, 10, 15)
 			d2 := NewDate(2019, 12, 1)
 			d3 := NewDate(2019, 11, 30)
-			So(MaxDate(d1, d2, d3), ShouldEqual, d2)
+			So(MaxDate(d1, d2, d3), ShouldResemble, d2)
 		})
 
 		Convey("Monday works correctly", func() {
@@ -109,9 +108,9 @@ func TestSchema(t *testing.T) {
 		})
 
 		Convey("TestAction works", func() {
-			d := *NewDate(2019, 1, 2)
+			d := NewDate(2019, 1, 2)
 			So(TestAction(d, 0.98, 0.5, true), ShouldResemble,
-				&ActionRow{
+				ActionRow{
 					Date:           d,
 					DividendFactor: 0.98,
 					SplitFactor:    0.5,
@@ -127,7 +126,7 @@ func TestSchema(t *testing.T) {
 		})
 
 		Convey("TestPrice works", func() {
-			d := *NewDate(2019, 1, 2)
+			d := NewDate(2019, 1, 2)
 			p := TestPrice(d, 100.0, 1000.0)
 			So(p.Date, ShouldResemble, d)
 			So(p.Close, ShouldEqual, 100.0)
@@ -141,8 +140,8 @@ func TestSchema(t *testing.T) {
 		})
 
 		Convey("TestResampled works", func() {
-			do := *NewDate(2019, 1, 1)
-			dc := *NewDate(2019, 4, 1)
+			do := NewDate(2019, 1, 1)
+			dc := NewDate(2019, 4, 1)
 			r := TestResampled(do, dc, 10.0, 12.0, 9.0, 11.0, 1000.0, true)
 			So(r.Close, ShouldEqual, 11.0)
 		})

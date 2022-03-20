@@ -47,84 +47,82 @@ type Date struct {
 }
 
 // NewDate is the constructor for Date.
-func NewDate(year uint16, month, day uint8) *Date {
-	return &Date{year, month, day}
+func NewDate(year uint16, month, day uint8) Date {
+	return Date{year, month, day}
 }
 
-// SetFields assigns self to the given date.
-func (d *Date) SetFields(year uint16, month, day uint8) {
-	d.YearVal = year
-	d.MonthVal = month
-	d.DayVal = day
+// NewDateFromTime creates a Date instance from a Time value in UTC.
+func NewDateFromTime(t time.Time) Date {
+	return Date{
+		YearVal:  uint16(t.Year()),
+		MonthVal: uint8(t.Month()),
+		DayVal:   uint8(t.Day()),
+	}
 }
-
-func (d *Date) Year() uint16 { return d.YearVal }
-func (d *Date) Month() uint8 { return d.MonthVal }
-func (d *Date) Day() uint8   { return d.DayVal }
 
 // DateInNY returns today's date in New York timezone.
-func DateInNY(now time.Time) *Date {
+func DateInNY(now time.Time) Date {
 	tz := "America/New_York"
 	location, err := time.LoadLocation(tz)
 	if err != nil {
 		panic(errors.Annotate(err, "failed to load timezone %s", tz))
 	}
 	t := now.In(location)
-	var d Date
-	d.FromTime(t)
-	return &d
+	return NewDateFromTime(t)
 }
 
+func (d Date) Year() uint16 { return d.YearVal }
+func (d Date) Month() uint8 { return d.MonthVal }
+func (d Date) Day() uint8   { return d.DayVal }
+
 // String representation of the value.
-func (d *Date) String() string {
+func (d Date) String() string {
 	return fmt.Sprintf("%04d-%02d-%02d", d.Year(), d.Month(), d.Day())
 }
 
 // ToTime converts Date to Time in UTC.
-func (d *Date) ToTime() time.Time {
+func (d Date) ToTime() time.Time {
 	return time.Date(int(d.Year()), time.Month(d.Month()), int(d.Day()), 0, 0, 0, 0, time.UTC)
 }
 
-// FromTime sets Date to Time in UTC.
-func (d *Date) FromTime(t time.Time) {
-	d.SetFields(uint16(t.Year()), uint8(t.Month()), uint8(t.Day()))
-}
-
 // Monday return a new Date of the Monday of the current date's week.
-func (d *Date) Monday() *Date {
+func (d Date) Monday() Date {
 	t := d.ToTime()
 	t = t.AddDate(0, 0, 1-int(t.Weekday()))
-	var m Date
-	m.FromTime(t)
-	return &m
+	return NewDateFromTime(t)
 }
 
 // MonthStart returns the 1st of the month of the current date.
-func (d *Date) MonthStart() *Date {
+func (d Date) MonthStart() Date {
 	return NewDate(d.Year(), d.Month(), 1)
 }
 
 // QuarterStart returns the first day of the quarter of the current date.
-func (d *Date) QuarterStart() *Date {
+func (d Date) QuarterStart() Date {
 	return NewDate(d.Year(), (d.Month()-1)/3*3+1, 1)
 }
 
 // Before compares two Date objects for strict inequality (self < d2).
-func (d *Date) Before(d2 *Date) bool {
+func (d Date) Before(d2 Date) bool {
 	return lessLex([]int{int(d.Year()), int(d.Month()), int(d.Day())},
 		[]int{int(d2.Year()), int(d2.Month()), int(d2.Day())})
 }
 
 // After compares two Date objects for strict inequality, self > d2.
-func (d *Date) After(d2 *Date) bool {
+func (d Date) After(d2 Date) bool {
 	return d2.Before(d)
 }
 
+// IsZero checks whether the date has a zero value.
+func (d Date) IsZero() bool {
+	return d.Year() == 0 && d.Month() == 0 && d.Day() == 0
+}
+
 // MaxDate returns the latest date from the list, or nil if the list is empty.
-func MaxDate(dates ...*Date) *Date {
-	var max *Date
+func MaxDate(dates ...Date) Date {
+	var max Date
 	for _, d := range dates {
-		if max == nil || max.Before(d) {
+		if max.IsZero() || max.Before(d) {
 			max = d
 		}
 	}
@@ -146,8 +144,8 @@ type TickerRow struct {
 }
 
 // TestTicker creates a TickerRow instance for use in tests.
-func TestTicker(ticker string) *TickerRow {
-	return &TickerRow{Ticker: ticker}
+func TestTicker(ticker string) TickerRow {
+	return TickerRow{Ticker: ticker}
 }
 
 // ActionRow is a row in the actions table. Size: 16 bytes (13+padding).
@@ -159,8 +157,8 @@ type ActionRow struct {
 }
 
 // TestAction creates an ActionRow for use in tests.
-func TestAction(date Date, dividend, split float32, active bool) *ActionRow {
-	return &ActionRow{
+func TestAction(date Date, dividend, split float32, active bool) ActionRow {
+	return ActionRow{
 		Date:           date,
 		DividendFactor: dividend,
 		SplitFactor:    split,
@@ -180,8 +178,8 @@ type PriceRow struct {
 }
 
 // TestPrice creates a PriceRow instance for use in tests.
-func TestPrice(date Date, close, dv float32) *PriceRow {
-	return &PriceRow{
+func TestPrice(date Date, close, dv float32) PriceRow {
+	return PriceRow{
 		Date:         date,
 		Open:         close,
 		High:         close,
@@ -212,8 +210,8 @@ type ResampledRow struct {
 }
 
 // TestResampled creates a new ResampledRow for use in tests.
-func TestResampled(dateOpen, dateClose Date, open, high, low, close, dv float32, active bool) *ResampledRow {
-	return &ResampledRow{
+func TestResampled(dateOpen, dateClose Date, open, high, low, close, dv float32, active bool) ResampledRow {
+	return ResampledRow{
 		Open:            open,
 		High:            high,
 		Low1:            low,
