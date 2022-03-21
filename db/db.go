@@ -15,11 +15,32 @@
 package db
 
 import (
+	"context"
 	"encoding/gob"
 	"os"
 
 	"github.com/stockparfait/errors"
 )
+
+type contextKey int
+
+const (
+	dbContextKey contextKey = iota
+)
+
+// UseDB injects database directory path into the context.
+func UseDB(ctx context.Context, db *Database) context.Context {
+	return context.WithValue(ctx, dbContextKey, db)
+}
+
+// GetDB extracts database directory path from the context.
+func GetDB(ctx context.Context) *Database {
+	db, ok := ctx.Value(dbContextKey).(*Database)
+	if !ok {
+		return nil
+	}
+	return db
+}
 
 func writeGob(fileName string, v interface{}) error {
 	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
@@ -45,4 +66,32 @@ func readGob(fileName string, v interface{}) error {
 		return errors.Annotate(err, "failed to read from '%s'", fileName)
 	}
 	return nil
+}
+
+// ResampledFrequency is enum for the available resample rates.
+type ResampledFrequency int
+
+// ResampledFrequency values.
+const (
+	Weekly ResampledFrequency = iota
+	Monthly
+	Quarterly
+)
+
+type Database struct {
+	cachePath string
+	tickers   map[string]TickerRow
+	weekly    map[string][]ResampledRow
+	monthly   map[string][]ResampledRow
+	quarterly map[string][]ResampledRow
+}
+
+func NewDatabase(cachePath string) *Database {
+	return &Database{
+		cachePath: cachePath,
+		tickers:   make(map[string]TickerRow),
+		weekly:    make(map[string][]ResampledRow),
+		monthly:   make(map[string][]ResampledRow),
+		quarterly: make(map[string][]ResampledRow),
+	}
 }

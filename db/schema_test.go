@@ -95,12 +95,6 @@ func TestSchema(t *testing.T) {
 		})
 	})
 
-	Convey("TickerRow", t, func() {
-		Convey("TestTicker works", func() {
-			So(TestTicker("AAA").Ticker, ShouldEqual, "AAA")
-		})
-	})
-
 	Convey("ActionRow", t, func() {
 		Convey("has correct size", func() {
 			So(unsafe.Sizeof(ActionRow{}), ShouldEqual, 16)

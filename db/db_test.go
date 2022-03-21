@@ -35,14 +35,17 @@ func TestDB(t *testing.T) {
 	Convey("writeGob / readGob work", t, func() {
 		Convey("for a slice of struct", func() {
 			f := filepath.Join(tmpdir, "slice.gob")
-			orig := []TickerRow{TestTicker("A1"), TestTicker("A2")}
+			orig := []PriceRow{
+				TestPrice(NewDate(2019, 1, 1), 10.0, 1000.0),
+				TestPrice(NewDate(2019, 1, 2), 11.0, 2000.0),
+			}
 			So(writeGob(f, orig), ShouldBeNil)
-			var res []TickerRow
+			var res []PriceRow
 			So(readGob(f, &res), ShouldBeNil)
 			So(res, ShouldResemble, orig)
 		})
 
-		Convey("for a map of struct", func() {
+		Convey("for a map of slices of struct", func() {
 			f := filepath.Join(tmpdir, "slice.gob")
 			orig := map[string][]ActionRow{
 				"A1": {

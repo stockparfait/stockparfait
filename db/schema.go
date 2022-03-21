@@ -131,8 +131,6 @@ func MaxDate(dates ...Date) Date {
 
 // TickerRow is a row in the tickers table.
 type TickerRow struct {
-	Ticker      string
-	Active      bool   // whether it is currently listed
 	Exchange    string // the primary exchange trading this ticker
 	Name        string // the company name
 	Category    string
@@ -141,11 +139,6 @@ type TickerRow struct {
 	Location    string
 	SECFiling   string // URL
 	CompanySite string // URL
-}
-
-// TestTicker creates a TickerRow instance for use in tests.
-func TestTicker(ticker string) TickerRow {
-	return TickerRow{Ticker: ticker}
 }
 
 // ActionRow is a row in the actions table. Size: 16 bytes (13+padding).
