@@ -55,8 +55,7 @@ func TestSchema(t *testing.T) {
 			So(t.Year(), ShouldEqual, d.Year())
 			So(t.Month(), ShouldEqual, d.Month())
 			So(t.Day(), ShouldEqual, d.Day())
-			d2 := NewDateFromTime(t)
-			So(d2, ShouldResemble, d)
+			So(NewDateFromTime(t), ShouldResemble, d)
 		})
 
 		Convey("converts to string correctly", func() {

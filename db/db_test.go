@@ -25,7 +25,7 @@ import (
 
 func TestDB(t *testing.T) {
 	t.Parallel()
-	tmpdir, tmpdirErr := ioutil.TempDir("", "testmetadata")
+	tmpdir, tmpdirErr := ioutil.TempDir("", "testdb")
 	defer os.RemoveAll(tmpdir)
 
 	Convey("Test setup succeeded", t, func() {
@@ -51,7 +51,7 @@ func TestDB(t *testing.T) {
 				},
 				"A2": {
 					TestAction(NewDate(2018, 1, 1), 0.99, 1.0, true),
-					TestAction(NewDate(2018, 1, 1), 1.0, 0.5, true),
+					TestAction(NewDate(2018, 6, 1), 1.0, 0.5, true),
 				},
 			}
 			So(writeGob(f, orig), ShouldBeNil)
