@@ -41,7 +41,7 @@ func NewConstraints() *Constraints {
 	}
 }
 
-// ExcludeTicker adds UIDs to be ignored.
+// ExcludeTicker adds tickers to be ignored.
 func (c *Constraints) ExcludeTicker(tickers ...string) *Constraints {
 	for _, tk := range tickers {
 		c.ExcludeTickers[tk] = struct{}{}
@@ -154,7 +154,8 @@ func (c *Constraints) CheckTickerRow(r TickerRow) bool {
 	return true
 }
 
-// CheckDates whether it satisfies the constraints.
+// CheckDates checks that the date range is entirely within the constrained
+// range. Both ends are inclusive.
 func (c *Constraints) CheckDates(start, end Date) bool {
 	if !c.Start.IsZero() && start.Before(c.Start) {
 		return false
