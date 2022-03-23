@@ -70,16 +70,6 @@ func readGob(fileName string, v interface{}) error {
 	return nil
 }
 
-// ResampledFrequency is enum for the available resample rates.
-type ResampledFrequency int
-
-// ResampledFrequency values.
-const (
-	Weekly ResampledFrequency = iota
-	Monthly
-	Quarterly
-)
-
 type Database struct {
 	cachePath    string
 	tickers      map[string]TickerRow
@@ -144,7 +134,7 @@ func (db *Database) cacheActions() error {
 
 func (db *Database) createDirs() error {
 	db.mkdirOnce.Do(func() {
-		if err := os.MkdirAll(db.pricesDir(), os.ModeDir|0777); err != nil {
+		if err := os.MkdirAll(db.pricesDir(), os.ModeDir|0755); err != nil {
 			db.mkdirError = errors.Annotate(
 				err, "failed to create %s", db.pricesDir())
 		}
@@ -163,7 +153,8 @@ func (db *Database) WriteTickers(tickers map[string]TickerRow) error {
 	return nil
 }
 
-// WriteActions saves the actions table to the DB file.
+// WriteActions saves the actions table to the DB file. Actions are indexed by
+// ticker, and for each ticker actions are assumed to be sorted by date.
 func (db *Database) WriteActions(actions map[string][]ActionRow) error {
 	if err := db.createDirs(); err != nil {
 		return errors.Annotate(err, "failed to create DB directories")
@@ -174,7 +165,8 @@ func (db *Database) WriteActions(actions map[string][]ActionRow) error {
 	return nil
 }
 
-// WritePrices saves the ticker prices to the DB file.
+// WritePrices saves the ticker prices to the DB file.  Prices are assumed to be
+// sorted by date.
 func (db *Database) WritePrices(ticker string, prices []PriceRow) error {
 	if err := db.createDirs(); err != nil {
 		return errors.Annotate(err, "failed to create DB directories")
@@ -185,7 +177,7 @@ func (db *Database) WritePrices(ticker string, prices []PriceRow) error {
 	return nil
 }
 
-// TickerRow for the given ticker. If ticker is not in DB, returns zero value.
+// TickerRow for the given ticker. It's an error if a ticker is not in DB.
 // Tickers are cached in memory upon the first call. Go routine safe.
 func (db *Database) TickerRow(ticker string) (TickerRow, error) {
 	if err := db.cacheTickers(); err != nil {
@@ -213,8 +205,8 @@ func (db *Database) Tickers(c *Constraints) ([]string, error) {
 	return tickers, nil
 }
 
-// Actions for ticker satisfying the constraints. Actions for all tickers are
-// cached in memory upon the first call. Go routine safe.
+// Actions for ticker satisfying the constraints, sorted by date. Actions for
+// all tickers are cached in memory upon the first call. Go routine safe.
 func (db *Database) Actions(ticker string, c *Constraints) ([]ActionRow, error) {
 	if err := db.cacheActions(); err != nil {
 		return nil, errors.Annotate(err, "failed to load actions")
@@ -232,10 +224,11 @@ func (db *Database) Actions(ticker string, c *Constraints) ([]ActionRow, error) 
 	return res, nil
 }
 
-// Prices for ticker satilfying constraints. Prices are NOT cached in memory,
-// and are read from disk every time. It is probably go routine safe, if the
-// underlying OS allows to open and read the same file multiple times from the
-// same process. Reading different tickers is definitely safe in parallel.
+// Prices for ticker satilfying constraints, sorted by date. Prices are NOT
+// cached in memory, and are read from disk every time. It is probably go
+// routine safe, if the underlying OS allows to open and read the same file
+// multiple times from the same process. Reading different tickers is definitely
+// safe in parallel.
 func (db *Database) Prices(ticker string, c *Constraints) ([]PriceRow, error) {
 	prices := []PriceRow{}
 	if err := readGob(db.pricesFile(ticker), &prices); err != nil {
@@ -248,10 +241,4 @@ func (db *Database) Prices(ticker string, c *Constraints) ([]PriceRow, error) {
 		}
 	}
 	return res, nil
-}
-
-// Resampled rows for a ticker satisfying constraints. All rows for the given
-// frequency are cached in memory upon the first call. Go routine safe.
-func (db *Database) Resampled(ticker string, f ResampledFrequency, c *Constraints) ([]ResampledRow, error) {
-	return nil, nil
 }

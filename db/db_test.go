@@ -32,38 +32,6 @@ func TestDB(t *testing.T) {
 		So(tmpdirErr, ShouldBeNil)
 	})
 
-	Convey("writeGob / readGob work", t, func() {
-		Convey("for a slice of struct", func() {
-			f := filepath.Join(tmpdir, "slice.gob")
-			orig := []PriceRow{
-				TestPrice(NewDate(2019, 1, 1), 10.0, 1000.0),
-				TestPrice(NewDate(2019, 1, 2), 11.0, 2000.0),
-			}
-			So(writeGob(f, orig), ShouldBeNil)
-			var res []PriceRow
-			So(readGob(f, &res), ShouldBeNil)
-			So(res, ShouldResemble, orig)
-		})
-
-		Convey("for a map of slices of struct", func() {
-			f := filepath.Join(tmpdir, "slice.gob")
-			orig := map[string][]ActionRow{
-				"A1": {
-					TestAction(NewDate(2019, 1, 1), 1.0, 1.0, true),
-					TestAction(NewDate(2020, 1, 1), 1.0, 1.0, false),
-				},
-				"A2": {
-					TestAction(NewDate(2018, 1, 1), 0.99, 1.0, true),
-					TestAction(NewDate(2018, 6, 1), 1.0, 0.5, true),
-				},
-			}
-			So(writeGob(f, orig), ShouldBeNil)
-			res := make(map[string][]ActionRow)
-			So(readGob(f, &res), ShouldBeNil)
-			So(res, ShouldResemble, orig)
-		})
-	})
-
 	Convey("Data access methods", t, func() {
 		dbPath := filepath.Join(tmpdir, "db")
 		tickers := map[string]TickerRow{
