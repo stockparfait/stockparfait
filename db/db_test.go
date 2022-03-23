@@ -57,6 +57,16 @@ func TestDB(t *testing.T) {
 			TestPrice(NewDate(2019, 1, 2), 110.0, 110.0),
 			TestPrice(NewDate(2019, 1, 3), 120.0, 120.0),
 		}
+		monthly := map[string][]ResampledRow{
+			"A": {
+				TestResampled(NewDate(2019, 1, 1), NewDate(2019, 1, 31), 10.0, 12.0, 9.0, 10.0, 1000.0, true),
+				TestResampled(NewDate(2019, 2, 1), NewDate(2019, 2, 28), 10.0, 12.0, 9.0, 10.0, 1000.0, true),
+			},
+			"B": {
+				TestResampled(NewDate(2019, 1, 1), NewDate(2019, 1, 31), 100.0, 120.0, 90.0, 100.0, 1000.0, true),
+				TestResampled(NewDate(2019, 2, 1), NewDate(2019, 2, 28), 100.0, 120.0, 90.0, 100.0, 1000.0, true),
+			},
+		}
 
 		Convey("write methods work", func() {
 			db := NewDatabase(dbPath)
@@ -64,6 +74,7 @@ func TestDB(t *testing.T) {
 			So(db.WriteActions(actions), ShouldBeNil)
 			So(db.WritePrices("A", pricesA), ShouldBeNil)
 			So(db.WritePrices("B", pricesB), ShouldBeNil)
+			So(db.WriteMonthly(monthly), ShouldBeNil)
 		})
 
 		Convey("ticker access methods work", func() {
@@ -104,6 +115,17 @@ func TestDB(t *testing.T) {
 			p, err = db.Prices("B", NewConstraints().StartAt(NewDate(2019, 1, 2)))
 			So(err, ShouldBeNil)
 			So(p, ShouldResemble, pricesB[1:])
+		})
+
+		Convey("monthly access methods work", func() {
+			db := NewDatabase(dbPath)
+			a, err := db.Monthly("A", NewConstraints())
+			So(err, ShouldBeNil)
+			So(a, ShouldResemble, monthly["A"])
+
+			a, err = db.Monthly("B", NewConstraints().EndAt(NewDate(2019, 2, 15)))
+			So(err, ShouldBeNil)
+			So(a, ShouldResemble, monthly["B"][:1])
 		})
 	})
 }
