@@ -190,7 +190,7 @@ func (db *Database) WritePrices(ticker string, prices []PriceRow) error {
 }
 
 // WriteMonthly saves the monthly resampled table to the DB file. ResampledRow's
-// are indexed ticker, and for each ticker are assumed to be sorted by the
+// are indexed by ticker, and for each ticker are assumed to be sorted by the
 // closing date.
 func (db *Database) WriteMonthly(monthly map[string][]ResampledRow) error {
 	if err := db.createDirs(); err != nil {
@@ -268,8 +268,9 @@ func (db *Database) Prices(ticker string, c *Constraints) ([]PriceRow, error) {
 	return res, nil
 }
 
-// Monthly for ticker satisfying the constraints, sorted by date. Actions for
-// all tickers are cached in memory upon the first call. Go routine safe.
+// Monthly price data for ticker satisfying the constraints, sorted by date.
+// Data for all tickers are cached in memory upon the first call. Go routine
+// safe.
 func (db *Database) Monthly(ticker string, c *Constraints) ([]ResampledRow, error) {
 	if err := db.cacheMonthly(); err != nil {
 		return nil, errors.Annotate(err, "failed to load monthly data")
