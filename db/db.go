@@ -74,13 +74,13 @@ type Database struct {
 	cachePath    string
 	tickers      map[string]TickerRow
 	actions      map[string][]ActionRow
-	weekly       map[string][]ResampledRow
 	monthly      map[string][]ResampledRow
-	quarterly    map[string][]ResampledRow
 	tickersOnce  sync.Once
 	tickersError error
 	actionsOnce  sync.Once
 	actionsError error
+	monthlyOnce  sync.Once
+	monthlyError error
 	mkdirOnce    sync.Once
 	mkdirError   error
 }
@@ -90,9 +90,7 @@ func NewDatabase(cachePath string) *Database {
 		cachePath: cachePath,
 		tickers:   make(map[string]TickerRow),
 		actions:   make(map[string][]ActionRow),
-		weekly:    make(map[string][]ResampledRow),
 		monthly:   make(map[string][]ResampledRow),
-		quarterly: make(map[string][]ResampledRow),
 	}
 }
 
@@ -110,6 +108,10 @@ func (db *Database) pricesDir() string {
 
 func (db *Database) pricesFile(ticker string) string {
 	return filepath.Join(db.pricesDir(), ticker+".gob")
+}
+
+func (db *Database) monthlyFile() string {
+	return filepath.Join(db.cachePath, "monthly.gob")
 }
 
 func (db *Database) cacheTickers() error {
@@ -130,6 +132,16 @@ func (db *Database) cacheActions() error {
 		}
 	})
 	return db.actionsError
+}
+
+func (db *Database) cacheMonthly() error {
+	db.monthlyOnce.Do(func() {
+		if err := readGob(db.monthlyFile(), &db.monthly); err != nil {
+			db.monthlyError = errors.Annotate(
+				err, "failed to load %s", db.monthlyFile())
+		}
+	})
+	return db.monthlyError
 }
 
 func (db *Database) createDirs() error {
@@ -173,6 +185,19 @@ func (db *Database) WritePrices(ticker string, prices []PriceRow) error {
 	}
 	if err := writeGob(db.pricesFile(ticker), prices); err != nil {
 		return errors.Annotate(err, "failed to write '%s'", db.pricesFile(ticker))
+	}
+	return nil
+}
+
+// WriteMonthly saves the monthly resampled table to the DB file. ResampledRow's
+// are indexed by ticker, and for each ticker are assumed to be sorted by the
+// closing date.
+func (db *Database) WriteMonthly(monthly map[string][]ResampledRow) error {
+	if err := db.createDirs(); err != nil {
+		return errors.Annotate(err, "failed to create DB directories")
+	}
+	if err := writeGob(db.monthlyFile(), monthly); err != nil {
+		return errors.Annotate(err, "failed to write '%s'", db.monthlyFile())
 	}
 	return nil
 }
@@ -238,6 +263,26 @@ func (db *Database) Prices(ticker string, c *Constraints) ([]PriceRow, error) {
 	for _, p := range prices {
 		if c.CheckPrice(p) {
 			res = append(res, p)
+		}
+	}
+	return res, nil
+}
+
+// Monthly price data for ticker satisfying the constraints, sorted by date.
+// Data for all tickers are cached in memory upon the first call. Go routine
+// safe.
+func (db *Database) Monthly(ticker string, c *Constraints) ([]ResampledRow, error) {
+	if err := db.cacheMonthly(); err != nil {
+		return nil, errors.Annotate(err, "failed to load monthly data")
+	}
+	monthly, ok := db.monthly[ticker]
+	if !ok {
+		return nil, errors.Reason("no monthly data found for ticker %s", ticker)
+	}
+	res := []ResampledRow{}
+	for _, r := range monthly {
+		if c.CheckResampled(r) {
+			res = append(res, r)
 		}
 	}
 	return res, nil
