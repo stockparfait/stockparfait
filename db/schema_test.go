@@ -139,4 +139,22 @@ func TestSchema(t *testing.T) {
 			So(r.Close, ShouldEqual, 11.0)
 		})
 	})
+
+	Convey("Time methods work", t, func() {
+		Convey("marshals to JSON correctly", func() {
+			t := NewTime(2019, 1, 5, 13, 30, 45)
+			j, err := t.MarshalJSON()
+			So(err, ShouldBeNil)
+			So(string(j), ShouldEqual, `"2019-01-05 13:30:45"`)
+		})
+
+		Convey("unmarshals from JSON correctly", func() {
+			var t Time
+			So(t.UnmarshalJSON([]byte(`"2019-01-02 03:04:05"`)), ShouldBeNil)
+			So(t.String(), ShouldEqual, "2019-01-02 03:04:05")
+
+			So(t.UnmarshalJSON([]byte(`"2019-01-02"`)), ShouldBeNil)
+			So(t.String(), ShouldEqual, "2019-01-02 00:00:00")
+		})
+	})
 }
