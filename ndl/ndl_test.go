@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/stockparfait/fetch"
+	"github.com/stockparfait/stockparfait/db"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -79,24 +80,6 @@ func rowsAll(it *RowIterator) ([]*testRow, error) {
 
 func TestNDL(t *testing.T) {
 	t.Parallel()
-
-	Convey("Time methods work", t, func() {
-		Convey("marshals to JSON correctly", func() {
-			t := NewTime(2019, 1, 5, 13, 30, 45)
-			j, err := t.MarshalJSON()
-			So(err, ShouldBeNil)
-			So(string(j), ShouldEqual, `"2019-01-05 13:30:45"`)
-		})
-
-		Convey("unmarshals from JSON correctly", func() {
-			var t Time
-			So(t.UnmarshalJSON([]byte(`"2019-01-02 03:04:05"`)), ShouldBeNil)
-			So(t.String(), ShouldEqual, "2019-01-02 03:04:05")
-
-			So(t.UnmarshalJSON([]byte(`"2019-01-02"`)), ShouldBeNil)
-			So(t.String(), ShouldEqual, "2019-01-02 00:00:00")
-		})
-	})
 
 	Convey("TableQuery builds nondestructively", t, func() {
 		Convey("Equality", func() {
@@ -204,7 +187,7 @@ func TestNDL(t *testing.T) {
 				PrimaryKey:  []string{"bar"},
 				Premium:     true,
 				Status: TableStatus{
-					RefreshedAt:     *NewTime(2020, 4, 9, 22, 51, 22),
+					RefreshedAt:     *db.NewTime(2020, 4, 9, 22, 51, 22),
 					Status:          "ON TIME",
 					ExpectedAt:      "*",
 					UpdateFrequency: "CONTINUOUS",

@@ -15,6 +15,7 @@
 package db
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -219,4 +220,55 @@ func TestResampled(dateOpen, dateClose Date, open, high, low, close, dv float32,
 		NumSamples:      1000.0,
 		Active:          active,
 	}
+}
+
+// Time is a wrapper around time.Time with JSON methods.
+type Time time.Time
+
+var _ json.Marshaler = &Time{}
+var _ json.Unmarshaler = &Time{}
+
+func NewTime(year, month, day, hour, minute, second int) *Time {
+	t := time.Date(year, time.Month(month), day, hour, minute, second, 0, time.UTC)
+	return (*Time)(&t)
+}
+
+// String representation of Time.
+func (t *Time) String() string {
+	return time.Time(*t).Format("2006-01-02 15:04:05")
+}
+
+// MarshalJSON implements json.Marshaler.
+func (t *Time) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + t.String() + `"`), nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (t *Time) UnmarshalJSON(data []byte) error {
+	var s string
+	var err error
+	if err = json.Unmarshal(data, &s); err != nil {
+		return errors.Annotate(err, "Time JSON must be a string")
+	}
+	if s == "0000-00-00" || s == "0000-00-00T00:00:00.000" {
+		*t = Time{}
+		return nil
+	}
+	formats := []string{
+		"2006-01-02 15:04:05.999",
+		"2006-01-02T15:04:05.999",
+		"2006-01-02T15:04:05.999Z",
+		"2006-01-02 15:04:05",
+		"2006-01-02T15:04:05",
+		"2006-01-02",
+	}
+	for _, fmt := range formats {
+		var tm time.Time
+		tm, err = time.Parse(fmt, s)
+		if err == nil {
+			*t = Time(tm)
+			return nil
+		}
+	}
+	return err
 }

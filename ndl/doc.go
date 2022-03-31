@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package ndl implements generic table API of Nasdaq Data Link (NDL). Official
-// documentation is at https://docs.data.nasdaq.com/docs/tables-1 .
+// Package ndl implements generic table API of Nasdaq Data Link (NDL).
+//
+// Official documentation is at https://docs.data.nasdaq.com/docs/tables-1 .
 //
 // Each NDL table has a schema, which is the list of column names and their
 // types, in the order they appear in the table. This schema can be obtained for

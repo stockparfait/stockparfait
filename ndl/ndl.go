@@ -20,11 +20,11 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/stockparfait/errors"
 	"github.com/stockparfait/fetch"
 	"github.com/stockparfait/logging"
+	"github.com/stockparfait/stockparfait/db"
 )
 
 type contextKey int
@@ -89,9 +89,8 @@ func newRowIterator(ctx context.Context, query *TableQuery) *RowIterator {
 }
 
 // nextPage fetches and populates the iterator with the next page of data. When
-// there are no more pages to load, the first return value becomes false. Be
-// sure to check the error anyway, since we may have run out of pages due to an
-// error.
+// there are no more pages to load, or loading a page results in an error, the
+// first return value becomes false.
 func (it *RowIterator) nextPage() (bool, error) {
 	if it.started && it.page.Meta.Cursor == "" {
 		return false, nil
@@ -396,63 +395,12 @@ func (q *TableQuery) Values() url.Values {
 	return v
 }
 
-// Time is a wrapper around time.Time with JSON methods.
-type Time time.Time
-
-var _ json.Marshaler = &Time{}
-var _ json.Unmarshaler = &Time{}
-
-func NewTime(year, month, day, hour, minute, second int) *Time {
-	t := time.Date(year, time.Month(month), day, hour, minute, second, 0, time.UTC)
-	return (*Time)(&t)
-}
-
-// String representation of Time.
-func (t *Time) String() string {
-	return time.Time(*t).Format("2006-01-02 15:04:05")
-}
-
-// MarshalJSON implements json.Marshaler.
-func (t *Time) MarshalJSON() ([]byte, error) {
-	return []byte(`"` + t.String() + `"`), nil
-}
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (t *Time) UnmarshalJSON(data []byte) error {
-	var s string
-	var err error
-	if err = json.Unmarshal(data, &s); err != nil {
-		return errors.Annotate(err, "Time JSON must be a string")
-	}
-	if s == "0000-00-00" || s == "0000-00-00T00:00:00.000" {
-		*t = Time{}
-		return nil
-	}
-	formats := []string{
-		"2006-01-02 15:04:05.999",
-		"2006-01-02T15:04:05.999",
-		"2006-01-02T15:04:05.999Z",
-		"2006-01-02 15:04:05",
-		"2006-01-02T15:04:05",
-		"2006-01-02",
-	}
-	for _, fmt := range formats {
-		var tm time.Time
-		tm, err = time.Parse(fmt, s)
-		if err == nil {
-			*t = Time(tm)
-			return nil
-		}
-	}
-	return err
-}
-
 // TableStatus is a part of DatatableMeta.
 type TableStatus struct {
-	RefreshedAt     Time   `json:"refreshed_at"`
-	Status          string `json:"status"`
-	ExpectedAt      string `json:"expected_at"`
-	UpdateFrequency string `json:"update_frequency"`
+	RefreshedAt     db.Time `json:"refreshed_at"`
+	Status          string  `json:"status"`
+	ExpectedAt      string  `json:"expected_at"`
+	UpdateFrequency string  `json:"update_frequency"`
 }
 
 // TableVersion is a part of DatatableMeta.
@@ -483,7 +431,7 @@ type TableMetadata struct {
 
 // TestTableMetadata generates the JSON string in a format as returned by the
 // NDL Table Metadata API. For use in tests.
-func TestTableMetadata(refreshedAt Time) (string, error) {
+func TestTableMetadata(refreshedAt db.Time) (string, error) {
 	bytes, err := json.Marshal(&TableMetadata{Datatable: DatatableMeta{
 		Status: TableStatus{
 			RefreshedAt: refreshedAt,
