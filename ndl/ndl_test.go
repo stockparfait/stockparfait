@@ -22,8 +22,6 @@ import (
 
 	"github.com/stockparfait/fetch"
 
-	"google.golang.org/api/iterator"
-
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -64,12 +62,12 @@ func rowsAll(it *RowIterator) ([]*testRow, error) {
 	rows := []*testRow{}
 	for {
 		row := testRow{}
-		err := it.Next(&row)
-		if err == iterator.Done {
+		ok, err := it.Next(&row)
+		if !ok {
 			break
 		}
 		if err != nil {
-			return nil, err
+			return rows, err
 		}
 		rows = append(rows, &row)
 		if len(rows) > 1000 {

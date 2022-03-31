@@ -25,8 +25,6 @@ import (
 	"github.com/stockparfait/errors"
 	"github.com/stockparfait/fetch"
 	"github.com/stockparfait/logging"
-
-	"google.golang.org/api/iterator"
 )
 
 type contextKey int
@@ -90,10 +88,13 @@ func newRowIterator(ctx context.Context, query *TableQuery) *RowIterator {
 	return &RowIterator{context: ctx, query: query}
 }
 
-// nextPage fetches and populates the iterator with the next page of data.
-func (it *RowIterator) nextPage() error {
+// nextPage fetches and populates the iterator with the next page of data. When
+// there are no more pages to load, the first return value becomes false. Be
+// sure to check the error anyway, since we may have run out of pages due to an
+// error.
+func (it *RowIterator) nextPage() (bool, error) {
 	if it.started && it.page.Meta.Cursor == "" {
-		return iterator.Done
+		return false, nil
 	}
 	if it.started {
 		it.query = it.query.Cursor(it.page.Meta.Cursor)
@@ -102,41 +103,42 @@ func (it *RowIterator) nextPage() error {
 	// Clear the page, in case read doesn't overwrite some parts.
 	it.page = tablePage{}
 	if err := it.query.readPage(it.context, &it.page); err != nil {
-		return errors.Annotate(err, "failed to query page %d", it.pageCount+1)
+		return false, errors.Annotate(err, "failed to query page %d", it.pageCount+1)
 	}
 	it.index = 0
 	it.pageCount++
 	logging.Infof(it.context,
 		"Nasdaq Data Link: fetched page %d with %d rows; cursor: %s",
 		it.pageCount, len(it.page.Datatable.Data), it.page.Meta.Cursor)
-	return nil
+	return true, nil
 }
 
-// Next loads the next row. If there are no more rows, it returns iterator.Done.
-func (it *RowIterator) Next(row ValueLoader) error {
+// Next loads the next row. If there are no more rows, the second value is
+// false. Note, that error may be non-nil regardless of the end of iterator.
+func (it *RowIterator) Next(row ValueLoader) (bool, error) {
 	if it.query == nil {
-		return iterator.Done
+		return false, nil
 	}
 	if !it.started {
-		if err := it.nextPage(); err != nil {
-			return err // do not annotate, it may be iterator.Done
+		if ok, err := it.nextPage(); !ok {
+			return false, err
 		}
 	}
 	if it.index >= len(it.page.Datatable.Data) {
-		if err := it.nextPage(); err != nil {
-			return err // do not annotate, it may be iterator.Done
+		if ok, err := it.nextPage(); !ok {
+			return false, err
 		}
 	}
 	if it.index >= len(it.page.Datatable.Data) {
-		return iterator.Done
+		return false, nil
 	}
 	err := row.Load(it.page.Datatable.Data[it.index], it.page.Datatable.Schema)
 	it.index++
 	if err != nil {
-		return errors.Annotate(err, "failed to parse row %d in page %d",
+		return true, errors.Annotate(err, "failed to parse row %d in page %d",
 			it.index, it.pageCount)
 	}
-	return nil
+	return true, nil
 }
 
 // TableQuery is a builder for a table query.
