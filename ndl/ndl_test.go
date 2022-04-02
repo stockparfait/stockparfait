@@ -215,8 +215,12 @@ func TestNDL(t *testing.T) {
       }
     }
 }`
-			expected := TestBulkDownloadHandle("https://test.url", "regenerating",
-				"2017-04-26 14:33:02 UTC", "2017-10-12 09:03:36 UTC")
+			expected := &BulkDownloadHandle{
+				Link:              "https://test.url",
+				Status:            StatusRegenerating,
+				SnapshotTime:      "2017-04-26 14:33:02 UTC",
+				LastRefreshedTime: "2017-10-12 09:03:36 UTC",
+			}
 			server.ResponseBody = []string{bulkJSON}
 			h, err := BulkDownload(ctx, "TEST/TABLE")
 			So(err, ShouldBeNil)

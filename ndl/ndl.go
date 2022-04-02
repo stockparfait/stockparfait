@@ -460,6 +460,13 @@ type bulkDownloadHandle struct {
 	} `json:"datatable_bulk_download"`
 }
 
+// Values of the Status field of BulkDownloadHandle.
+const (
+	StatusFresh        = "fresh"
+	StatusRegenerating = "regenerating"
+	StatusCreating     = "creating"
+)
+
 // BulkDownloadHandle is a simplified result of the first asynchronous bulk
 // download call.
 type BulkDownloadHandle struct {
@@ -467,17 +474,6 @@ type BulkDownloadHandle struct {
 	Status            string
 	SnapshotTime      string
 	LastRefreshedTime string
-}
-
-// TestBulkDownloadHandle generates the JSON string in a format as returned by
-// the bulk download API call.
-func TestBulkDownloadHandle(link, status, snapshotTime, lastRefreshedTime string) *BulkDownloadHandle {
-	return &BulkDownloadHandle{
-		Link:              link,
-		Status:            status,
-		SnapshotTime:      snapshotTime,
-		LastRefreshedTime: lastRefreshedTime,
-	}
 }
 
 // BulkDownload receives the bulk download metadata with the data link.
