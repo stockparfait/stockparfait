@@ -180,7 +180,6 @@ type queryFilter struct {
 // queryOptions are options common to all the tables.
 type queryOptions struct {
 	Columns  []string // if non-nil, return only these columns
-	Export   bool     // when true, download the entire table as a ZIP file
 	PerPage  int      // number of results per page, up to 10000 max (0 = default size)
 	CursorID string   // next page cursor
 }
@@ -341,13 +340,6 @@ func (q *TableQuery) Columns(columns ...string) *TableQuery {
 	return q2
 }
 
-// Export indicates that the entire table should be downloaded in a ZIP format.
-func (q *TableQuery) Export() *TableQuery {
-	q2 := q.Copy()
-	q2.options.Export = true
-	return q2
-}
-
 // PerPage sets the maximum number of results in a single response, [0..10000].
 func (q *TableQuery) PerPage(size int) *TableQuery {
 	if size < 0 {
@@ -382,9 +374,6 @@ func (q *TableQuery) Values() url.Values {
 	}
 	if q.options.Columns != nil {
 		v["qopts.columns"] = []string{strings.Join(q.options.Columns, ",")}
-	}
-	if q.options.Export {
-		v["qopts.export"] = []string{"true"}
 	}
 	if q.options.PerPage != 0 {
 		v["qopts.per_page"] = []string{fmt.Sprintf("%d", q.options.PerPage)}
@@ -445,13 +434,67 @@ func FetchTableMetadata(ctx context.Context, table string) (*TableMetadata, erro
 	var tm TableMetadata
 	client := GetClient(ctx)
 	if client == nil {
-		return nil, errors.Reason("FetchTableMetadata: no client in context")
+		return nil, errors.Reason("no client in context")
 	}
 	uri := client.baseURL + "/datatables/" + table + "/metadata.json"
 	query := make(url.Values)
 	query["api_key"] = []string{client.apiKey}
 	if err := fetch.FetchJSON(ctx, uri, &tm, query, nil); err != nil {
-		return nil, errors.Annotate(err, "FetchTableMetadata: failed to fetch URL")
+		return nil, errors.Annotate(err, "failed to fetch URL")
 	}
 	return &tm, nil
+}
+
+// bulkDownloadHandle is the JSON schema received by the first asynchronous bulk
+// download call.
+type bulkDownloadHandle struct {
+	Data struct {
+		File struct {
+			Link         string `json:"link"`
+			Status       string `json:"status"`
+			SnapshotTime string `json:"data_snapshot_time"`
+		} `json:"file"`
+		Datatable struct {
+			LastRefreshedTime string `json:"last_refreshed_time"`
+		} `json:"datatable"`
+	} `json:"datatable_bulk_download"`
+}
+
+// Values of the Status field of BulkDownloadHandle.
+const (
+	StatusFresh        = "fresh"
+	StatusRegenerating = "regenerating"
+	StatusCreating     = "creating"
+)
+
+// BulkDownloadHandle is a simplified result of the first asynchronous bulk
+// download call.
+type BulkDownloadHandle struct {
+	Link              string
+	Status            string
+	SnapshotTime      string
+	LastRefreshedTime string
+}
+
+// BulkDownload receives the bulk download metadata with the data link.
+func BulkDownload(ctx context.Context, table string) (*BulkDownloadHandle, error) {
+	var h bulkDownloadHandle
+	client := GetClient(ctx)
+	if client == nil {
+		return nil, errors.Reason("no client in context")
+	}
+	uri := client.baseURL + "/datatables/" + table + ".json"
+	query := make(url.Values)
+	query["api_key"] = []string{client.apiKey}
+	query["qopts.export"] = []string{"true"}
+	if err := fetch.FetchJSON(ctx, uri, &h, query, nil); err != nil {
+		return nil, errors.Annotate(err, "failed to fetch URL")
+	}
+	b := BulkDownloadHandle{
+		Link:              h.Data.File.Link,
+		Status:            h.Data.File.Status,
+		SnapshotTime:      h.Data.File.SnapshotTime,
+		LastRefreshedTime: h.Data.Datatable.LastRefreshedTime,
+	}
+	return &b, nil
 }
