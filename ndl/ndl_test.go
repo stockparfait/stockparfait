@@ -99,12 +99,10 @@ func TestNDL(t *testing.T) {
 		Convey("Options", func() {
 			q := NewTableQuery("test/table")
 			q2 := q.Columns("c1", "c2")
-			q3 := q.Export()
 			q4 := q.PerPage(100)
 			q5 := q.Cursor("blah")
 			So(len(q.Values()), ShouldEqual, 0)
 			So(q2.Values(), ShouldResemble, url.Values{"qopts.columns": []string{"c1,c2"}})
-			So(q3.Values(), ShouldResemble, url.Values{"qopts.export": []string{"true"}})
 			So(q4.Values(), ShouldResemble, url.Values{"qopts.per_page": []string{"100"}})
 			So(q5.Values(), ShouldResemble, url.Values{"qopts.cursor_id": []string{"blah"}})
 		})
@@ -128,7 +126,7 @@ func TestNDL(t *testing.T) {
 				server.ResponseBody = []string{page}
 				q := NewTableQuery("TEST/TABLE").Equal("ticker", "AA").Lt("c1", "11")
 				q = q.Gt("c2", "12").Le("c3", "13").Ge("c4", "14").Columns("c1", "c3").PerPage(5)
-				q = q.Export().Cursor("abcd")
+				q = q.Cursor("abcd")
 				it := q.Read(ctx)
 				rows, err := rowsAll(it)
 				So(err, ShouldBeNil)
@@ -138,7 +136,7 @@ func TestNDL(t *testing.T) {
 				expectedQuery := q.Values()
 				expectedQuery["api_key"] = []string{testKey}
 				So(server.RequestQuery, ShouldResemble, expectedQuery)
-				So(len(server.RequestQuery), ShouldEqual, 10)
+				So(len(server.RequestQuery), ShouldEqual, 9)
 			})
 
 			Convey("fetches two pages", func() {
@@ -202,6 +200,27 @@ func TestNDL(t *testing.T) {
 			fetched, err := FetchTableMetadata(ctx, "TEST/TABLE")
 			So(err, ShouldBeNil)
 			So(fetched, ShouldResemble, &expected)
+		})
+
+		Convey("BulkDownload", func() {
+			bulkJSON := `{
+  "datatable_bulk_download": {
+      "file": {
+        "link": "https://test.url",
+        "status": "regenerating",
+        "data_snapshot_time": "2017-04-26 14:33:02 UTC"
+      },
+      "datatable": {
+        "last_refreshed_time": "2017-10-12 09:03:36 UTC"
+      }
+    }
+}`
+			expected := TestBulkDownloadHandle("https://test.url", "regenerating",
+				"2017-04-26 14:33:02 UTC", "2017-10-12 09:03:36 UTC")
+			server.ResponseBody = []string{bulkJSON}
+			h, err := BulkDownload(ctx, "TEST/TABLE")
+			So(err, ShouldBeNil)
+			So(h, ShouldResemble, expected)
 		})
 	})
 
