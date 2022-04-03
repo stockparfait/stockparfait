@@ -258,6 +258,7 @@ func TestNDL(t *testing.T) {
 				var tc testCloser
 				csvR, err := BulkDownloadCSV(ctx, &BulkDownloadHandle{
 					Link:       URL + "/test.zip",
+					Status:     StatusFresh,
 					testCloser: &tc,
 				})
 				So(err, ShouldBeNil)
@@ -275,6 +276,14 @@ func TestNDL(t *testing.T) {
 				So(tc.closed, ShouldBeTrue)
 			})
 
+			Convey("catches incompatible status", func() {
+				_, err := BulkDownloadCSV(ctx, &BulkDownloadHandle{
+					Status: StatusCreating,
+				})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldContainSubstring, "data archive is not available")
+			})
+
 			Convey("catches error in zip archive", func() {
 				// Add the second file, which will be an error
 				w, err := zipW.Create("another.csv")
@@ -287,9 +296,11 @@ func TestNDL(t *testing.T) {
 				var tc testCloser
 				_, err = BulkDownloadCSV(ctx, &BulkDownloadHandle{
 					Link:       URL + "/test.zip",
+					Status:     StatusRegenerating,
 					testCloser: &tc,
 				})
 				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldContainSubstring, "archive contains 2 files")
 				So(tc.closed, ShouldBeTrue)
 			})
 		})
