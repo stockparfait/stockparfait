@@ -15,8 +15,12 @@
 package ndl
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
+	"encoding/csv"
 	"fmt"
+	"io"
 	"net/url"
 	"testing"
 
@@ -76,6 +80,15 @@ func rowsAll(it *RowIterator) ([]*testRow, error) {
 		}
 	}
 	return rows, nil
+}
+
+type testCloser struct {
+	closed bool
+}
+
+func (t *testCloser) Close() error {
+	t.closed = true
+	return nil
 }
 
 func TestNDL(t *testing.T) {
@@ -225,6 +238,60 @@ func TestNDL(t *testing.T) {
 			h, err := BulkDownload(ctx, "TEST/TABLE")
 			So(err, ShouldBeNil)
 			So(h, ShouldResemble, expected)
+		})
+
+		Convey("BulkDownloadCSV", func() {
+			// Create a zip archive in buf containing a single CSV file with rows, and
+			// use it as the server's response.
+			rows := [][]string{{"one", "two"}, {"three", "four"}}
+			var buf bytes.Buffer
+			zipW := zip.NewWriter(&buf)
+			w, err := zipW.Create("test.csv")
+			So(err, ShouldBeNil)
+			csvW := csv.NewWriter(w)
+			So(csvW.WriteAll(rows), ShouldBeNil)
+
+			Convey("works without errors", func() {
+				So(zipW.Close(), ShouldBeNil)
+				server.ResponseBody = []string{buf.String()}
+
+				var tc testCloser
+				csvR, err := BulkDownloadCSV(ctx, &BulkDownloadHandle{
+					Link:       URL + "/test.zip",
+					testCloser: &tc,
+				})
+				So(err, ShouldBeNil)
+				row, err := csvR.Read()
+				So(err, ShouldBeNil)
+				So(row, ShouldResemble, rows[0])
+				row, err = csvR.Read()
+				So(err, ShouldBeNil)
+				So(row, ShouldResemble, rows[1])
+				_, err = csvR.Read()
+				So(err, ShouldEqual, io.EOF)
+
+				So(tc.closed, ShouldBeFalse)
+				csvR.Close()
+				So(tc.closed, ShouldBeTrue)
+			})
+
+			Convey("catches error in zip archive", func() {
+				// Add the second file, which will be an error
+				w, err := zipW.Create("another.csv")
+				So(err, ShouldBeNil)
+				csvW := csv.NewWriter(w)
+				So(csvW.WriteAll(rows), ShouldBeNil)
+				So(zipW.Close(), ShouldBeNil)
+				server.ResponseBody = []string{buf.String()}
+
+				var tc testCloser
+				_, err = BulkDownloadCSV(ctx, &BulkDownloadHandle{
+					Link:       URL + "/test.zip",
+					testCloser: &tc,
+				})
+				So(err, ShouldNotBeNil)
+				So(tc.closed, ShouldBeTrue)
+			})
 		})
 	})
 

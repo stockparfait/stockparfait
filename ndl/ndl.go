@@ -15,9 +15,13 @@
 package ndl
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 	"strings"
 
@@ -418,16 +422,6 @@ type TableMetadata struct {
 	Datatable DatatableMeta `json:"datatable"`
 }
 
-// TestTableMetadata generates the JSON string in a format as returned by the
-// NDL Table Metadata API. For use in tests.
-func TestTableMetadata(refreshedAt db.Time) (string, error) {
-	bytes, err := json.Marshal(&TableMetadata{Datatable: DatatableMeta{
-		Status: TableStatus{
-			RefreshedAt: refreshedAt,
-		}}})
-	return string(bytes), err
-}
-
 // FetchTableMetadata obtains metadata about the requested table specified as
 // PUBLISHER/TABLE.
 func FetchTableMetadata(ctx context.Context, table string) (*TableMetadata, error) {
@@ -474,6 +468,7 @@ type BulkDownloadHandle struct {
 	Status            string
 	SnapshotTime      string
 	LastRefreshedTime string
+	testCloser        io.Closer // used in tests
 }
 
 // BulkDownload receives the bulk download metadata with the data link.
@@ -497,4 +492,89 @@ func BulkDownload(ctx context.Context, table string) (*BulkDownloadHandle, error
 		LastRefreshedTime: h.Data.Datatable.LastRefreshedTime,
 	}
 	return &b, nil
+}
+
+// CSVReader implements a streaming CSV reader, one row at a time, with a
+// Close() method to release its resources.
+type CSVReader struct {
+	reader              *csv.Reader
+	closers             []io.Closer
+	ignoreDeferredClose bool // see deferredClose method
+}
+
+// Read the next CSV row as a slice of strings. It returns the same errors as
+// encoding/csv.Reader.Read() method. In particular, it returns nil, io.EOF when
+// there are no more rows.
+func (r *CSVReader) Read() ([]string, error) {
+	return r.reader.Read()
+}
+
+// Close CSVReader and release all the resources.
+func (r *CSVReader) Close() {
+	// Must invoke closers in reverse order. Ignore their errors.
+	for i := len(r.closers) - 1; i >= 0; i-- {
+		r.closers[i].Close()
+		r.closers = r.closers[0:i]
+	}
+}
+
+// deferredClose is to be used in defer in BulkDownloadCSV. When an intermediate
+// error occurs, it is important to release all of the already registered
+// closers before returning an error, but not if the method terminates normally.
+func (r *CSVReader) deferredClose() {
+	if r.ignoreDeferredClose {
+		return
+	}
+	r.Close()
+}
+
+// AddCloser to the list of closers. Method Close() will call each registered
+// closer in LIFO order.
+func (r *CSVReader) AddCloser(c io.Closer) {
+	r.closers = append(r.closers, c)
+}
+
+// BulkDownloadCSV starts downloading the actual data pointed to by
+// BulkDownloadHandle. It downloads the zip archive with a single CSV file into
+// memory, and returns a CSVReader which streams the contents of that file.
+// Make sure to call CSVReader.Close() when done with the CSV stream.
+func BulkDownloadCSV(ctx context.Context, h *BulkDownloadHandle) (*CSVReader, error) {
+	var csvReader CSVReader
+	defer csvReader.deferredClose()
+
+	resp, err := fetch.GetRetry(ctx, h.Link, nil, nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to initiate download")
+	}
+	csvReader.AddCloser(resp.Body)
+	if h.testCloser != nil { // used in tests to verify that CSVReader was closed
+		csvReader.AddCloser(h.testCloser)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to read response body")
+	}
+	r := bytes.NewReader(data)
+	z, err := zip.NewReader(r, r.Size())
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to read zip archive")
+	}
+	if len(z.File) != 1 {
+		names := make([]string, len(z.File))
+		for i := 0; i < len(z.File); i++ {
+			names[i] = z.File[i].Name
+		}
+		return nil, errors.Reason("archive contains %d files (expected 1):\n  %s",
+			len(z.File), strings.Join(names, "\n  "))
+	}
+	rc, err := z.File[0].Open()
+	if err != nil {
+		return nil, errors.Annotate(err,
+			"failed to open file in archive '%s'", z.File[0].Name)
+	}
+	csvReader.AddCloser(rc)
+	csvReader.reader = csv.NewReader(rc)
+	csvReader.ignoreDeferredClose = true
+	return &csvReader, nil
 }
