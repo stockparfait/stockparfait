@@ -269,6 +269,8 @@ func TestNDL(t *testing.T) {
 				So(row, ShouldResemble, rows[1])
 				_, err = csvR.Read()
 				So(err, ShouldEqual, io.EOF)
+
+				So(tc.closed, ShouldBeFalse)
 				csvR.Close()
 				So(tc.closed, ShouldBeTrue)
 			})

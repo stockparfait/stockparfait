@@ -514,6 +514,7 @@ func (r *CSVReader) Close() {
 	// Must invoke closers in reverse order. Ignore their errors.
 	for i := len(r.closers) - 1; i >= 0; i-- {
 		r.closers[i].Close()
+		r.closers = r.closers[0:i]
 	}
 }
 
