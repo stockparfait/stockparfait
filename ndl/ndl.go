@@ -542,14 +542,19 @@ func BulkDownloadCSV(ctx context.Context, h *BulkDownloadHandle) (*CSVReader, er
 	var csvReader CSVReader
 	defer csvReader.deferredClose()
 
+	if h.testCloser != nil { // used in tests to verify that CSVReader was closed
+		csvReader.AddCloser(h.testCloser)
+	}
+
+	if h.Status != StatusFresh && h.Status != StatusRegenerating {
+		return nil, errors.Reason(
+			"data archive is not available, status=%s", h.Status)
+	}
 	resp, err := fetch.GetRetry(ctx, h.Link, nil, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to initiate download")
 	}
 	csvReader.AddCloser(resp.Body)
-	if h.testCloser != nil { // used in tests to verify that CSVReader was closed
-		csvReader.AddCloser(h.testCloser)
-	}
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
