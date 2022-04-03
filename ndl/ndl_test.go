@@ -21,10 +21,12 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"log"
 	"net/url"
 	"testing"
 
 	"github.com/stockparfait/fetch"
+	"github.com/stockparfait/logging"
 	"github.com/stockparfait/stockparfait/db"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -215,6 +217,13 @@ func TestNDL(t *testing.T) {
 			So(fetched, ShouldResemble, &expected)
 		})
 
+		Convey("humanize", func() {
+			So(humanize(1023), ShouldEqual, "1023B")
+			So(humanize(1024*123+500), ShouldEqual, "123KB")
+			So(humanize(1024*(1024*24+500)), ShouldEqual, "24MB")
+			So(humanize(1024*1024*1024*63), ShouldEqual, "63GB")
+		})
+
 		Convey("BulkDownload", func() {
 			bulkJSON := `{
   "datatable_bulk_download": {
@@ -250,6 +259,9 @@ func TestNDL(t *testing.T) {
 			So(err, ShouldBeNil)
 			csvW := csv.NewWriter(w)
 			So(csvW.WriteAll(rows), ShouldBeNil)
+			var logBuf bytes.Buffer
+			ctx = logging.Use(ctx, logging.GoLogger(
+				logging.Debug, log.New(&logBuf, "", 0)))
 
 			Convey("works without errors", func() {
 				So(zipW.Close(), ShouldBeNil)
@@ -257,10 +269,13 @@ func TestNDL(t *testing.T) {
 
 				var tc testCloser
 				csvR, err := BulkDownloadCSV(ctx, &BulkDownloadHandle{
-					Link:       URL + "/test.zip",
-					Status:     StatusFresh,
-					testCloser: &tc,
+					Link:           URL + "/test.zip",
+					Status:         StatusFresh,
+					testCloser:     &tc,
+					MonitorFactory: LoggingMonitorFactory(ctx, "TEST/TABLE", 100),
 				})
+				So(logBuf.String(), ShouldContainSubstring,
+					"INFO: downloading TEST/TABLE: ")
 				So(err, ShouldBeNil)
 				row, err := csvR.Read()
 				So(err, ShouldBeNil)

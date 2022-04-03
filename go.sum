@@ -8,8 +8,8 @@ github.com/smartystreets/goconvey v1.7.2 h1:9RBaZCeXEQ3UselpuwUQHltGVXvdwm6cv1hg
 github.com/smartystreets/goconvey v1.7.2/go.mod h1:Vw0tHAZW6lzCRk3xgdin6fKYcG+G3Pg9vgXWeJpQFMM=
 github.com/stockparfait/errors v0.0.2 h1:tGLNe/tU9cdJ0bWYVez+sCY9SAITvCS4jYaicZ/LbDQ=
 github.com/stockparfait/errors v0.0.2/go.mod h1:CTvOA0qstSlgAfkHbeCc9DGx3+q++dkXKX3RTsa0S1E=
-github.com/stockparfait/fetch v0.0.1 h1:KQ6t9kGn6lkKYdGOBG4gajypP1TwdqOW7rTyaJmjpBA=
-github.com/stockparfait/fetch v0.0.1/go.mod h1:iXFZi79Z34UroNSwAYi7ig9mTtqjj5e3kGhs7+Sg8lQ=
+github.com/stockparfait/fetch v0.0.2 h1:ZjmBMYMHdy0K4lHdirRtpOj2uXVsMVvqC0K4ayImPO8=
+github.com/stockparfait/fetch v0.0.2/go.mod h1:iXFZi79Z34UroNSwAYi7ig9mTtqjj5e3kGhs7+Sg8lQ=
 github.com/stockparfait/logging v0.0.2 h1:DVD5z4IubHKILLLqzoj5M42HA4NmDkcaLhBAePO6WvU=
 github.com/stockparfait/logging v0.0.2/go.mod h1:CDjKF3FTO7zrWi7iVCzYKBJ1riTAX+FzJK+oPTBqDJg=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=

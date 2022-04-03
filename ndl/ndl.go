@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -110,7 +111,7 @@ func (it *RowIterator) nextPage() (bool, error) {
 	}
 	it.index = 0
 	it.pageCount++
-	logging.Infof(it.context,
+	logging.Debugf(it.context,
 		"Nasdaq Data Link: fetched page %d with %d rows; cursor: %s",
 		it.pageCount, len(it.page.Datatable.Data), it.page.Meta.Cursor)
 	return true, nil
@@ -461,6 +462,10 @@ const (
 	StatusCreating     = "creating"
 )
 
+// DownloadMonitorFactory creates a pass-through io.Reader from
+// http.Response.Body which allows to monitor bulk data download progress.
+type DownloadMonitorFactory = func(*http.Response) io.Reader
+
 // BulkDownloadHandle is a simplified result of the first asynchronous bulk
 // download call.
 type BulkDownloadHandle struct {
@@ -468,6 +473,7 @@ type BulkDownloadHandle struct {
 	Status            string
 	SnapshotTime      string
 	LastRefreshedTime string
+	MonitorFactory    DownloadMonitorFactory
 	testCloser        io.Closer // used in tests
 }
 
@@ -534,6 +540,74 @@ func (r *CSVReader) AddCloser(c io.Closer) {
 	r.closers = append(r.closers, c)
 }
 
+// humanize size in KB, MB, etc. for easy reading.
+func humanize(n int64) string {
+	var div int64
+	var units string
+	if n < 1024 {
+		div = 1
+		units = "B"
+	} else if n < 1024*1024 {
+		div = 1024
+		units = "KB"
+	} else if n < 1024*1024*1024 {
+		div = 1024 * 1024
+		units = "MB"
+	} else {
+		div = 1024 * 1024 * 1024
+		units = "GB"
+	}
+	return fmt.Sprintf("%d%s", n/div, units)
+}
+
+type loggingReader struct {
+	ctx      context.Context
+	name     string // name of the downloaded stream
+	sizeMsg  string // "" or " of <total-size>"
+	received int64  // bytes received so far
+	interval int64  // emit log every interval bytes
+	nextLog  int64  // emit log when received >= nextLog
+	reader   io.Reader
+}
+
+// Read implements io.Reader.
+func (l *loggingReader) Read(p []byte) (int, error) {
+	n, err := l.reader.Read(p)
+	l.received += int64(n)
+	if l.received >= l.nextLog {
+		logging.Infof(l.ctx, "downloading %s: %s%s",
+			l.name, humanize(l.received), l.sizeMsg)
+		for l.received >= l.nextLog {
+			l.nextLog += l.interval
+		}
+	}
+	return n, err
+}
+
+// LoggingMonitorFactory is the default download monitor factory which logs the
+// progress report of data identified by name every interval bytes. If interval
+// is not positive, it is set to 10MB.
+func LoggingMonitorFactory(ctx context.Context, name string, interval int64) DownloadMonitorFactory {
+	if interval <= 0 { // default is 10MB
+		interval = 10 * 1024 * 1024
+	}
+	return func(r *http.Response) io.Reader {
+		size := r.ContentLength
+		sizeMsg := ""
+		if size >= 0 {
+			sizeMsg = fmt.Sprintf(" of %s", humanize(size))
+		}
+		return &loggingReader{
+			ctx:      ctx,
+			name:     name,
+			sizeMsg:  sizeMsg,
+			interval: interval,
+			nextLog:  interval,
+			reader:   r.Body,
+		}
+	}
+}
+
 // BulkDownloadCSV starts downloading the actual data pointed to by
 // BulkDownloadHandle. It downloads the zip archive with a single CSV file into
 // memory, and returns a CSVReader which streams the contents of that file.
@@ -556,7 +630,11 @@ func BulkDownloadCSV(ctx context.Context, h *BulkDownloadHandle) (*CSVReader, er
 	}
 	csvReader.AddCloser(resp.Body)
 
-	data, err := io.ReadAll(resp.Body)
+	var reader io.Reader = resp.Body
+	if h.MonitorFactory != nil {
+		reader = h.MonitorFactory(resp)
+	}
+	data, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to read response body")
 	}
