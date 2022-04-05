@@ -137,7 +137,7 @@ func (db *Database) cacheMetadata() error {
 			db.metadataError = errors.Annotate(err, "failed to decode JSON")
 		}
 	})
-	return db.tickersError
+	return db.metadataError
 }
 
 func (db *Database) cacheTickers() error {
@@ -210,7 +210,7 @@ func (db *Database) WriteActions(actions map[string][]ActionRow) error {
 	return nil
 }
 
-// WritePrices saves the ticker prices to the DB file and incrementally update
+// WritePrices saves the ticker prices to the DB file and incrementally updates
 // the metadata.  Prices are assumed to be sorted by date.
 func (db *Database) WritePrices(ticker string, prices []PriceRow) error {
 	if err := db.createDirs(); err != nil {
