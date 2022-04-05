@@ -222,6 +222,16 @@ func TestResampled(dateOpen, dateClose Date, open, high, low, close, dv float32,
 	}
 }
 
+// Metadata is the schema for the metadata.json file.
+type Metadata struct {
+	Start      Date `json:"start"` // the earliest available price date
+	End        Date `json:"end"`   // the latest available price date
+	NumTickers int  `json:"num_tickers"`
+	NumActions int  `json:"num_actions"`
+	NumPrices  int  `json:"num_prices"`  // daily price samples
+	NumMonthly int  `json:"num_monthly"` // monthly price samples
+}
+
 // Time is a wrapper around time.Time with JSON methods.
 type Time time.Time
 

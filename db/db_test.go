@@ -75,6 +75,7 @@ func TestDB(t *testing.T) {
 			So(db.WritePrices("A", pricesA), ShouldBeNil)
 			So(db.WritePrices("B", pricesB), ShouldBeNil)
 			So(db.WriteMonthly(monthly), ShouldBeNil)
+			So(db.WriteMetadata(), ShouldBeNil)
 		})
 
 		Convey("ticker access methods work", func() {
@@ -126,6 +127,20 @@ func TestDB(t *testing.T) {
 			a, err = db.Monthly("B", NewConstraints().EndAt(NewDate(2019, 2, 15)))
 			So(err, ShouldBeNil)
 			So(a, ShouldResemble, monthly["B"][:1])
+		})
+
+		Convey("metadata access methods work", func() {
+			db := NewDatabase(dbPath)
+			m, err := db.Metadata()
+			So(err, ShouldBeNil)
+			So(m, ShouldResemble, Metadata{
+				Start:      NewDate(2019, 1, 1),
+				End:        NewDate(2019, 1, 3),
+				NumTickers: 2,
+				NumActions: 3,
+				NumPrices:  6,
+				NumMonthly: 4,
+			})
 		})
 	})
 }

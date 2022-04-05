@@ -17,6 +17,7 @@ package db
 import (
 	"context"
 	"encoding/gob"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"sync"
@@ -71,18 +72,21 @@ func readGob(fileName string, v interface{}) error {
 }
 
 type Database struct {
-	cachePath    string
-	tickers      map[string]TickerRow
-	actions      map[string][]ActionRow
-	monthly      map[string][]ResampledRow
-	tickersOnce  sync.Once
-	tickersError error
-	actionsOnce  sync.Once
-	actionsError error
-	monthlyOnce  sync.Once
-	monthlyError error
-	mkdirOnce    sync.Once
-	mkdirError   error
+	cachePath     string
+	tickers       map[string]TickerRow
+	actions       map[string][]ActionRow
+	monthly       map[string][]ResampledRow
+	metadata      Metadata
+	tickersOnce   sync.Once
+	tickersError  error
+	actionsOnce   sync.Once
+	actionsError  error
+	monthlyOnce   sync.Once
+	monthlyError  error
+	mkdirOnce     sync.Once
+	mkdirError    error
+	metadataOnce  sync.Once
+	metadataError error
 }
 
 func NewDatabase(cachePath string) *Database {
@@ -112,6 +116,28 @@ func (db *Database) pricesFile(ticker string) string {
 
 func (db *Database) monthlyFile() string {
 	return filepath.Join(db.cachePath, "monthly.gob")
+}
+
+func (db *Database) metadataFile() string {
+	return filepath.Join(db.cachePath, "metadata.json")
+}
+
+func (db *Database) cacheMetadata() error {
+	db.metadataOnce.Do(func() {
+		fileName := db.metadataFile()
+		f, err := os.Open(fileName)
+		if err != nil {
+			db.metadataError = errors.Annotate(err,
+				"failed to open file for reading: '%s'", fileName)
+		}
+		defer f.Close()
+
+		dec := json.NewDecoder(f)
+		if err := dec.Decode(&db.metadata); err != nil {
+			db.metadataError = errors.Annotate(err, "failed to decode JSON")
+		}
+	})
+	return db.tickersError
 }
 
 func (db *Database) cacheTickers() error {
@@ -154,7 +180,8 @@ func (db *Database) createDirs() error {
 	return db.mkdirError
 }
 
-// WriteTickers saves the tickers table to the DB file.
+// WriteTickers saves the tickers table to the DB file, and sets the number of
+// tickers in the metadata.
 func (db *Database) WriteTickers(tickers map[string]TickerRow) error {
 	if err := db.createDirs(); err != nil {
 		return errors.Annotate(err, "failed to create DB directories")
@@ -162,11 +189,13 @@ func (db *Database) WriteTickers(tickers map[string]TickerRow) error {
 	if err := writeGob(db.tickersFile(), tickers); err != nil {
 		return errors.Annotate(err, "failed to write '%s'", db.tickersFile())
 	}
+	db.metadata.NumTickers = len(tickers)
 	return nil
 }
 
-// WriteActions saves the actions table to the DB file. Actions are indexed by
-// ticker, and for each ticker actions are assumed to be sorted by date.
+// WriteActions saves the actions table to the DB file, and sets the number of
+// actions in the metadata. Actions are indexed by ticker, and for each ticker
+// actions are assumed to be sorted by date.
 func (db *Database) WriteActions(actions map[string][]ActionRow) error {
 	if err := db.createDirs(); err != nil {
 		return errors.Annotate(err, "failed to create DB directories")
@@ -174,11 +203,15 @@ func (db *Database) WriteActions(actions map[string][]ActionRow) error {
 	if err := writeGob(db.actionsFile(), actions); err != nil {
 		return errors.Annotate(err, "failed to write '%s'", db.actionsFile())
 	}
+	db.metadata.NumActions = 0
+	for _, as := range actions {
+		db.metadata.NumActions += len(as)
+	}
 	return nil
 }
 
-// WritePrices saves the ticker prices to the DB file.  Prices are assumed to be
-// sorted by date.
+// WritePrices saves the ticker prices to the DB file and incrementally update
+// the metadata.  Prices are assumed to be sorted by date.
 func (db *Database) WritePrices(ticker string, prices []PriceRow) error {
 	if err := db.createDirs(); err != nil {
 		return errors.Annotate(err, "failed to create DB directories")
@@ -186,12 +219,21 @@ func (db *Database) WritePrices(ticker string, prices []PriceRow) error {
 	if err := writeGob(db.pricesFile(ticker), prices); err != nil {
 		return errors.Annotate(err, "failed to write '%s'", db.pricesFile(ticker))
 	}
+	db.metadata.NumPrices += len(prices)
+	for _, p := range prices {
+		if db.metadata.Start.IsZero() || db.metadata.Start.After(p.Date) {
+			db.metadata.Start = p.Date
+		}
+		if db.metadata.End.IsZero() || db.metadata.End.Before(p.Date) {
+			db.metadata.End = p.Date
+		}
+	}
 	return nil
 }
 
-// WriteMonthly saves the monthly resampled table to the DB file. ResampledRow's
-// are indexed by ticker, and for each ticker are assumed to be sorted by the
-// closing date.
+// WriteMonthly saves the monthly resampled table to the DB file and sets the
+// number of samples in the metadata. ResampledRow's are indexed by ticker, and
+// for each ticker are assumed to be sorted by the closing date.
 func (db *Database) WriteMonthly(monthly map[string][]ResampledRow) error {
 	if err := db.createDirs(); err != nil {
 		return errors.Annotate(err, "failed to create DB directories")
@@ -199,7 +241,37 @@ func (db *Database) WriteMonthly(monthly map[string][]ResampledRow) error {
 	if err := writeGob(db.monthlyFile(), monthly); err != nil {
 		return errors.Annotate(err, "failed to write '%s'", db.monthlyFile())
 	}
+	db.metadata.NumMonthly = 0
+	for _, ms := range monthly {
+		db.metadata.NumMonthly += len(ms)
+	}
 	return nil
+}
+
+// WriteMetadata saves the metadata accumulated by the Write* methods. It is
+// stored in JSON format to be human-readable.
+func (db *Database) WriteMetadata() error {
+	fileName := db.metadataFile()
+	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return errors.Annotate(err, "failed to open file for writing: '%s'", fileName)
+	}
+	defer f.Close()
+
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(db.metadata); err != nil {
+		return errors.Annotate(err, "failed to write to '%s'", fileName)
+	}
+	return nil
+}
+
+// Metadata for the database. It is cached in memory upon the first call.
+func (db *Database) Metadata() (Metadata, error) {
+	if err := db.cacheMetadata(); err != nil {
+		return Metadata{}, errors.Annotate(err, "failed to load metadata")
+	}
+	return db.metadata, nil
 }
 
 // TickerRow for the given ticker. It's an error if a ticker is not in DB.
