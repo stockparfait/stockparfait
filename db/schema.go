@@ -39,6 +39,29 @@ func lessLex(x, y []int) bool {
 	return len(x) < len(y)
 }
 
+func parseTime(s string) (time.Time, error) {
+	if s == "0000-00-00" || s == "0000-00-00T00:00:00.000" {
+		return time.Time{}, nil
+	}
+	formats := []string{
+		"2006-01-02 15:04:05.999",
+		"2006-01-02T15:04:05.999",
+		"2006-01-02T15:04:05.999Z",
+		"2006-01-02 15:04:05",
+		"2006-01-02T15:04:05",
+		"2006-01-02",
+	}
+	var err error
+	for _, fmt := range formats {
+		var tm time.Time
+		tm, err := time.Parse(fmt, s)
+		if err == nil {
+			return tm, nil
+		}
+	}
+	return time.Time{}, err
+}
+
 // Date records a calendar date as year, month and day. The struct is designed
 // to fit into 4 bytes.
 type Date struct {
@@ -52,13 +75,22 @@ func NewDate(year uint16, month, day uint8) Date {
 	return Date{year, month, day}
 }
 
-// NewDateFromTime creates a Date instance from a Time value in UTC.
+// NewDateFromTime creates a Date instance from a time.Time value in UTC.
 func NewDateFromTime(t time.Time) Date {
 	return Date{
 		YearVal:  uint16(t.Year()),
 		MonthVal: uint8(t.Month()),
 		DayVal:   uint8(t.Day()),
 	}
+}
+
+// NewDateFromString creates a Date instance from a string representation.
+func NewDateFromString(s string) (Date, error) {
+	t, err := parseTime(s)
+	if err != nil {
+		return Date{}, errors.Annotate(err, "failed to parse a Date string: '%s'", s)
+	}
+	return NewDateFromTime(t), nil
 }
 
 // DateInNY returns today's date in New York timezone.
@@ -260,25 +292,10 @@ func (t *Time) UnmarshalJSON(data []byte) error {
 	if err = json.Unmarshal(data, &s); err != nil {
 		return errors.Annotate(err, "Time JSON must be a string")
 	}
-	if s == "0000-00-00" || s == "0000-00-00T00:00:00.000" {
-		*t = Time{}
-		return nil
+	tm, err := parseTime(s)
+	if err != nil {
+		return errors.Annotate(err, "failed to parse time string: '%s'", s)
 	}
-	formats := []string{
-		"2006-01-02 15:04:05.999",
-		"2006-01-02T15:04:05.999",
-		"2006-01-02T15:04:05.999Z",
-		"2006-01-02 15:04:05",
-		"2006-01-02T15:04:05",
-		"2006-01-02",
-	}
-	for _, fmt := range formats {
-		var tm time.Time
-		tm, err = time.Parse(fmt, s)
-		if err == nil {
-			*t = Time(tm)
-			return nil
-		}
-	}
-	return err
+	*t = Time(tm)
+	return nil
 }
