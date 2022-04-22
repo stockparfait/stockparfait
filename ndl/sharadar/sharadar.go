@@ -30,7 +30,7 @@ const (
 )
 
 // FetchTickers returns a transparently paging iterator over RowTickers. When no
-// tables are supplied, the default are all tables.
+// tables are supplied, the default is all tables.
 func FetchTickers(ctx context.Context, tables ...TableName) *ndl.RowIterator {
 	q := ndl.NewTableQuery("SHARADAR/TICKERS")
 	if len(tables) > 0 {
@@ -44,7 +44,7 @@ func FetchTickers(ctx context.Context, tables ...TableName) *ndl.RowIterator {
 }
 
 // FetchActions returns a transparently paging iterator over Action. If no
-// actions are specified, the default are all actions.
+// actions are specified, the default is all actions.
 func FetchActions(ctx context.Context, actions ...ActionType) *ndl.RowIterator {
 	q := ndl.NewTableQuery("SHARADAR/ACTIONS")
 	if len(actions) > 0 {
@@ -77,7 +77,7 @@ func NewDataset() *Dataset {
 }
 
 // FetchTickers for the given tables (default: all tables) and convert them to
-//  the standard database format.
+// the standard database format.
 func (d *Dataset) FetchTickers(ctx context.Context, tables ...TableName) error {
 	it := FetchTickers(ctx, tables...)
 	for {
@@ -104,7 +104,7 @@ func (d *Dataset) FetchTickers(ctx context.Context, tables ...TableName) error {
 }
 
 // FetchActions downloads "raw" Sharadar actions filtered by 'actions'. If no
-// actions are specified, the default are all actions.
+// actions are specified, the default is all actions.
 func (d *Dataset) FetchActions(ctx context.Context, actions ...ActionType) error {
 	it := FetchActions(ctx, actions...)
 	for {

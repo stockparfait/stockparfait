@@ -39,14 +39,14 @@ func TestSharadar(t *testing.T) {
 		Convey("FetchTickers", func() {
 			page, err := ndl.TestTablePage([][]ndl.Value{
 				{
-					"TBL1", 100, "T1", "Name1", "Exch1", "N", "Cat1", "CUSIP1 CUSIP2",
+					"SEP", 100, "T1", "Name1", "Exch1", "N", "Cat1", "CUSIP1 CUSIP2",
 					111, "SICSec1", "SICInd1", "FAMASec1", "FAMAInd1", "Sec1", "Ind1",
 					"4 - Mid", "3 - Small", "RT1 RT2", "USD", "Here",
 					"2020-02-22", "2000-01-11", "2000-02-01", "2020-02-22",
 					"2000-01-01", "2020-03-31", "https://sec.filings", "https://com.site",
 				},
 				{
-					"TBL2", 200, "T2", "Name2", "Exch2", "Y", "Cat2", "CUSIP3 CUSIP4",
+					"SFP", 200, "T2", "Name2", "Exch2", "Y", "Cat2", "CUSIP3 CUSIP4",
 					222, "SICSec2", "SICInd2", "FAMASec2", "FAMAInd2", "Sec2", "Ind2",
 					"2 - Micro", "5 - Large", "RT3 RT4", "RUB", "There",
 					"2020-02-22", "2000-01-11", "2000-02-01", "2020-02-22",
@@ -86,8 +86,8 @@ func TestSharadar(t *testing.T) {
 			})
 
 			Convey("for selected tables", func() {
-				So(ds.FetchTickers(ctx, "TBL1"), ShouldBeNil)
-				So(server.RequestQuery["table"], ShouldResemble, []string{"TBL1"})
+				So(ds.FetchTickers(ctx, EquitiesTable), ShouldBeNil)
+				So(server.RequestQuery["table"], ShouldResemble, []string{"SEP"})
 			})
 		})
 
@@ -136,9 +136,9 @@ func TestSharadar(t *testing.T) {
 			})
 
 			Convey("for selected actions", func() {
-				So(ds.FetchActions(ctx, SplitAction, DividendAction), ShouldBeNil)
+				So(ds.FetchActions(ctx, AdjustmentActions...), ShouldBeNil)
 				So(server.RequestQuery["action"], ShouldResemble,
-					[]string{"split,dividend"})
+					[]string{"dividend,spinoffdividend,split"})
 			})
 		})
 	})
