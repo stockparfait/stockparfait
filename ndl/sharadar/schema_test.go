@@ -24,7 +24,7 @@ import (
 )
 
 func TestSchema(t *testing.T) {
-	Convey("RowTickers.Load works", t, func() {
+	Convey("Ticker.Load works", t, func() {
 		realSchema := ndl.Schema{
 			{Name: "permaticker", Type: "Integer"},
 			{Name: "table", Type: "String"},     // reordered
@@ -87,9 +87,9 @@ func TestSchema(t *testing.T) {
 			"https://sec.filings",
 			"https://site.com",
 		}
-		row := RowTickers{}
+		row := Ticker{}
 		So(row.Load(data, realSchema), ShouldBeNil)
-		So(row, ShouldResemble, RowTickers{
+		So(row, ShouldResemble, Ticker{
 			TableName:      "SEP",
 			Permaticker:    123,
 			Ticker:         "ABC",
@@ -116,12 +116,12 @@ func TestSchema(t *testing.T) {
 			LastPriceDate:  db.NewDate(2019, 12, 31),
 			FirstQuarter:   db.NewDate(2001, 3, 1),
 			LastQuarter:    db.NewDate(2019, 12, 31),
-			SecFilings:     "https://sec.filings",
+			SECFilings:     "https://sec.filings",
 			CompanySite:    "https://site.com",
 		})
 	})
 
-	Convey("RowActions works", t, func() {
+	Convey("Action works", t, func() {
 		Convey("ActionType.String()", func() {
 			a := SplitAction
 			So(a.String(), ShouldEqual, "split")
@@ -150,12 +150,13 @@ func TestSchema(t *testing.T) {
 				"TKR", // contraticker
 				"Contra Name",
 			}
-			row := RowActions{}
+			row := Action{}
 			So(row.Load(data, realSchema), ShouldBeNil)
-			So(row, ShouldResemble, RowActions{
+			So(row, ShouldResemble, Action{
 				Date:         db.NewDate(2019, 11, 12),
 				Action:       SplitAction,
 				Ticker:       "ABC",
+				Name:         "Fake Company",
 				Value:        0.25,
 				ContraTicker: "TKR",
 				ContraName:   "Contra Name",
@@ -165,7 +166,7 @@ func TestSchema(t *testing.T) {
 		})
 	})
 
-	Convey("RowPrices.Load works", t, func() {
+	Convey("Price.Load works", t, func() {
 		realSchema := ndl.Schema{
 			{Name: "date", Type: "Date"},
 			{Name: "ticker", Type: "text"}, // reordered
@@ -192,9 +193,9 @@ func TestSchema(t *testing.T) {
 			"2020-04-01",
 			"fake",
 		}
-		row := RowPrices{}
+		row := Price{}
 		So(row.Load(data, realSchema), ShouldBeNil)
-		So(row, ShouldResemble, RowPrices{
+		So(row, ShouldResemble, Price{
 			Ticker:          "ABC",
 			Date:            db.NewDate(2020, 3, 14),
 			Open:            14.5,

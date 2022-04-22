@@ -53,8 +53,8 @@ var str2scale = map[string]Scale{
 	"6 - Mega":  ScaleMega,
 }
 
-// RowTickers is a row in the TICKERS table.
-type RowTickers struct {
+// Ticker is a row in the TICKERS table.
+type Ticker struct {
 	TableName      string   //
 	Permaticker    int      // Sharadar's unique ID
 	Ticker         string   // uniquified by Sharadar if reused
@@ -81,14 +81,14 @@ type RowTickers struct {
 	LastPriceDate  db.Date  // latest price available
 	FirstQuarter   db.Date  //
 	LastQuarter    db.Date  //
-	SecFilings     string   // URL
+	SECFilings     string   // URL
 	CompanySite    string   // URL
 }
 
-var _ ndl.ValueLoader = &RowTickers{}
+var _ ndl.ValueLoader = &Ticker{}
 
-// RowTickersSchema is the expected schema for the TICKERS table.
-var RowTickersSchema = ndl.Schema{
+// TickerSchema is the expected schema for the TICKERS table.
+var TickerSchema = ndl.Schema{
 	{Name: "table", Type: "String"},
 	{Name: "permaticker", Type: "Integer"},
 	{Name: "ticker", Type: "String"},
@@ -145,6 +145,12 @@ const (
 	VoluntaryDelistingAction
 )
 
+var AdjustmentActions = []ActionType{
+	DividendAction,
+	SpinoffDividendAction,
+	SplitAction,
+}
+
 var string2action = map[string]ActionType{
 	"acquisitionby":         AcquisitionByAction,
 	"acquisitionof":         AcquisitionOfAction,
@@ -186,12 +192,12 @@ func (at *ActionType) String() string {
 	return "unknown"
 }
 
-// RowActions is a row in the ACTIONS table. Value field depends on the action:
+// Action is a row in the ACTIONS table. Value field depends on the action:
 // - DividendAction: split and split-dividend adjusted cash dividend amount.
 // - SpinoffDividendAction: dollar value of the shares of the spunoff company
 //   issued for each share of the parent company.
 // - SplitAction: the number of resulting shares per each original share.
-type RowActions struct {
+type Action struct {
 	Date         db.Date
 	Action       ActionType
 	Ticker       string  // the uniquified ticker in the DB
@@ -201,21 +207,21 @@ type RowActions struct {
 	ContraName   string  // the ContraTicker's current company name
 }
 
-var _ ndl.ValueLoader = &RowActions{}
+var _ ndl.ValueLoader = &Action{}
 
-// RowActionsSchema is the expected schema for the ACTIONS table.
-var RowActionsSchema = ndl.Schema{
+// ActionSchema is the expected schema for the ACTIONS table.
+var ActionSchema = ndl.Schema{
 	{Name: "date", Type: "Date"},
 	{Name: "action", Type: "String"},
 	{Name: "ticker", Type: "String"},
-	{Name: "name", Type: "String"}, // same as in RowTickers
+	{Name: "name", Type: "String"}, // same as in Ticker
 	{Name: "value", Type: "BigDecimal(20,5)"},
 	{Name: "contraticker", Type: "String"}, // old/new ticker name
 	{Name: "contraname", Type: "String"},   // old/new company name
 }
 
-// RowPrices is a row in the SEP/SFP table.
-type RowPrices struct {
+// Price is a row in the SEP/SFP table.
+type Price struct {
 	Ticker string
 	Date   db.Date
 	// All OHLCV values are adjusted for stock splits and stock dividends, but not
@@ -231,10 +237,10 @@ type RowPrices struct {
 	LastUpdated   db.Date
 }
 
-var _ ndl.ValueLoader = &RowPrices{}
+var _ ndl.ValueLoader = &Price{}
 
-// RowPricesSchema is the expected schema for the SEP table.
-var RowPricesSchema = ndl.Schema{
+// PriceSchema is the expected schema for the SEP table.
+var PriceSchema = ndl.Schema{
 	{Name: "ticker", Type: "text"},
 	{Name: "date", Type: "Date"},
 	{Name: "open", Type: "double"},
@@ -318,8 +324,8 @@ func value2scale(v ndl.Value) (Scale, error) {
 }
 
 // Load implements ndl.ValueLoader.
-func (r *RowTickers) Load(v []ndl.Value, s ndl.Schema) error {
-	if !RowTickersSchema.SubsetOf(s) {
+func (r *Ticker) Load(v []ndl.Value, s ndl.Schema) error {
+	if !TickerSchema.SubsetOf(s) {
 		return errors.Reason("unexpected schema: %s", s.String())
 	}
 	if len(v) != len(s) {
@@ -436,7 +442,7 @@ func (r *RowTickers) Load(v []ndl.Value, s ndl.Schema) error {
 	if r.LastQuarter, err = v2date("lastquarter"); err != nil {
 		return errors.Annotate(err, "lastquarter should be a date string")
 	}
-	if r.SecFilings, err = v2str("secfilings"); err != nil {
+	if r.SECFilings, err = v2str("secfilings"); err != nil {
 		return errors.Annotate(err, "secfilings should be a URL string")
 	}
 	if r.CompanySite, err = v2str("companysite"); err != nil {
@@ -446,7 +452,7 @@ func (r *RowTickers) Load(v []ndl.Value, s ndl.Schema) error {
 }
 
 // Is checks if the action is of one of the given types.
-func (r *RowActions) Is(types ...ActionType) bool {
+func (r *Action) Is(types ...ActionType) bool {
 	for _, t := range types {
 		if r.Action == t {
 			return true
@@ -456,8 +462,8 @@ func (r *RowActions) Is(types ...ActionType) bool {
 }
 
 // Load implements ndl.ValueLoader.
-func (r *RowActions) Load(v []ndl.Value, s ndl.Schema) error {
-	if !RowActionsSchema.SubsetOf(s) {
+func (r *Action) Load(v []ndl.Value, s ndl.Schema) error {
+	if !ActionSchema.SubsetOf(s) {
 		return errors.Reason("unexpected schema: %s", s.String())
 	}
 	if len(v) != len(s) {
@@ -487,6 +493,9 @@ func (r *RowActions) Load(v []ndl.Value, s ndl.Schema) error {
 	if r.Ticker, err = v2str("ticker"); err != nil {
 		return errors.Annotate(err, "ticker should be a string")
 	}
+	if r.Name, err = v2str("name"); err != nil {
+		return errors.Annotate(err, "name should be a string")
+	}
 	if r.Value, err = v2num("value"); err != nil {
 		return errors.Annotate(err, "value should be a number")
 	}
@@ -500,8 +509,8 @@ func (r *RowActions) Load(v []ndl.Value, s ndl.Schema) error {
 }
 
 // Load implements ndl.ValueLoader.
-func (r *RowPrices) Load(v []ndl.Value, s ndl.Schema) error {
-	if !RowPricesSchema.SubsetOf(s) {
+func (r *Price) Load(v []ndl.Value, s ndl.Schema) error {
+	if !PriceSchema.SubsetOf(s) {
 		return errors.Reason("unexpected schema: %s", s.String())
 	}
 	if len(v) != len(s) {
