@@ -170,7 +170,7 @@ type TickerRow struct {
 	Sector      string
 	Industry    string
 	Location    string
-	SECFiling   string // URL
+	SECFilings  string // URL
 	CompanySite string // URL
 }
 
