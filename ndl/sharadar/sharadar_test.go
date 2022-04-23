@@ -93,8 +93,8 @@ func TestSharadar(t *testing.T) {
 
 		Convey("FetchActions", func() {
 			page, err := ndl.TestTablePage([][]ndl.Value{
+				{"2001-01-01", "dividend", "T1", "Name1", 1.23, "", ""}, // out of order
 				{"2000-01-01", "split", "T1", "Name1", 2.0, "CT1", "Contra Name1"},
-				{"2001-01-01", "dividend", "T1", "Name1", 1.23, "", ""},
 				{"2000-02-01", "listed", "T2", "Name2", 0.0, "", ""},
 			}, ActionSchema, "")
 			So(err, ShouldBeNil)
