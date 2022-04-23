@@ -16,6 +16,7 @@ package sharadar
 
 import (
 	"context"
+	"sort"
 
 	"github.com/stockparfait/errors"
 	"github.com/stockparfait/stockparfait/db"
@@ -117,6 +118,11 @@ func (d *Dataset) FetchActions(ctx context.Context, actions ...ActionType) error
 			break
 		}
 		d.RawActions[a.Ticker] = append(d.RawActions[a.Ticker], a)
+	}
+	for _, actions := range d.RawActions {
+		sort.Slice(actions, func(i, j int) bool {
+			return actions[i].Date.Before(actions[j].Date)
+		})
 	}
 	return nil
 }
