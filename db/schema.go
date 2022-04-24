@@ -193,25 +193,23 @@ func TestAction(date Date, dividend, split float32, active bool) ActionRow {
 }
 
 // PriceRow is a row in the prices table. It is intended for daily price points.
-// Size: 24 bytes.
+// Size: 20 bytes.
 type PriceRow struct {
-	Date         Date
-	Open         float32
-	High         float32
-	Low          float32
-	Close        float32
-	DollarVolume float32
+	Date               Date
+	Close              float32
+	CloseSplitAdjusted float32 // adjusted only for splits
+	CloseFullyAdjusted float32 // adjusted for splits, dividends, spinoffs
+	DollarVolume       float32
 }
 
 // TestPrice creates a PriceRow instance for use in tests.
 func TestPrice(date Date, close, dv float32) PriceRow {
 	return PriceRow{
-		Date:         date,
-		Open:         close,
-		High:         close,
-		Low:          close,
-		Close:        close,
-		DollarVolume: dv,
+		Date:               date,
+		Close:              close,
+		CloseSplitAdjusted: close,
+		CloseFullyAdjusted: close,
+		DollarVolume:       dv,
 	}
 }
 

@@ -15,7 +15,10 @@
 package sharadar
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stockparfait/fetch"
@@ -140,6 +143,76 @@ func TestSharadar(t *testing.T) {
 				So(server.RequestQuery["action"], ShouldResemble,
 					[]string{"dividend,spinoffdividend,split"})
 			})
+		})
+
+		Convey("BulkDownloadPrices", func() {
+			bulkJSON := fmt.Sprintf(`{
+  "datatable_bulk_download": {
+      "file": {
+        "link": "%s",
+        "status": "regenerating",
+        "data_snapshot_time": "2017-04-26 14:33:02 UTC"
+      },
+      "datatable": {
+        "last_refreshed_time": "2017-10-12 09:03:36 UTC"
+      }
+    }
+}`, server.URL()+"/test.zip")
+			// The order of the samples is different for the two tickers, to test
+			// correct reordering.
+			csvRaw := `ticker,date,open,high,low,close,volume,closeadj,closeunadj,lastupdated
+A,2021-11-09,0.3,0.33,0.3,0.33,7500.0,0.33,0.33,2021-11-09
+A,2021-11-08,0.35,0.35,0.35,0.35,10.0,0.35,0.35,2021-11-09
+B,2021-09-23,9.95,9.95,10.9,5.0,2692.0,5.0,10.0,2021-09-24
+B,2021-09-24,9.74,9.75,9.73,9.75,38502.0,9.75,9.75,2021-09-24
+`
+			var buf bytes.Buffer
+			zipW := zip.NewWriter(&buf)
+			w, err := zipW.Create("test.csv")
+			So(err, ShouldBeNil)
+			_, err = bytes.NewBufferString(csvRaw).WriteTo(w)
+			So(err, ShouldBeNil)
+			So(zipW.Close(), ShouldBeNil)
+			server.ResponseBody = []string{bulkJSON, buf.String()}
+
+			expected := map[string][]db.PriceRow{
+				"A": {
+					{
+						Date:               db.NewDate(2021, 11, 8),
+						Close:              0.35,
+						DollarVolume:       10.0 * 0.35,
+						CloseSplitAdjusted: 0.35,
+						CloseFullyAdjusted: 0.35,
+					},
+					{
+						Date:               db.NewDate(2021, 11, 9),
+						Close:              0.33,
+						DollarVolume:       7500.0 * 0.33,
+						CloseSplitAdjusted: 0.33,
+						CloseFullyAdjusted: 0.33,
+					},
+				},
+				"B": {
+					{
+						Date:               db.NewDate(2021, 9, 23),
+						Close:              10.0,
+						DollarVolume:       5.0 * 2692.0,
+						CloseSplitAdjusted: 5.0,
+						CloseFullyAdjusted: 5.0,
+					},
+					{
+						Date:               db.NewDate(2021, 9, 24),
+						Close:              9.75,
+						DollarVolume:       9.75 * 38502.0,
+						CloseSplitAdjusted: 9.75,
+						CloseFullyAdjusted: 9.75,
+					},
+				},
+			}
+
+			ds := NewDataset()
+			So(ds.BulkDownloadPrices(ctx, EquitiesTable), ShouldBeNil)
+			So(ds.Prices, ShouldResemble, expected)
 		})
 	})
 }

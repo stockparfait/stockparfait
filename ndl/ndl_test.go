@@ -352,6 +352,25 @@ func TestNDL(t *testing.T) {
 			So(s.MapFields(), ShouldResemble, map[string]int{"one": 0, "two": 1, "three": 2})
 		})
 
+		Convey("MapCSVColumns", func() {
+			s := Schema{
+				{Name: "one", Type: "String"},
+				{Name: "two", Type: "Integer"},
+			}
+
+			Convey("when header is a superset", func() {
+				m, err := s.MapCSVColumns([]string{"two", "one", "extra"})
+				So(err, ShouldBeNil)
+				So(m, ShouldResemble, map[string]int{"two": 0, "one": 1, "extra": 2})
+			})
+
+			Convey("when header is missing a field", func() {
+				_, err := s.MapCSVColumns([]string{"two", "extra"})
+				So(err, ShouldNotBeNil)
+			})
+
+		})
+
 		Convey("String", func() {
 			s := Schema{{Name: "one", Type: "String"}, {Name: "two", Type: "Integer"}}
 			So(s.String(), ShouldEqual, "{one: String, two: Integer}")

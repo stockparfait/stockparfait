@@ -242,6 +242,27 @@ func (s Schema) MapFields() map[string]int {
 	return res
 }
 
+// MapCSVColumns creates a map of {field name -> CSV column index} based on the
+// CSV header. Every schema field must be present in the header, otherwise it's
+// an error.
+func (s Schema) MapCSVColumns(header []string) (map[string]int, error) {
+	res := make(map[string]int)
+	for i, h := range header {
+		res[h] = i
+	}
+	missing := []string{}
+	for _, f := range s {
+		if _, ok := res[f.Name]; !ok {
+			missing = append(missing, f.Name)
+		}
+	}
+	if len(missing) > 0 {
+		return nil, errors.Reason("header is missing fields: %s",
+			strings.Join(missing, ", "))
+	}
+	return res, nil
+}
+
 // String prints a string representation of the schema.
 func (s Schema) String() string {
 	fields := []string{}
@@ -611,7 +632,8 @@ func LoggingMonitorFactory(ctx context.Context, name string, interval int64) Dow
 // BulkDownloadCSV starts downloading the actual data pointed to by
 // BulkDownloadHandle. It downloads the zip archive with a single CSV file into
 // memory, and returns a CSVReader which streams the contents of that file.
-// Make sure to call CSVReader.Close() when done with the CSV stream.
+// When error is nil, make sure to call CSVReader.Close() when done with the CSV
+// stream.
 func BulkDownloadCSV(ctx context.Context, h *BulkDownloadHandle) (*CSVReader, error) {
 	var csvReader CSVReader
 	defer csvReader.deferredClose()
