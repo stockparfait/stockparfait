@@ -134,7 +134,7 @@ func (d *Dataset) FetchActions(ctx context.Context, actions ...ActionType) error
 	return nil
 }
 
-// BulkDownloadPrices downloads daily prices from table using bulk download API.
+// BulkDownloadPrices downloads daily prices using bulk download API.
 func (d *Dataset) BulkDownloadPrices(ctx context.Context, table TableName) error {
 	fullTable := FullTableName(table)
 	h, err := ndl.BulkDownload(ctx, fullTable)
@@ -163,16 +163,15 @@ func (d *Dataset) BulkDownloadPrices(ctx context.Context, table TableName) error
 	}
 
 	for {
-		cols, err := r.Read()
+		row, err := r.Read()
 		if err != nil {
 			if err == io.EOF {
 				break
 			}
 			return errors.Annotate(err, "failed to read CSV")
 		}
-		// TODO: parse cols into Price, then convert to db.PriceRow.
 		var p Price
-		if err := p.FromCSV(cols, colMap); err != nil {
+		if err := p.FromCSV(row, colMap); err != nil {
 			return errors.Annotate(err, "failed to parse CSV row")
 		}
 		d.Prices[p.Ticker] = append(d.Prices[p.Ticker], db.PriceRow{
