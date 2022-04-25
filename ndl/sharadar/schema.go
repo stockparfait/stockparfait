@@ -15,6 +15,7 @@
 package sharadar
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/stockparfait/errors"
@@ -558,6 +559,80 @@ func (r *Price) Load(v []ndl.Value, s ndl.Schema) error {
 	}
 	if r.LastUpdated, err = v2date("lastupdated"); err != nil {
 		return errors.Annotate(err, "lastupdated should be a date")
+	}
+	return nil
+}
+
+// FromCSV sets the value of Price from a CSV row based on a column map {field
+// name -> column number}, where the field names are as in the PriceSchema.
+func (r *Price) FromCSV(row []string, columnMap map[string]int) error {
+	if len(row) != len(columnMap) {
+		return errors.Reason("expected %d columns, received %d: %v",
+			len(columnMap), len(row), row)
+	}
+
+	r.Ticker = row[columnMap["ticker"]]
+
+	var err error
+	r.Date, err = db.NewDateFromString(row[columnMap["date"]])
+	if err != nil {
+		return errors.Annotate(err, "date must be a date string: '%s'",
+			row[columnMap["date"]])
+	}
+
+	v, err := strconv.ParseFloat(row[columnMap["open"]], 32)
+	if err != nil {
+		return errors.Annotate(err, "open should be a number: %v",
+			row[columnMap["open"]])
+	}
+	r.Open = float32(v)
+
+	v, err = strconv.ParseFloat(row[columnMap["high"]], 32)
+	if err != nil {
+		return errors.Annotate(err, "high should be a number: %v",
+			row[columnMap["high"]])
+	}
+	r.High = float32(v)
+
+	v, err = strconv.ParseFloat(row[columnMap["low"]], 32)
+	if err != nil {
+		return errors.Annotate(err, "low should be a number: %v",
+			row[columnMap["low"]])
+	}
+	r.Low = float32(v)
+
+	v, err = strconv.ParseFloat(row[columnMap["close"]], 32)
+	if err != nil {
+		return errors.Annotate(err, "close should be a number: %v",
+			row[columnMap["close"]])
+	}
+	r.Close = float32(v)
+
+	v, err = strconv.ParseFloat(row[columnMap["volume"]], 32)
+	if err != nil {
+		return errors.Annotate(err, "volume should be a number: %v",
+			row[columnMap["volume"]])
+	}
+	r.Volume = float32(v)
+
+	v, err = strconv.ParseFloat(row[columnMap["closeunadj"]], 32)
+	if err != nil {
+		return errors.Annotate(err, "closeunadj should be a number: %v",
+			row[columnMap["closeunadj"]])
+	}
+	r.CloseUnadjusted = float32(v)
+
+	v, err = strconv.ParseFloat(row[columnMap["closeadj"]], 32)
+	if err != nil {
+		return errors.Annotate(err, "closeadj should be a number: %v",
+			row[columnMap["closeadj"]])
+	}
+	r.CloseAdjusted = float32(v)
+
+	r.LastUpdated, err = db.NewDateFromString(row[columnMap["lastupdated"]])
+	if err != nil {
+		return errors.Annotate(err, "lastupdated must be a date string: '%s'",
+			row[columnMap["lastupdated"]])
 	}
 	return nil
 }

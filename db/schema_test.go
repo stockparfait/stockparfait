@@ -115,7 +115,7 @@ func TestSchema(t *testing.T) {
 
 	Convey("PriceRow", t, func() {
 		Convey("has correct size", func() {
-			So(unsafe.Sizeof(PriceRow{}), ShouldEqual, 24)
+			So(unsafe.Sizeof(PriceRow{}), ShouldEqual, 20)
 		})
 
 		Convey("TestPrice works", func() {

@@ -16,6 +16,7 @@ package sharadar
 
 import (
 	"context"
+	"io"
 	"sort"
 
 	"github.com/stockparfait/errors"
@@ -26,14 +27,20 @@ import (
 type TableName string
 
 const (
+	TickersTable  = TableName("TICKERS")
+	ActionsTable  = TableName("ACTIONS")
 	EquitiesTable = TableName("SEP")
 	FundsTable    = TableName("SFP")
 )
 
+func FullTableName(table TableName) string {
+	return "SHARADAR/" + string(table)
+}
+
 // FetchTickers returns a transparently paging iterator over RowTickers. When no
 // tables are supplied, the default is all tables.
 func FetchTickers(ctx context.Context, tables ...TableName) *ndl.RowIterator {
-	q := ndl.NewTableQuery("SHARADAR/TICKERS")
+	q := ndl.NewTableQuery(FullTableName(TickersTable))
 	if len(tables) > 0 {
 		strs := make([]string, len(tables))
 		for i, t := range tables {
@@ -47,7 +54,7 @@ func FetchTickers(ctx context.Context, tables ...TableName) *ndl.RowIterator {
 // FetchActions returns a transparently paging iterator over Action. If no
 // actions are specified, the default is all actions.
 func FetchActions(ctx context.Context, actions ...ActionType) *ndl.RowIterator {
-	q := ndl.NewTableQuery("SHARADAR/ACTIONS")
+	q := ndl.NewTableQuery(FullTableName(ActionsTable))
 	if len(actions) > 0 {
 		strs := make([]string, len(actions))
 		for i, a := range actions {
@@ -122,6 +129,63 @@ func (d *Dataset) FetchActions(ctx context.Context, actions ...ActionType) error
 	for _, actions := range d.RawActions {
 		sort.Slice(actions, func(i, j int) bool {
 			return actions[i].Date.Before(actions[j].Date)
+		})
+	}
+	return nil
+}
+
+// BulkDownloadPrices downloads daily prices using bulk download API.
+func (d *Dataset) BulkDownloadPrices(ctx context.Context, table TableName) error {
+	fullTable := FullTableName(table)
+	h, err := ndl.BulkDownload(ctx, fullTable)
+	if err != nil {
+		return errors.Annotate(err, "failed to initiate bulk download of %s", table)
+	}
+	if h.Status != ndl.StatusFresh && h.Status != ndl.StatusRegenerating {
+		return errors.Reason(
+			"table %s is not ready for bulk download, status=%s", table, h.Status)
+	}
+	var interval int64 = 10 * 1024 * 1024 // log every 10MB
+	h.MonitorFactory = ndl.LoggingMonitorFactory(ctx, fullTable, interval)
+	r, err := ndl.BulkDownloadCSV(ctx, h)
+	if err != nil {
+		return errors.Annotate(err, "failed to bulk-download CSV data of %s", table)
+	}
+	defer r.Close()
+
+	header, err := r.Read()
+	if err != nil {
+		return errors.Annotate(err, "failed to read CSV header")
+	}
+	colMap, err := PriceSchema.MapCSVColumns(header)
+	if err != nil {
+		return errors.Annotate(err, "unexpected CSV header")
+	}
+
+	for {
+		row, err := r.Read()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return errors.Annotate(err, "failed to read CSV")
+		}
+		var p Price
+		if err := p.FromCSV(row, colMap); err != nil {
+			return errors.Annotate(err, "failed to parse CSV row")
+		}
+		d.Prices[p.Ticker] = append(d.Prices[p.Ticker], db.PriceRow{
+			Date:               p.Date,
+			Close:              p.CloseUnadjusted,
+			CloseSplitAdjusted: p.Close,
+			CloseFullyAdjusted: p.CloseAdjusted,
+			DollarVolume:       p.Close * p.Volume,
+		})
+	}
+
+	for _, prices := range d.Prices {
+		sort.Slice(prices, func(i, j int) bool {
+			return prices[i].Date.Before(prices[j].Date)
 		})
 	}
 	return nil
