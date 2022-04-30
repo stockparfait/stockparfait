@@ -70,6 +70,7 @@ func TestSharadar(t *testing.T) {
 					Location:    "Here",
 					SECFilings:  "https://sec.filings",
 					CompanySite: "https://com.site",
+					Active:      true,
 				},
 				"T2": {
 					Exchange:    "Exch2",
@@ -80,6 +81,7 @@ func TestSharadar(t *testing.T) {
 					Location:    "There",
 					SECFilings:  "https://sec.filings",
 					CompanySite: "https://com.site",
+					Active:      false,
 				},
 			}
 
@@ -159,12 +161,13 @@ func TestSharadar(t *testing.T) {
     }
 }`, server.URL()+"/test.zip")
 			// The order of the samples is different for the two tickers, to test
-			// correct reordering.
+			// correct reordering. Ticker "C" is not in Tickers table, to be ignored.
 			csvRaw := `ticker,date,open,high,low,close,volume,closeadj,closeunadj,lastupdated
 A,2021-11-09,0.3,0.33,0.3,0.33,7500.0,0.33,0.33,2021-11-09
 A,2021-11-08,0.35,0.35,0.35,0.35,10.0,0.35,0.35,2021-11-09
 B,2021-09-23,9.95,9.95,10.9,5.0,2692.0,5.0,10.0,2021-09-24
 B,2021-09-24,9.74,9.75,9.73,9.75,38502.0,9.75,9.75,2021-09-24
+C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 `
 			var buf bytes.Buffer
 			zipW := zip.NewWriter(&buf)
@@ -211,8 +214,81 @@ B,2021-09-24,9.74,9.75,9.73,9.75,38502.0,9.75,9.75,2021-09-24
 			}
 
 			ds := NewDataset()
+			ds.Tickers["A"] = db.TickerRow{}
+			ds.Tickers["B"] = db.TickerRow{}
 			So(ds.BulkDownloadPrices(ctx, EquitiesTable), ShouldBeNil)
 			So(ds.Prices, ShouldResemble, expected)
+		})
+
+		Convey("ComputeActions", func() {
+			ds := NewDataset()
+			ds.Tickers = map[string]db.TickerRow{
+				"A": {Active: false}, // no delisting action, must be added
+				"B": {Active: true},
+				"C": {Active: true}, // no raw actions, must insert listed action
+			}
+			ds.RawActions = map[string][]Action{
+				"A": {
+					// Before the first price, will be recorded at the first price.
+					TestAction(db.NewDate(2010, 1, 1), ListedAction, "A", 0.0),
+					// Between prices, must merge with the next.
+					TestAction(db.NewDate(2020, 1, 15), DividendAction, "A", 1.0),
+					TestAction(db.NewDate(2020, 2, 1), SplitAction, "A", 2.0),
+				},
+				"B": {
+					// After the first price.
+					TestAction(db.NewDate(2020, 2, 1), DelistedAction, "A", 0.0),
+					// After the second but before the last price.
+					TestAction(db.NewDate(2020, 2, 15), DelistedAction, "A", 0.0),
+					// At the last price, to update the active bit.
+					TestAction(db.NewDate(2020, 3, 1), SplitAction, "A", 2.0),
+				},
+			}
+			ds.Prices = map[string][]db.PriceRow{
+				"A": {
+					db.TestPrice(db.NewDate(2020, 1, 1), 10.0, 5.0, 0.0),
+					// At split, after dividends.
+					db.TestPrice(db.NewDate(2020, 2, 1), 6.0, 6.0, 0.0),
+					// Delisting action must be at this date.
+					db.TestPrice(db.NewDate(2020, 3, 1), 7.0, 7.0, 0.0),
+				},
+				"B": {
+					// Before the first action.
+					db.TestPrice(db.NewDate(2020, 1, 1), 5.0, 5.0, 0.0),
+					// At delisted action.
+					db.TestPrice(db.NewDate(2020, 2, 1), 6.0, 6.0, 0.0),
+					// Listed action must be at this date.
+					db.TestPrice(db.NewDate(2020, 3, 1), 10.0, 10.0, 0.0),
+				},
+				"C": {
+					db.TestPrice(db.NewDate(2021, 1, 1), 5.0, 5.0, 0.0),
+					db.TestPrice(db.NewDate(2021, 2, 1), 6.0, 6.0, 0.0),
+					db.TestPrice(db.NewDate(2021, 3, 1), 10.0, 10.0, 0.0),
+				},
+			}
+			ds.ComputeActions(ctx)
+			So(ds.Actions, ShouldResemble, map[string][]db.ActionRow{
+				"A": {
+					// Listed action at first price.
+					db.TestAction(db.NewDate(2020, 1, 1), 1.0, 1.0, true),
+					// Merged split + dividend action.
+					db.TestAction(db.NewDate(2020, 2, 1), 0.8, 0.5, true),
+					// Delisted action - added automatically.
+					db.TestAction(db.NewDate(2020, 3, 1), 1.0, 1.0, false),
+				},
+				"B": {
+					// Listed action - added automatically.
+					db.TestAction(db.NewDate(2020, 1, 1), 1.0, 1.0, true),
+					// Delisted action.
+					db.TestAction(db.NewDate(2020, 2, 1), 1.0, 1.0, false),
+					// (Re)listed action - added automatically.
+					db.TestAction(db.NewDate(2020, 3, 1), 1.0, 0.5, true),
+				},
+				"C": {
+					// Listed action - added automatically.
+					db.TestAction(db.NewDate(2021, 1, 1), 1.0, 1.0, true),
+				},
+			})
 		})
 	})
 }

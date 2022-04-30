@@ -172,6 +172,7 @@ type TickerRow struct {
 	Location    string
 	SECFilings  string // URL
 	CompanySite string // URL
+	Active      bool   // ticker is listed at the last price date
 }
 
 // ActionRow is a row in the actions table. Size: 16 bytes (13+padding).
@@ -203,12 +204,12 @@ type PriceRow struct {
 }
 
 // TestPrice creates a PriceRow instance for use in tests.
-func TestPrice(date Date, close, dv float32) PriceRow {
+func TestPrice(date Date, close, adj, dv float32) PriceRow {
 	return PriceRow{
 		Date:               date,
 		Close:              close,
-		CloseSplitAdjusted: close,
-		CloseFullyAdjusted: close,
+		CloseSplitAdjusted: adj,
+		CloseFullyAdjusted: adj,
 		DollarVolume:       dv,
 	}
 }

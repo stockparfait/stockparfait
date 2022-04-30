@@ -20,6 +20,7 @@ import (
 	"sort"
 
 	"github.com/stockparfait/errors"
+	"github.com/stockparfait/logging"
 	"github.com/stockparfait/stockparfait/db"
 	"github.com/stockparfait/stockparfait/ndl"
 )
@@ -106,6 +107,7 @@ func (d *Dataset) FetchTickers(ctx context.Context, tables ...TableName) error {
 			Location:    t.Location,
 			SECFilings:  t.SECFilings,
 			CompanySite: t.CompanySite,
+			Active:      !t.IsDelisted,
 		}
 	}
 	return nil
@@ -134,7 +136,9 @@ func (d *Dataset) FetchActions(ctx context.Context, actions ...ActionType) error
 	return nil
 }
 
-// BulkDownloadPrices downloads daily prices using bulk download API.
+// BulkDownloadPrices downloads daily prices using bulk download API. It must be
+// run after downloading TICKERS table, since it will skip any ticker not in
+// TICKERS.
 func (d *Dataset) BulkDownloadPrices(ctx context.Context, table TableName) error {
 	fullTable := FullTableName(table)
 	h, err := ndl.BulkDownload(ctx, fullTable)
@@ -174,6 +178,11 @@ func (d *Dataset) BulkDownloadPrices(ctx context.Context, table TableName) error
 		if err := p.FromCSV(row, colMap); err != nil {
 			return errors.Annotate(err, "failed to parse CSV row")
 		}
+		if _, ok := d.Tickers[p.Ticker]; !ok {
+			logging.Warningf(ctx, "skipping %s prices, it's not in TICKERS table",
+				p.Ticker)
+			continue
+		}
 		d.Prices[p.Ticker] = append(d.Prices[p.Ticker], db.PriceRow{
 			Date:               p.Date,
 			Close:              p.CloseUnadjusted,
@@ -189,4 +198,94 @@ func (d *Dataset) BulkDownloadPrices(ctx context.Context, table TableName) error
 		})
 	}
 	return nil
+}
+
+// ComputeActions from RawActions and Prices of the Dataset. This method must be
+// called after all the data is downloaded. It combines multiple actions between
+// price points, creating at most one action per price point.
+func (d *Dataset) ComputeActions(ctx context.Context) {
+	// For each ticker, step through the prices and actions in sync by date, and
+	// generate the appropriate DB actions.
+	for ticker, prices := range d.Prices {
+		if len(prices) == 0 {
+			continue
+		}
+		rawActions := d.RawActions[ticker]
+
+		actions := []db.ActionRow{}
+		var prevPrice float32 // split-adjusted previous close
+		ai := 0               // action index
+		for i, price := range prices {
+			if i > 0 && ai >= len(rawActions) {
+				break
+			}
+			action := db.ActionRow{
+				Date:           price.Date,
+				DividendFactor: 1.0,
+				SplitFactor:    1.0,
+				Active:         true,
+			}
+			hasActions := false
+			for ; ai < len(rawActions) && !rawActions[ai].Date.After(price.Date); ai++ {
+				switch ra := rawActions[ai]; ra.Action {
+				case ListedAction:
+					action.Active = true
+					hasActions = true
+				case AcquisitionByAction:
+					fallthrough
+				case MergerFromAction:
+					fallthrough
+				case RegulatoryDelistingAction:
+					fallthrough
+				case VoluntaryDelistingAction:
+					fallthrough
+				case DelistedAction:
+					action.Active = false
+					hasActions = true
+				case DividendAction:
+					fallthrough
+				case SpinoffDividendAction:
+					if prevPrice > 0.0 { // no previous price at the first sample
+						action.DividendFactor *= (prevPrice - ra.Value) / prevPrice
+						hasActions = true
+					}
+				case SplitAction:
+					if ra.Value > 0.0 { // split factor cannot meaningfully be <= 0.0
+						action.SplitFactor *= 1.0 / ra.Value
+						hasActions = true
+					}
+				}
+			}
+			prevPrice = price.CloseSplitAdjusted
+			// Special case: no action at the start. Inject "listed" action.
+			if i == 0 && !hasActions {
+				action = db.ActionRow{
+					Date:           price.Date,
+					Active:         true,
+					DividendFactor: 1.0,
+					SplitFactor:    1.0,
+				}
+				hasActions = true
+			}
+			if hasActions {
+				actions = append(actions, action)
+			}
+		}
+		// Make sure that the actions' active status agrees with the ticker's.
+		t := d.Tickers[ticker]
+		if actions[len(actions)-1].Active != t.Active {
+			lastPrice := prices[len(prices)-1]
+			if actions[len(actions)-1].Date == lastPrice.Date {
+				actions[len(actions)-1].Active = t.Active
+			} else {
+				actions = append(actions, db.ActionRow{
+					Date:           lastPrice.Date,
+					DividendFactor: 1.0,
+					SplitFactor:    1.0,
+					Active:         t.Active,
+				})
+			}
+		}
+		d.Actions[ticker] = actions
+	}
 }
