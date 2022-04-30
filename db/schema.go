@@ -204,12 +204,12 @@ type PriceRow struct {
 }
 
 // TestPrice creates a PriceRow instance for use in tests.
-func TestPrice(date Date, close, dv float32) PriceRow {
+func TestPrice(date Date, close, adj, dv float32) PriceRow {
 	return PriceRow{
 		Date:               date,
 		Close:              close,
-		CloseSplitAdjusted: close,
-		CloseFullyAdjusted: close,
+		CloseSplitAdjusted: adj,
+		CloseFullyAdjusted: adj,
 		DollarVolume:       dv,
 	}
 }

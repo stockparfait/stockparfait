@@ -221,7 +221,6 @@ C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 		})
 
 		Convey("ComputeActions", func() {
-			// TODO: populate RawActions and Prices, run and test.
 			ds := NewDataset()
 			ds.Tickers = map[string]db.TickerRow{
 				"A": {Active: false}, // no delisting action, must be added
@@ -229,114 +228,55 @@ C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 			}
 			ds.RawActions = map[string][]Action{
 				"A": {
-					{ // before the first price, will be recorded at the first price
-						Date:   db.NewDate(2010, 1, 1),
-						Action: ListedAction,
-					},
-					{ // between prices, must merge with the next
-						Date:   db.NewDate(2020, 1, 15),
-						Action: DividendAction,
-						Value:  1.0,
-					},
-					{
-						Date:   db.NewDate(2020, 2, 1),
-						Action: SplitAction,
-						Value:  2.0,
-					},
+					// Before the first price, will be recorded at the first price.
+					TestAction(db.NewDate(2010, 1, 1), ListedAction, "A", 0.0),
+					// Between prices, must merge with the next.
+					TestAction(db.NewDate(2020, 1, 15), DividendAction, "A", 1.0),
+					TestAction(db.NewDate(2020, 2, 1), SplitAction, "A", 2.0),
 				},
 				"B": {
-					{ // after the first price
-						Date:   db.NewDate(2020, 2, 1),
-						Action: DelistedAction,
-					},
-					{ // after the second but before the last price
-						Date:   db.NewDate(2020, 2, 15),
-						Action: DelistedAction,
-					},
-					{ // at the last price, to update the active bit
-						Date:   db.NewDate(2020, 3, 1),
-						Action: SplitAction,
-						Value:  2.0,
-					},
+					// After the first price.
+					TestAction(db.NewDate(2020, 2, 1), DelistedAction, "A", 0.0),
+					// After the second but before the last price.
+					TestAction(db.NewDate(2020, 2, 15), DelistedAction, "A", 0.0),
+					// At the last price, to update the active bit.
+					TestAction(db.NewDate(2020, 3, 1), SplitAction, "A", 2.0),
 				},
 			}
 			ds.Prices = map[string][]db.PriceRow{
 				"A": {
-					{
-						Date:               db.NewDate(2020, 1, 1),
-						Close:              10.0,
-						CloseSplitAdjusted: 5.0,
-					},
-					{ // at split, after dividends
-						Date:               db.NewDate(2020, 2, 1),
-						Close:              6.0,
-						CloseSplitAdjusted: 6.0,
-					},
-					{ // delisting action must be at this date
-						Date:               db.NewDate(2020, 3, 1),
-						Close:              7.0,
-						CloseSplitAdjusted: 7.0,
-					},
+					db.TestPrice(db.NewDate(2020, 1, 1), 10.0, 5.0, 0.0),
+					// At split, after dividends.
+					db.TestPrice(db.NewDate(2020, 2, 1), 6.0, 6.0, 0.0),
+					// Delisting action must be at this date.
+					db.TestPrice(db.NewDate(2020, 3, 1), 7.0, 7.0, 0.0),
 				},
 				"B": {
-					{ // before the first action
-						Date:               db.NewDate(2020, 1, 1),
-						Close:              5.0,
-						CloseSplitAdjusted: 5.0,
-					},
-					{ // at delisted action
-						Date:               db.NewDate(2020, 2, 1),
-						Close:              6.0,
-						CloseSplitAdjusted: 6.0,
-					},
-					{ // listed action must be at this date
-						Date:               db.NewDate(2020, 3, 1),
-						Close:              10.0,
-						CloseSplitAdjusted: 10.0,
-					},
+					// Before the first action.
+					db.TestPrice(db.NewDate(2020, 1, 1), 5.0, 5.0, 0.0),
+					// at delisted action
+					db.TestPrice(db.NewDate(2020, 2, 1), 6.0, 6.0, 0.0),
+					// listed action must be at this date
+					db.TestPrice(db.NewDate(2020, 3, 1), 10.0, 10.0, 0.0),
 				},
 			}
 			ds.ComputeActions(ctx)
 			So(ds.Actions, ShouldResemble, map[string][]db.ActionRow{
 				"A": {
-					{ // listed action at first price
-						Date:           db.NewDate(2020, 1, 1),
-						DividendFactor: 1.0,
-						SplitFactor:    1.0,
-						Active:         true,
-					},
-					{ // merged split + dividend action
-						Date:           db.NewDate(2020, 2, 1),
-						DividendFactor: 0.8,
-						SplitFactor:    0.5,
-						Active:         true,
-					},
-					{ // delisted action - added automatically
-						Date:           db.NewDate(2020, 3, 1),
-						DividendFactor: 1.0,
-						SplitFactor:    1.0,
-						Active:         false,
-					},
+					// listed action at first price
+					db.TestAction(db.NewDate(2020, 1, 1), 1.0, 1.0, true),
+					// merged split + dividend action
+					db.TestAction(db.NewDate(2020, 2, 1), 0.8, 0.5, true),
+					// delisted action - added automatically
+					db.TestAction(db.NewDate(2020, 3, 1), 1.0, 1.0, false),
 				},
 				"B": {
-					{ // listed action - added automatically
-						Date:           db.NewDate(2020, 1, 1),
-						DividendFactor: 1.0,
-						SplitFactor:    1.0,
-						Active:         true,
-					},
-					{ // delisted action
-						Date:           db.NewDate(2020, 2, 1),
-						DividendFactor: 1.0,
-						SplitFactor:    1.0,
-						Active:         false,
-					},
-					{ // (re)listed action - added automatically
-						Date:           db.NewDate(2020, 3, 1),
-						DividendFactor: 1.0,
-						SplitFactor:    0.5,
-						Active:         true,
-					},
+					// listed action - added automatically
+					db.TestAction(db.NewDate(2020, 1, 1), 1.0, 1.0, true),
+					// delisted action
+					db.TestAction(db.NewDate(2020, 2, 1), 1.0, 1.0, false),
+					// (re)listed action - added automatically
+					db.TestAction(db.NewDate(2020, 3, 1), 1.0, 0.5, true),
 				},
 			})
 		})

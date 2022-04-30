@@ -210,6 +210,16 @@ type Action struct {
 
 var _ ndl.ValueLoader = &Action{}
 
+// TestAction creates an Action for use in tests.
+func TestAction(date db.Date, action ActionType, ticker string, value float32) Action {
+	return Action{
+		Date:   date,
+		Action: action,
+		Ticker: ticker,
+		Value:  value,
+	}
+}
+
 // ActionSchema is the expected schema for the ACTIONS table.
 var ActionSchema = ndl.Schema{
 	{Name: "date", Type: "Date"},

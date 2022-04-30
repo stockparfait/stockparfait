@@ -227,6 +227,7 @@ func (d *Dataset) ComputeActions(ctx context.Context) {
 				switch ra := rawActions[ai]; ra.Action {
 				case ListedAction:
 					action.Active = true
+					hasActions = true
 				case AcquisitionByAction:
 					fallthrough
 				case MergerFromAction:
@@ -237,23 +238,22 @@ func (d *Dataset) ComputeActions(ctx context.Context) {
 					fallthrough
 				case DelistedAction:
 					action.Active = false
+					hasActions = true
 				case DividendAction:
 					fallthrough
 				case SpinoffDividendAction:
-					if prevPrice == 0.0 { // usually happens at the first sample
-						continue
+					if prevPrice > 0.0 { // no previous price at the first sample
+						action.DividendFactor *= (prevPrice - ra.Value) / prevPrice
+						hasActions = true
 					}
-					action.DividendFactor *= (prevPrice - ra.Value) / prevPrice
 				case SplitAction:
-					if ra.Value <= 0.0 { // split factor cannot meaningfully be <= 0.0
-						continue
+					if ra.Value > 0.0 { // split factor cannot meaningfully be <= 0.0
+						action.SplitFactor *= 1.0 / ra.Value
+						hasActions = true
 					}
-					action.SplitFactor *= 1.0 / ra.Value
-				default:
-					continue
 				}
-				hasActions = true
 			}
+			prevPrice = price.CloseSplitAdjusted
 			// Special case: no action at the start. Inject "listed" action.
 			if i == 0 && !hasActions {
 				action = db.ActionRow{
@@ -267,10 +267,6 @@ func (d *Dataset) ComputeActions(ctx context.Context) {
 			if hasActions {
 				actions = append(actions, action)
 			}
-			if ai >= len(rawActions) {
-				break
-			}
-			prevPrice = price.CloseSplitAdjusted
 		}
 		// Make sure that the actions' active status agrees with the ticker's.
 		t := d.Tickers[ticker]
