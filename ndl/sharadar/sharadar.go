@@ -216,6 +216,9 @@ func (d *Dataset) ComputeActions(ctx context.Context) {
 		var prevPrice float32 // split-adjusted previous close
 		ai := 0               // action index
 		for i, price := range prices {
+			if i > 0 && ai >= len(rawActions) {
+				break
+			}
 			action := db.ActionRow{
 				Date:           price.Date,
 				DividendFactor: 1.0,

@@ -225,6 +225,7 @@ C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 			ds.Tickers = map[string]db.TickerRow{
 				"A": {Active: false}, // no delisting action, must be added
 				"B": {Active: true},
+				"C": {Active: true}, // no raw actions, must insert listed action
 			}
 			ds.RawActions = map[string][]Action{
 				"A": {
@@ -254,29 +255,38 @@ C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 				"B": {
 					// Before the first action.
 					db.TestPrice(db.NewDate(2020, 1, 1), 5.0, 5.0, 0.0),
-					// at delisted action
+					// At delisted action.
 					db.TestPrice(db.NewDate(2020, 2, 1), 6.0, 6.0, 0.0),
-					// listed action must be at this date
+					// Listed action must be at this date.
 					db.TestPrice(db.NewDate(2020, 3, 1), 10.0, 10.0, 0.0),
+				},
+				"C": {
+					db.TestPrice(db.NewDate(2021, 1, 1), 5.0, 5.0, 0.0),
+					db.TestPrice(db.NewDate(2021, 2, 1), 6.0, 6.0, 0.0),
+					db.TestPrice(db.NewDate(2021, 3, 1), 10.0, 10.0, 0.0),
 				},
 			}
 			ds.ComputeActions(ctx)
 			So(ds.Actions, ShouldResemble, map[string][]db.ActionRow{
 				"A": {
-					// listed action at first price
+					// Listed action at first price.
 					db.TestAction(db.NewDate(2020, 1, 1), 1.0, 1.0, true),
-					// merged split + dividend action
+					// Merged split + dividend action.
 					db.TestAction(db.NewDate(2020, 2, 1), 0.8, 0.5, true),
-					// delisted action - added automatically
+					// Delisted action - added automatically.
 					db.TestAction(db.NewDate(2020, 3, 1), 1.0, 1.0, false),
 				},
 				"B": {
-					// listed action - added automatically
+					// Listed action - added automatically.
 					db.TestAction(db.NewDate(2020, 1, 1), 1.0, 1.0, true),
-					// delisted action
+					// Delisted action.
 					db.TestAction(db.NewDate(2020, 2, 1), 1.0, 1.0, false),
-					// (re)listed action - added automatically
+					// (Re)listed action - added automatically.
 					db.TestAction(db.NewDate(2020, 3, 1), 1.0, 0.5, true),
+				},
+				"C": {
+					// Listed action - added automatically.
+					db.TestAction(db.NewDate(2021, 1, 1), 1.0, 1.0, true),
 				},
 			})
 		})
