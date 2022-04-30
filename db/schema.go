@@ -172,6 +172,7 @@ type TickerRow struct {
 	Location    string
 	SECFilings  string // URL
 	CompanySite string // URL
+	Active      bool   // ticker is listed at the last price date
 }
 
 // ActionRow is a row in the actions table. Size: 16 bytes (13+padding).

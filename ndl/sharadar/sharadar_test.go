@@ -70,6 +70,7 @@ func TestSharadar(t *testing.T) {
 					Location:    "Here",
 					SECFilings:  "https://sec.filings",
 					CompanySite: "https://com.site",
+					Active:      true,
 				},
 				"T2": {
 					Exchange:    "Exch2",
@@ -80,6 +81,7 @@ func TestSharadar(t *testing.T) {
 					Location:    "There",
 					SECFilings:  "https://sec.filings",
 					CompanySite: "https://com.site",
+					Active:      false,
 				},
 			}
 
@@ -159,12 +161,13 @@ func TestSharadar(t *testing.T) {
     }
 }`, server.URL()+"/test.zip")
 			// The order of the samples is different for the two tickers, to test
-			// correct reordering.
+			// correct reordering. Ticker "C" is not in Tickers table, to be ignored.
 			csvRaw := `ticker,date,open,high,low,close,volume,closeadj,closeunadj,lastupdated
 A,2021-11-09,0.3,0.33,0.3,0.33,7500.0,0.33,0.33,2021-11-09
 A,2021-11-08,0.35,0.35,0.35,0.35,10.0,0.35,0.35,2021-11-09
 B,2021-09-23,9.95,9.95,10.9,5.0,2692.0,5.0,10.0,2021-09-24
 B,2021-09-24,9.74,9.75,9.73,9.75,38502.0,9.75,9.75,2021-09-24
+C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 `
 			var buf bytes.Buffer
 			zipW := zip.NewWriter(&buf)
@@ -211,8 +214,131 @@ B,2021-09-24,9.74,9.75,9.73,9.75,38502.0,9.75,9.75,2021-09-24
 			}
 
 			ds := NewDataset()
+			ds.Tickers["A"] = db.TickerRow{}
+			ds.Tickers["B"] = db.TickerRow{}
 			So(ds.BulkDownloadPrices(ctx, EquitiesTable), ShouldBeNil)
 			So(ds.Prices, ShouldResemble, expected)
+		})
+
+		Convey("ComputeActions", func() {
+			// TODO: populate RawActions and Prices, run and test.
+			ds := NewDataset()
+			ds.Tickers = map[string]db.TickerRow{
+				"A": {Active: false}, // no delisting action, must be added
+				"B": {Active: true},
+			}
+			ds.RawActions = map[string][]Action{
+				"A": {
+					{ // before the first price, will be recorded at the first price
+						Date:   db.NewDate(2010, 1, 1),
+						Action: ListedAction,
+					},
+					{ // between prices, must merge with the next
+						Date:   db.NewDate(2020, 1, 15),
+						Action: DividendAction,
+						Value:  1.0,
+					},
+					{
+						Date:   db.NewDate(2020, 2, 1),
+						Action: SplitAction,
+						Value:  2.0,
+					},
+				},
+				"B": {
+					{ // after the first price
+						Date:   db.NewDate(2020, 2, 1),
+						Action: DelistedAction,
+					},
+					{ // after the second but before the last price
+						Date:   db.NewDate(2020, 2, 15),
+						Action: DelistedAction,
+					},
+					{ // at the last price, to update the active bit
+						Date:   db.NewDate(2020, 3, 1),
+						Action: SplitAction,
+						Value:  2.0,
+					},
+				},
+			}
+			ds.Prices = map[string][]db.PriceRow{
+				"A": {
+					{
+						Date:               db.NewDate(2020, 1, 1),
+						Close:              10.0,
+						CloseSplitAdjusted: 5.0,
+					},
+					{ // at split, after dividends
+						Date:               db.NewDate(2020, 2, 1),
+						Close:              6.0,
+						CloseSplitAdjusted: 6.0,
+					},
+					{ // delisting action must be at this date
+						Date:               db.NewDate(2020, 3, 1),
+						Close:              7.0,
+						CloseSplitAdjusted: 7.0,
+					},
+				},
+				"B": {
+					{ // before the first action
+						Date:               db.NewDate(2020, 1, 1),
+						Close:              5.0,
+						CloseSplitAdjusted: 5.0,
+					},
+					{ // at delisted action
+						Date:               db.NewDate(2020, 2, 1),
+						Close:              6.0,
+						CloseSplitAdjusted: 6.0,
+					},
+					{ // listed action must be at this date
+						Date:               db.NewDate(2020, 3, 1),
+						Close:              10.0,
+						CloseSplitAdjusted: 10.0,
+					},
+				},
+			}
+			ds.ComputeActions(ctx)
+			So(ds.Actions, ShouldResemble, map[string][]db.ActionRow{
+				"A": {
+					{ // listed action at first price
+						Date:           db.NewDate(2020, 1, 1),
+						DividendFactor: 1.0,
+						SplitFactor:    1.0,
+						Active:         true,
+					},
+					{ // merged split + dividend action
+						Date:           db.NewDate(2020, 2, 1),
+						DividendFactor: 0.8,
+						SplitFactor:    0.5,
+						Active:         true,
+					},
+					{ // delisted action - added automatically
+						Date:           db.NewDate(2020, 3, 1),
+						DividendFactor: 1.0,
+						SplitFactor:    1.0,
+						Active:         false,
+					},
+				},
+				"B": {
+					{ // listed action - added automatically
+						Date:           db.NewDate(2020, 1, 1),
+						DividendFactor: 1.0,
+						SplitFactor:    1.0,
+						Active:         true,
+					},
+					{ // delisted action
+						Date:           db.NewDate(2020, 2, 1),
+						DividendFactor: 1.0,
+						SplitFactor:    1.0,
+						Active:         false,
+					},
+					{ // (re)listed action - added automatically
+						Date:           db.NewDate(2020, 3, 1),
+						DividendFactor: 1.0,
+						SplitFactor:    0.5,
+						Active:         true,
+					},
+				},
+			})
 		})
 	})
 }
