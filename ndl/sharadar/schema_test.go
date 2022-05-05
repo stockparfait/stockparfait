@@ -223,34 +223,67 @@ func TestSchema(t *testing.T) {
 			"lastupdated",
 			"fakefield", // extra field
 		}
-		row := []string{
-			"2020-03-14",
-			"ABC",
-			"14.5",
-			"20.0",
-			"10.2",
-			"15.0",
-			"1234.0",
-			"30.0",
-			"10.0",
-			"2020-04-01",
-			"fake",
-		}
-		p := Price{}
 		cmap, err := PriceSchema.MapCSVColumns(header)
 		So(err, ShouldBeNil)
-		So(p.FromCSV(row, cmap), ShouldBeNil)
-		So(p, ShouldResemble, Price{
-			Ticker:          "ABC",
-			Date:            db.NewDate(2020, 3, 14),
-			Open:            14.5,
-			High:            20.0,
-			Low:             10.2,
-			Close:           15.0,
-			Volume:          1234.0,
-			CloseUnadjusted: 30.0,
-			CloseAdjusted:   10.0,
-			LastUpdated:     db.NewDate(2020, 4, 1),
+
+		Convey("for a regular row", func() {
+			row := []string{
+				"2020-03-14",
+				"ABC",
+				"14.5",
+				"20.0",
+				"10.2",
+				"15.0",
+				"1234.0",
+				"30.0",
+				"10.0",
+				"2020-04-01",
+				"fake",
+			}
+			p := Price{}
+			So(p.FromCSV(row, cmap), ShouldBeNil)
+			So(p, ShouldResemble, Price{
+				Ticker:          "ABC",
+				Date:            db.NewDate(2020, 3, 14),
+				Open:            14.5,
+				High:            20.0,
+				Low:             10.2,
+				Close:           15.0,
+				Volume:          1234.0,
+				CloseUnadjusted: 30.0,
+				CloseAdjusted:   10.0,
+				LastUpdated:     db.NewDate(2020, 4, 1),
+			})
+		})
+
+		Convey("for a row with a missing volume", func() {
+			row := []string{
+				"2020-03-14",
+				"ABC",
+				"14.5",
+				"20.0",
+				"10.2",
+				"15.0",
+				"", // volume missing (happens in real data)
+				"30.0",
+				"10.0",
+				"2020-04-01",
+				"fake",
+			}
+			p := Price{}
+			So(p.FromCSV(row, cmap), ShouldBeNil)
+			So(p, ShouldResemble, Price{
+				Ticker:          "ABC",
+				Date:            db.NewDate(2020, 3, 14),
+				Open:            14.5,
+				High:            20.0,
+				Low:             10.2,
+				Close:           15.0,
+				Volume:          0.0,
+				CloseUnadjusted: 30.0,
+				CloseAdjusted:   10.0,
+				LastUpdated:     db.NewDate(2020, 4, 1),
+			})
 		})
 	})
 }

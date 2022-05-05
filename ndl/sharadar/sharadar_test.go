@@ -19,6 +19,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/stockparfait/fetch"
@@ -39,29 +41,37 @@ func TestSharadar(t *testing.T) {
 		ndl.URL = server.URL() + "/api/v3"
 		ctx = ndl.UseClient(ctx, testKey)
 
+		tickersPage, err := ndl.TestTablePage([][]ndl.Value{
+			{
+				"SEP", 100, "A", "Name1", "Exch1", "N", "Cat1", "CUSIP1 CUSIP2",
+				111, "SICSec1", "SICInd1", "FAMASec1", "FAMAInd1", "Sec1", "Ind1",
+				"4 - Mid", "3 - Small", "RT1 RT2", "USD", "Here",
+				"2020-02-22", "2000-01-11", "2000-02-01", "2020-02-22",
+				"2000-01-01", "2020-03-31", "https://sec.filings", "https://com.site",
+			},
+			{
+				"SFP", 200, "B", "Name2", "Exch2", "Y", "Cat2", "CUSIP3 CUSIP4",
+				222, "SICSec2", "SICInd2", "FAMASec2", "FAMAInd2", "Sec2", "Ind2",
+				"2 - Micro", "5 - Large", "RT3 RT4", "RUB", "There",
+				"2020-02-22", "2000-01-11", "2000-02-01", "2020-02-22",
+				"2000-01-01", "2020-03-31", "https://sec.filings", "https://com.site",
+			},
+			{
+				"SFP", 200, "C", "Name3", "Exch3", "Y", "Cat3", "CUSIP5 CUSIP6",
+				333, "SICSec3", "SICInd3", "FAMASec3", "FAMAInd3", "Sec3", "Ind3",
+				"2 - Micro", "5 - Large", "RT5 RT6", "EUR", "Where",
+				"2020-02-22", "2000-01-11", "2000-02-01", "2020-02-22",
+				"2000-01-01", "2020-03-31", "https://sec.filings", "https://com.site",
+			},
+		}, TickerSchema, "")
+		So(err, ShouldBeNil)
+
 		Convey("FetchTickers", func() {
-			page, err := ndl.TestTablePage([][]ndl.Value{
-				{
-					"SEP", 100, "T1", "Name1", "Exch1", "N", "Cat1", "CUSIP1 CUSIP2",
-					111, "SICSec1", "SICInd1", "FAMASec1", "FAMAInd1", "Sec1", "Ind1",
-					"4 - Mid", "3 - Small", "RT1 RT2", "USD", "Here",
-					"2020-02-22", "2000-01-11", "2000-02-01", "2020-02-22",
-					"2000-01-01", "2020-03-31", "https://sec.filings", "https://com.site",
-				},
-				{
-					"SFP", 200, "T2", "Name2", "Exch2", "Y", "Cat2", "CUSIP3 CUSIP4",
-					222, "SICSec2", "SICInd2", "FAMASec2", "FAMAInd2", "Sec2", "Ind2",
-					"2 - Micro", "5 - Large", "RT3 RT4", "RUB", "There",
-					"2020-02-22", "2000-01-11", "2000-02-01", "2020-02-22",
-					"2000-01-01", "2020-03-31", "https://sec.filings", "https://com.site",
-				},
-			}, TickerSchema, "")
-			So(err, ShouldBeNil)
-			server.ResponseBody = []string{page}
+			server.ResponseBody = []string{tickersPage}
 			ds := NewDataset()
 
 			expected := map[string]db.TickerRow{
-				"T1": {
+				"A": {
 					Exchange:    "Exch1",
 					Name:        "Name1",
 					Category:    "Cat1",
@@ -72,13 +82,24 @@ func TestSharadar(t *testing.T) {
 					CompanySite: "https://com.site",
 					Active:      true,
 				},
-				"T2": {
+				"B": {
 					Exchange:    "Exch2",
 					Name:        "Name2",
 					Category:    "Cat2",
 					Sector:      "Sec2",
 					Industry:    "Ind2",
 					Location:    "There",
+					SECFilings:  "https://sec.filings",
+					CompanySite: "https://com.site",
+					Active:      false,
+				},
+				"C": {
+					Exchange:    "Exch3",
+					Name:        "Name3",
+					Category:    "Cat3",
+					Sector:      "Sec3",
+					Industry:    "Ind3",
+					Location:    "Where",
 					SECFilings:  "https://sec.filings",
 					CompanySite: "https://com.site",
 					Active:      false,
@@ -96,22 +117,23 @@ func TestSharadar(t *testing.T) {
 			})
 		})
 
+		actionsPage, err := ndl.TestTablePage([][]ndl.Value{
+			{"2001-01-01", "dividend", "A", "Name1", 1.23, "", ""}, // out of order
+			{"2000-01-01", "split", "A", "Name1", 2.0, "CT1", "Contra Name1"},
+			{"2000-02-01", "listed", "B", "Name2", 0.0, "", ""},
+		}, ActionSchema, "")
+		So(err, ShouldBeNil)
+
 		Convey("FetchActions", func() {
-			page, err := ndl.TestTablePage([][]ndl.Value{
-				{"2001-01-01", "dividend", "T1", "Name1", 1.23, "", ""}, // out of order
-				{"2000-01-01", "split", "T1", "Name1", 2.0, "CT1", "Contra Name1"},
-				{"2000-02-01", "listed", "T2", "Name2", 0.0, "", ""},
-			}, ActionSchema, "")
-			So(err, ShouldBeNil)
-			server.ResponseBody = []string{page}
+			server.ResponseBody = []string{actionsPage}
 			ds := NewDataset()
 
 			expected := map[string][]Action{
-				"T1": {
+				"A": {
 					{
 						Date:         db.NewDate(2000, 1, 1),
 						Action:       SplitAction,
-						Ticker:       "T1",
+						Ticker:       "A",
 						Name:         "Name1",
 						Value:        2.0,
 						ContraTicker: "CT1",
@@ -120,16 +142,16 @@ func TestSharadar(t *testing.T) {
 					{
 						Date:   db.NewDate(2001, 1, 1),
 						Action: DividendAction,
-						Ticker: "T1",
+						Ticker: "A",
 						Name:   "Name1",
 						Value:  1.23,
 					},
 				},
-				"T2": {
+				"B": {
 					{
 						Date:   db.NewDate(2000, 2, 1),
 						Action: ListedAction,
-						Ticker: "T2",
+						Ticker: "B",
 						Name:   "Name2",
 					},
 				},
@@ -138,17 +160,17 @@ func TestSharadar(t *testing.T) {
 			Convey("for all actions", func() {
 				So(ds.FetchActions(ctx), ShouldBeNil)
 				So(ds.RawActions, ShouldResemble, expected)
+				So(ds.NumRawActions, ShouldEqual, 3)
 			})
 
 			Convey("for selected actions", func() {
-				So(ds.FetchActions(ctx, AdjustmentActions...), ShouldBeNil)
+				So(ds.FetchActions(ctx, RelevantActions...), ShouldBeNil)
 				So(server.RequestQuery["action"], ShouldResemble,
-					[]string{"dividend,spinoffdividend,split"})
+					[]string{"acquisitionby,delisted,dividend,listed,mergerfrom,regulatorydelisting,spinoffdividend,split,voluntarydelisting"})
 			})
 		})
 
-		Convey("BulkDownloadPrices", func() {
-			bulkJSON := fmt.Sprintf(`{
+		bulkJSON := fmt.Sprintf(`{
   "datatable_bulk_download": {
       "file": {
         "link": "%s",
@@ -160,23 +182,27 @@ func TestSharadar(t *testing.T) {
       }
     }
 }`, server.URL()+"/test.zip")
-			// The order of the samples is different for the two tickers, to test
-			// correct reordering. Ticker "C" is not in Tickers table, to be ignored.
-			csvRaw := `ticker,date,open,high,low,close,volume,closeadj,closeunadj,lastupdated
+		// The order of the samples is different for the two tickers, to test
+		// correct reordering. Ticker "C" is not in Tickers table, to be ignored.
+		bulkCSVRaw := `ticker,date,open,high,low,close,volume,closeadj,closeunadj,lastupdated
 A,2021-11-09,0.3,0.33,0.3,0.33,7500.0,0.33,0.33,2021-11-09
 A,2021-11-08,0.35,0.35,0.35,0.35,10.0,0.35,0.35,2021-11-09
 B,2021-09-23,9.95,9.95,10.9,5.0,2692.0,5.0,10.0,2021-09-24
 B,2021-09-24,9.74,9.75,9.73,9.75,38502.0,9.75,9.75,2021-09-24
 C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 `
-			var buf bytes.Buffer
-			zipW := zip.NewWriter(&buf)
-			w, err := zipW.Create("test.csv")
-			So(err, ShouldBeNil)
-			_, err = bytes.NewBufferString(csvRaw).WriteTo(w)
-			So(err, ShouldBeNil)
-			So(zipW.Close(), ShouldBeNil)
-			server.ResponseBody = []string{bulkJSON, buf.String()}
+
+		var bulkZip bytes.Buffer
+		zipW := zip.NewWriter(&bulkZip)
+		w, err := zipW.Create("test.csv")
+		So(err, ShouldBeNil)
+		_, err = bytes.NewBufferString(bulkCSVRaw).WriteTo(w)
+		So(err, ShouldBeNil)
+		So(zipW.Close(), ShouldBeNil)
+		bulkZipStr := bulkZip.String()
+
+		Convey("BulkDownloadPrices", func() {
+			server.ResponseBody = []string{bulkJSON, bulkZipStr}
 
 			expected := map[string][]db.PriceRow{
 				"A": {
@@ -267,6 +293,7 @@ C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 				},
 			}
 			ds.ComputeActions(ctx)
+			So(ds.NumActions, ShouldEqual, 7)
 			So(ds.Actions, ShouldResemble, map[string][]db.ActionRow{
 				"A": {
 					// Listed action at first price.
@@ -288,6 +315,33 @@ C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 					// Listed action - added automatically.
 					db.TestAction(db.NewDate(2021, 1, 1), 1.0, 1.0, true),
 				},
+			})
+		})
+
+		Convey("DownloadAll", func() {
+			tmpdir, tmpdirErr := ioutil.TempDir("", "testdownload")
+			So(tmpdirErr, ShouldBeNil)
+			defer os.RemoveAll(tmpdir)
+
+			server.ResponseBody = []string{
+				tickersPage,
+				actionsPage,
+				bulkJSON,
+				bulkZipStr,
+			}
+
+			ds := NewDataset()
+			So(ds.DownloadAll(ctx, tmpdir, EquitiesTable), ShouldBeNil)
+			d := db.NewDatabase(tmpdir)
+			meta, err := d.Metadata()
+			So(err, ShouldBeNil)
+			So(meta, ShouldResemble, db.Metadata{
+				Start:      db.NewDate(2019, 9, 24),
+				End:        db.NewDate(2021, 11, 9),
+				NumTickers: 3,
+				NumActions: 4,
+				NumPrices:  5,
+				NumMonthly: 0,
 			})
 		})
 	})
