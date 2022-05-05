@@ -31,12 +31,12 @@ const (
 	dbContextKey contextKey = iota
 )
 
-// UseDB injects database directory path into the context.
+// UseDB injects database into the context.
 func UseDB(ctx context.Context, db *Database) context.Context {
 	return context.WithValue(ctx, dbContextKey, db)
 }
 
-// GetDB extracts database directory path from the context.
+// GetDB extracts database from the context.
 func GetDB(ctx context.Context) *Database {
 	db, ok := ctx.Value(dbContextKey).(*Database)
 	if !ok {
