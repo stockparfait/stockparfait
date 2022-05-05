@@ -112,8 +112,8 @@ func (it *RowIterator) nextPage() (bool, error) {
 	it.index = 0
 	it.pageCount++
 	logging.Debugf(it.context,
-		"Nasdaq Data Link: fetched page %d with %d rows; cursor: %s",
-		it.pageCount, len(it.page.Datatable.Data), it.page.Meta.Cursor)
+		"Nasdaq Data Link: fetched page %d with %d rows",
+		it.pageCount, len(it.page.Datatable.Data))
 	return true, nil
 }
 
@@ -485,7 +485,7 @@ const (
 
 // DownloadMonitorFactory creates a pass-through io.Reader from
 // http.Response.Body which allows to monitor bulk data download progress.
-type DownloadMonitorFactory = func(*http.Response) io.Reader
+type DownloadMonitorFactory = func(*http.Response) io.ReadCloser
 
 // BulkDownloadHandle is a simplified result of the first asynchronous bulk
 // download call.
@@ -588,7 +588,7 @@ type loggingReader struct {
 	received int64  // bytes received so far
 	interval int64  // emit log every interval bytes
 	nextLog  int64  // emit log when received >= nextLog
-	reader   io.Reader
+	reader   io.ReadCloser
 }
 
 // Read implements io.Reader.
@@ -605,6 +605,13 @@ func (l *loggingReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
+// Close implements io.Closer.
+func (l *loggingReader) Close() error {
+	logging.Infof(l.ctx, "downloaded %s: %s%s",
+		l.name, humanize(l.received), l.sizeMsg)
+	return l.reader.Close()
+}
+
 // LoggingMonitorFactory is the default download monitor factory which logs the
 // progress report of data identified by name every interval bytes. If interval
 // is not positive, it is set to 10MB.
@@ -612,7 +619,7 @@ func LoggingMonitorFactory(ctx context.Context, name string, interval int64) Dow
 	if interval <= 0 { // default is 10MB
 		interval = 10 * 1024 * 1024
 	}
-	return func(r *http.Response) io.Reader {
+	return func(r *http.Response) io.ReadCloser {
 		size := r.ContentLength
 		sizeMsg := ""
 		if size >= 0 {
@@ -650,13 +657,15 @@ func BulkDownloadCSV(ctx context.Context, h *BulkDownloadHandle) (*CSVReader, er
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to initiate download")
 	}
-	csvReader.AddCloser(resp.Body)
 
-	var reader io.Reader = resp.Body
+	var reader io.ReadCloser
+	reader = resp.Body
 	if h.MonitorFactory != nil {
 		reader = h.MonitorFactory(resp)
 	}
+
 	data, err := io.ReadAll(reader)
+	reader.Close() // close it ASAP to emit all the relevant logs
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to read response body")
 	}

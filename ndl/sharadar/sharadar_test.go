@@ -138,12 +138,13 @@ func TestSharadar(t *testing.T) {
 			Convey("for all actions", func() {
 				So(ds.FetchActions(ctx), ShouldBeNil)
 				So(ds.RawActions, ShouldResemble, expected)
+				So(ds.NumRawActions, ShouldEqual, 3)
 			})
 
 			Convey("for selected actions", func() {
-				So(ds.FetchActions(ctx, AdjustmentActions...), ShouldBeNil)
+				So(ds.FetchActions(ctx, RelevantActions...), ShouldBeNil)
 				So(server.RequestQuery["action"], ShouldResemble,
-					[]string{"dividend,spinoffdividend,split"})
+					[]string{"acquisitionby,delisted,dividend,listed,mergerfrom,regulatorydelisting,spinoffdividend,split,voluntarydelisting"})
 			})
 		})
 
@@ -267,6 +268,7 @@ C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 				},
 			}
 			ds.ComputeActions(ctx)
+			So(ds.NumActions, ShouldEqual, 7)
 			So(ds.Actions, ShouldResemble, map[string][]db.ActionRow{
 				"A": {
 					// Listed action at first price.

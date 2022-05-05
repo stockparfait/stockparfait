@@ -18,6 +18,7 @@ import (
 	"context"
 	"io"
 	"sort"
+	"strings"
 
 	"github.com/stockparfait/errors"
 	"github.com/stockparfait/logging"
@@ -25,7 +26,7 @@ import (
 	"github.com/stockparfait/stockparfait/ndl"
 )
 
-type TableName string
+type TableName = string
 
 const (
 	TickersTable  = TableName("TICKERS")
@@ -69,10 +70,13 @@ func FetchActions(ctx context.Context, actions ...ActionType) *ndl.RowIterator {
 // Dataset for downloading and converting NDL Sharadar SEP/SFP data to
 // db.Database.
 type Dataset struct {
-	Tickers    map[string]db.TickerRow
-	RawActions map[string][]Action
-	Actions    map[string][]db.ActionRow
-	Prices     map[string][]db.PriceRow
+	Tickers       map[string]db.TickerRow
+	RawActions    map[string][]Action
+	Actions       map[string][]db.ActionRow
+	Prices        map[string][]db.PriceRow
+	NumRawActions int
+	NumActions    int
+	NumPrices     int
 }
 
 // NewDataset initializes an empty Sharadar dataset.
@@ -127,6 +131,7 @@ func (d *Dataset) FetchActions(ctx context.Context, actions ...ActionType) error
 			break
 		}
 		d.RawActions[a.Ticker] = append(d.RawActions[a.Ticker], a)
+		d.NumRawActions++
 	}
 	for _, actions := range d.RawActions {
 		sort.Slice(actions, func(i, j int) bool {
@@ -141,6 +146,7 @@ func (d *Dataset) FetchActions(ctx context.Context, actions ...ActionType) error
 // TICKERS.
 func (d *Dataset) BulkDownloadPrices(ctx context.Context, table TableName) error {
 	fullTable := FullTableName(table)
+	logging.Infof(ctx, "initiating bulk download of %s prices", table)
 	h, err := ndl.BulkDownload(ctx, fullTable)
 	if err != nil {
 		return errors.Annotate(err, "failed to initiate bulk download of %s", table)
@@ -166,6 +172,7 @@ func (d *Dataset) BulkDownloadPrices(ctx context.Context, table TableName) error
 		return errors.Annotate(err, "unexpected CSV header")
 	}
 
+	logging.Infof(ctx, "unzipping the prices CSV file...")
 	for {
 		row, err := r.Read()
 		if err != nil {
@@ -190,13 +197,25 @@ func (d *Dataset) BulkDownloadPrices(ctx context.Context, table TableName) error
 			CloseFullyAdjusted: p.CloseAdjusted,
 			DollarVolume:       p.Close * p.Volume,
 		})
+		d.NumPrices++
+		if d.NumPrices%1000_000 == 0 {
+			logging.Debugf(ctx, "unzipped %dM prices", d.NumPrices/1000_000)
+		}
 	}
 
+	logging.Infof(ctx, "sorting prices...")
+	numTickersSorted := 0
 	for _, prices := range d.Prices {
 		sort.Slice(prices, func(i, j int) bool {
 			return prices[i].Date.Before(prices[j].Date)
 		})
+		numTickersSorted++
+		if numTickersSorted%1000 == 0 {
+			logging.Debugf(ctx, "sorted prices for %d tickers out of %d",
+				numTickersSorted, len(d.Prices))
+		}
 	}
+	logging.Infof(ctx, "done sorting")
 	return nil
 }
 
@@ -231,20 +250,10 @@ func (d *Dataset) ComputeActions(ctx context.Context) {
 				case ListedAction:
 					action.Active = true
 					hasActions = true
-				case AcquisitionByAction:
-					fallthrough
-				case MergerFromAction:
-					fallthrough
-				case RegulatoryDelistingAction:
-					fallthrough
-				case VoluntaryDelistingAction:
-					fallthrough
-				case DelistedAction:
+				case AcquisitionByAction, MergerFromAction, RegulatoryDelistingAction, VoluntaryDelistingAction, DelistedAction:
 					action.Active = false
 					hasActions = true
-				case DividendAction:
-					fallthrough
-				case SpinoffDividendAction:
+				case DividendAction, SpinoffDividendAction:
 					if prevPrice > 0.0 { // no previous price at the first sample
 						action.DividendFactor *= (prevPrice - ra.Value) / prevPrice
 						hasActions = true
@@ -287,5 +296,58 @@ func (d *Dataset) ComputeActions(ctx context.Context) {
 			}
 		}
 		d.Actions[ticker] = actions
+		d.NumActions += len(actions)
 	}
+}
+
+// DownloadAll - tickers, actions and prices for the requested tables.
+func (d *Dataset) DownloadAll(ctx context.Context, cachePath string, tables ...TableName) error {
+	if len(tables) == 0 {
+		tables = []TableName{EquitiesTable, FundsTable}
+	}
+	logging.Infof(ctx, "fetching tickers for %s...", strings.Join(tables, ", "))
+	if err := d.FetchTickers(ctx, tables...); err != nil {
+		return errors.Annotate(err, "failed to fetch tickers")
+	}
+	logging.Infof(ctx, "downloaded %d tickers", len(d.Tickers))
+	logging.Infof(ctx, "fetching actions...")
+	if err := d.FetchActions(ctx, RelevantActions...); err != nil {
+		return errors.Annotate(err, "failed to fetch actions")
+	}
+	logging.Infof(ctx, "downloaded %d actions", d.NumRawActions)
+	currPrices := 0
+	for _, t := range tables {
+		logging.Infof(ctx, "bulk-downloading %s prices", t)
+		if err := d.BulkDownloadPrices(ctx, t); err != nil {
+			return errors.Annotate(err, "failed to download %s price table", t)
+		}
+		logging.Infof(ctx, "downloaded %d %s prices", d.NumPrices-currPrices, t)
+		currPrices = d.NumPrices
+	}
+	logging.Infof(ctx, "downloaded total %d prices", d.NumPrices)
+	logging.Infof(ctx, "processing actions...")
+	d.ComputeActions(ctx)
+	logging.Infof(ctx, "created %d DB actions", d.NumActions)
+	logging.Infof(ctx, "writing tickers...")
+	database := db.NewDatabase(cachePath)
+	if err := database.WriteTickers(d.Tickers); err != nil {
+		return errors.Annotate(err, "failed to write tickers")
+	}
+	logging.Infof(ctx, "writing actions...")
+	if err := database.WriteActions(d.Actions); err != nil {
+		return errors.Annotate(err, "failed to write actions")
+	}
+	logging.Infof(ctx, "writing prices...")
+	for ticker, prices := range d.Prices {
+		if err := database.WritePrices(ticker, prices); err != nil {
+			return errors.Annotate(err, "failed to write prices for %s", ticker)
+		}
+	}
+	// TODO: write monthly resamples
+	logging.Infof(ctx, "writing metadata...")
+	if err := database.WriteMetadata(); err != nil {
+		return errors.Annotate(err, "failed to write metadata")
+	}
+	logging.Infof(ctx, "all done.")
+	return nil
 }

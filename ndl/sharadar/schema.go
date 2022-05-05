@@ -146,10 +146,16 @@ const (
 	VoluntaryDelistingAction
 )
 
-var AdjustmentActions = []ActionType{
+var RelevantActions = []ActionType{
+	AcquisitionByAction,
+	DelistedAction,
 	DividendAction,
+	ListedAction,
+	MergerFromAction,
+	RegulatoryDelistingAction,
 	SpinoffDividendAction,
 	SplitAction,
+	VoluntaryDelistingAction,
 }
 
 var string2action = map[string]ActionType{
@@ -581,6 +587,18 @@ func (r *Price) FromCSV(row []string, columnMap map[string]int) error {
 			len(columnMap), len(row), row)
 	}
 
+	parseNum := func(field string) (float32, error) {
+		s := row[columnMap[field]]
+		if s == "" { // sometimes volume is missing, assuming 0
+			return 0.0, nil
+		}
+		v, err := strconv.ParseFloat(s, 32)
+		if err != nil {
+			return 0.0, errors.Annotate(err, "%s should be a number: %v", field, s)
+		}
+		return float32(v), nil
+	}
+
 	r.Ticker = row[columnMap["ticker"]]
 
 	var err error
@@ -590,55 +608,27 @@ func (r *Price) FromCSV(row []string, columnMap map[string]int) error {
 			row[columnMap["date"]])
 	}
 
-	v, err := strconv.ParseFloat(row[columnMap["open"]], 32)
-	if err != nil {
-		return errors.Annotate(err, "open should be a number: %v",
-			row[columnMap["open"]])
+	if r.Open, err = parseNum("open"); err != nil {
+		return errors.Annotate(err, "")
 	}
-	r.Open = float32(v)
-
-	v, err = strconv.ParseFloat(row[columnMap["high"]], 32)
-	if err != nil {
-		return errors.Annotate(err, "high should be a number: %v",
-			row[columnMap["high"]])
+	if r.High, err = parseNum("high"); err != nil {
+		return errors.Annotate(err, "")
 	}
-	r.High = float32(v)
-
-	v, err = strconv.ParseFloat(row[columnMap["low"]], 32)
-	if err != nil {
-		return errors.Annotate(err, "low should be a number: %v",
-			row[columnMap["low"]])
+	if r.Low, err = parseNum("low"); err != nil {
+		return errors.Annotate(err, "")
 	}
-	r.Low = float32(v)
-
-	v, err = strconv.ParseFloat(row[columnMap["close"]], 32)
-	if err != nil {
-		return errors.Annotate(err, "close should be a number: %v",
-			row[columnMap["close"]])
+	if r.Close, err = parseNum("close"); err != nil {
+		return errors.Annotate(err, "")
 	}
-	r.Close = float32(v)
-
-	v, err = strconv.ParseFloat(row[columnMap["volume"]], 32)
-	if err != nil {
-		return errors.Annotate(err, "volume should be a number: %v",
-			row[columnMap["volume"]])
+	if r.Volume, err = parseNum("volume"); err != nil {
+		return errors.Annotate(err, "")
 	}
-	r.Volume = float32(v)
-
-	v, err = strconv.ParseFloat(row[columnMap["closeunadj"]], 32)
-	if err != nil {
-		return errors.Annotate(err, "closeunadj should be a number: %v",
-			row[columnMap["closeunadj"]])
+	if r.CloseUnadjusted, err = parseNum("closeunadj"); err != nil {
+		return errors.Annotate(err, "")
 	}
-	r.CloseUnadjusted = float32(v)
-
-	v, err = strconv.ParseFloat(row[columnMap["closeadj"]], 32)
-	if err != nil {
-		return errors.Annotate(err, "closeadj should be a number: %v",
-			row[columnMap["closeadj"]])
+	if r.CloseAdjusted, err = parseNum("closeadj"); err != nil {
+		return errors.Annotate(err, "")
 	}
-	r.CloseAdjusted = float32(v)
-
 	r.LastUpdated, err = db.NewDateFromString(row[columnMap["lastupdated"]])
 	if err != nil {
 		return errors.Annotate(err, "lastupdated must be a date string: '%s'",

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-INSTALLS=.
+INSTALLS=./apps/sharadar
 GOPATH=$(shell go env GOPATH)
 
 all:
