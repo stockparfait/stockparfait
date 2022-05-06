@@ -219,9 +219,10 @@ func (d *Dataset) BulkDownloadPrices(ctx context.Context, table TableName) error
 	return nil
 }
 
-// ComputeActions from RawActions and Prices of the Dataset. This method must be
-// called after all the data is downloaded. It combines multiple actions between
-// price points, creating at most one action per price point.
+// ComputeActions from RawActions and Prices of the Dataset, and update the
+// Active bit in Prices. This method must be called after all the data is
+// downloaded, but before saving the prices. It combines multiple actions
+// between price points, creating at most one action per price point.
 func (d *Dataset) ComputeActions(ctx context.Context) {
 	// For each ticker, step through the prices and actions in sync by date, and
 	// generate the appropriate DB actions.
@@ -234,10 +235,8 @@ func (d *Dataset) ComputeActions(ctx context.Context) {
 		actions := []db.ActionRow{}
 		var prevPrice float32 // split-adjusted previous close
 		ai := 0               // action index
+		active := true
 		for i, price := range prices {
-			if i > 0 && ai >= len(rawActions) {
-				break
-			}
 			action := db.ActionRow{
 				Date:           price.Date,
 				DividendFactor: 1.0,
@@ -278,7 +277,9 @@ func (d *Dataset) ComputeActions(ctx context.Context) {
 			}
 			if hasActions {
 				actions = append(actions, action)
+				active = action.Active
 			}
+			prices[i].SetActive(active)
 		}
 		// Make sure that the actions' active status agrees with the ticker's.
 		t := d.Tickers[ticker]
@@ -294,6 +295,7 @@ func (d *Dataset) ComputeActions(ctx context.Context) {
 					Active:         t.Active,
 				})
 			}
+			prices[len(prices)-1].SetActive(t.Active)
 		}
 		d.Actions[ticker] = actions
 		d.NumActions += len(actions)

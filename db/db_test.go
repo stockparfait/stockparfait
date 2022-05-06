@@ -59,12 +59,12 @@ func TestDB(t *testing.T) {
 		}
 		monthly := map[string][]ResampledRow{
 			"A": {
-				TestResampled(NewDate(2019, 1, 1), NewDate(2019, 1, 31), 10.0, 12.0, 9.0, 10.0, 1000.0, true),
-				TestResampled(NewDate(2019, 2, 1), NewDate(2019, 2, 28), 10.0, 12.0, 9.0, 10.0, 1000.0, true),
+				TestResampled(NewDate(2019, 1, 1), NewDate(2019, 1, 31), 10.0, 10.0, 1000.0, true),
+				TestResampled(NewDate(2019, 2, 1), NewDate(2019, 2, 28), 10.0, 10.0, 1000.0, true),
 			},
 			"B": {
-				TestResampled(NewDate(2019, 1, 1), NewDate(2019, 1, 31), 100.0, 120.0, 90.0, 100.0, 1000.0, true),
-				TestResampled(NewDate(2019, 2, 1), NewDate(2019, 2, 28), 100.0, 120.0, 90.0, 100.0, 1000.0, true),
+				TestResampled(NewDate(2019, 1, 1), NewDate(2019, 1, 31), 100.0, 100.0, 1000.0, true),
+				TestResampled(NewDate(2019, 2, 1), NewDate(2019, 2, 28), 100.0, 100.0, 1000.0, true),
 			},
 		}
 

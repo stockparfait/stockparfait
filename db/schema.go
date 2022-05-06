@@ -195,12 +195,37 @@ func TestAction(date Date, dividend, split float32, active bool) ActionRow {
 
 // PriceRow is a row in the prices table. It is intended for daily price points.
 // Size: 20 bytes.
+//
+// Note, that the sign of the (unadjusted) Close price indicates whether the
+// ticker is listed at the close of the day (negate = delisted). Therefore, use
+// CloseUnadjusted() and Active methods to get the corresponding values.
 type PriceRow struct {
 	Date               Date
-	Close              float32
+	Close              float32 // unadjusted; negative means delisted
 	CloseSplitAdjusted float32 // adjusted only for splits
 	CloseFullyAdjusted float32 // adjusted for splits, dividends, spinoffs
 	DollarVolume       float32
+}
+
+// CloseUnadjusted price, separated from the activity status.
+func (p *PriceRow) CloseUnadjusted() float32 {
+	if p.Close < 0.0 {
+		return -p.Close
+	} else {
+		return p.Close
+	}
+}
+
+// Active indicates whether the ticker is currently listed.
+func (p *PriceRow) Active() bool {
+	return p.Close > 0.0
+}
+
+// SetActive bit for the price point.
+func (p *PriceRow) SetActive(active bool) {
+	if p.Active() != active {
+		p.Close = -p.Close
+	}
 }
 
 // TestPrice creates a PriceRow instance for use in tests.
@@ -215,41 +240,36 @@ func TestPrice(date Date, close, adj, dv float32) PriceRow {
 }
 
 // ResampledRow is a multi-day bar with some additional daily statistics.  Size:
-// 48 bytes (46+padding).
+// 36 bytes.
 type ResampledRow struct {
-	Open         float32 // split-adjusted prices
-	High         float32
-	Low1         float32 // low before high
-	Low2         float32 // low at or after high
-	Close        float32
-	DollarVolume float32
-	DateOpen     Date
-	DateHigh     Date
-	DateClose    Date
-	Dividends    float32 // split-adjusted dollar dividends
+	OpenSplitAdjusted  float32
+	Close              float32 // unadjusted
+	CloseSplitAdjusted float32 // adjusted only for splits
+	CloseFullyAdjusted float32 // adjusted for splits, dividends, spinoffs
+	DollarVolume       float32
+	DateOpen           Date
+	DateClose          Date
 	// Sum of relative daily movements within the bar: sum(|p(t+1)-p(t)|/p(t)).
-	// Note, that it always has NumSamples-1 samples.
+	// Note, that it always has NumSamples-1 samples. When summing over multiple
+	// resampled bars, recover the missing sample as (open(t)-close(t-1))/open(t).
 	SumRelativeMove float32
 	NumSamples      uint16
 	Active          bool // if ticker is active at bar's close
 }
 
 // TestResampled creates a new ResampledRow for use in tests.
-func TestResampled(dateOpen, dateClose Date, open, high, low, close, dv float32, active bool) ResampledRow {
+func TestResampled(dateOpen, dateClose Date, open, close, dv float32, active bool) ResampledRow {
 	return ResampledRow{
-		Open:            open,
-		High:            high,
-		Low1:            low,
-		Low2:            low,
-		Close:           close,
-		DollarVolume:    dv,
-		DateOpen:        dateOpen,
-		DateHigh:        dateOpen,
-		DateClose:       dateClose,
-		Dividends:       0.0,
-		SumRelativeMove: 10.0,
-		NumSamples:      1000.0,
-		Active:          active,
+		OpenSplitAdjusted:  open,
+		Close:              close,
+		CloseSplitAdjusted: close,
+		CloseFullyAdjusted: close,
+		DollarVolume:       dv,
+		DateOpen:           dateOpen,
+		DateClose:          dateClose,
+		SumRelativeMove:    10.0,
+		NumSamples:         1000.0,
+		Active:             active,
 	}
 }
 
