@@ -316,6 +316,15 @@ C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 					db.TestAction(db.NewDate(2021, 1, 1), 1.0, 1.0, true),
 				},
 			})
+			So(ds.Prices["A"][0].Active(), ShouldBeTrue)
+			So(ds.Prices["A"][1].Active(), ShouldBeTrue)
+			So(ds.Prices["A"][2].Active(), ShouldBeFalse)
+			So(ds.Prices["B"][0].Active(), ShouldBeTrue)
+			So(ds.Prices["B"][1].Active(), ShouldBeFalse)
+			So(ds.Prices["B"][2].Active(), ShouldBeTrue)
+			So(ds.Prices["C"][0].Active(), ShouldBeTrue)
+			So(ds.Prices["C"][1].Active(), ShouldBeTrue)
+			So(ds.Prices["C"][2].Active(), ShouldBeTrue)
 		})
 
 		Convey("DownloadAll", func() {

@@ -131,13 +131,13 @@ func TestSchema(t *testing.T) {
 
 	Convey("ResampledRow", t, func() {
 		Convey("has correct size", func() {
-			So(unsafe.Sizeof(ResampledRow{}), ShouldEqual, 48)
+			So(unsafe.Sizeof(ResampledRow{}), ShouldEqual, 36)
 		})
 
 		Convey("TestResampled works", func() {
 			do := NewDate(2019, 1, 1)
 			dc := NewDate(2019, 4, 1)
-			r := TestResampled(do, dc, 10.0, 12.0, 9.0, 11.0, 1000.0, true)
+			r := TestResampled(do, dc, 10.0, 11.0, 1000.0, true)
 			So(r.Close, ShouldEqual, 11.0)
 		})
 	})
