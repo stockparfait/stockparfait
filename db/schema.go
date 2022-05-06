@@ -198,7 +198,7 @@ func TestAction(date Date, dividend, split float32, active bool) ActionRow {
 //
 // Note, that the sign of the (unadjusted) Close price indicates whether the
 // ticker is listed at the close of the day (negate = delisted). Therefore, use
-// CloseUnadjusted() and Active methods to get the corresponding values.
+// CloseUnadjusted() and Active() methods to get the corresponding values.
 type PriceRow struct {
 	Date               Date
 	Close              float32 // unadjusted; negative means delisted
