@@ -120,12 +120,13 @@ func TestSchema(t *testing.T) {
 
 		Convey("TestPrice works", func() {
 			d := NewDate(2019, 1, 2)
-			p := TestPrice(d, 100.0, 50.0, 1000.0)
+			p := TestPrice(d, 100.0, 50.0, 1000.0, false)
 			So(p.Date, ShouldResemble, d)
-			So(p.Close, ShouldEqual, 100.0)
+			So(p.CloseUnadjusted(), ShouldEqual, 100.0)
 			So(p.CloseSplitAdjusted, ShouldEqual, 50.0)
 			So(p.CloseFullyAdjusted, ShouldEqual, 50.0)
 			So(p.DollarVolume, ShouldEqual, 1000.0)
+			So(p.Active(), ShouldBeFalse)
 		})
 	})
 
@@ -137,7 +138,7 @@ func TestSchema(t *testing.T) {
 		Convey("TestResampled works", func() {
 			do := NewDate(2019, 1, 1)
 			dc := NewDate(2019, 4, 1)
-			r := TestResampled(do, dc, 10.0, 11.0, 1000.0, true)
+			r := TestResampled(do, dc, 10.0, 11.0, 5.0, 1000.0, true)
 			So(r.Close, ShouldEqual, 11.0)
 		})
 	})
