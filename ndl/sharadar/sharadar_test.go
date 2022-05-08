@@ -272,24 +272,24 @@ C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 			}
 			ds.Prices = map[string][]db.PriceRow{
 				"A": {
-					db.TestPrice(db.NewDate(2020, 1, 1), 10.0, 5.0, 0.0),
+					db.TestPrice(db.NewDate(2020, 1, 1), 10.0, 5.0, 0.0, true),
 					// At split, after dividends.
-					db.TestPrice(db.NewDate(2020, 2, 1), 6.0, 6.0, 0.0),
+					db.TestPrice(db.NewDate(2020, 2, 1), 6.0, 6.0, 0.0, true),
 					// Delisting action must be at this date.
-					db.TestPrice(db.NewDate(2020, 3, 1), 7.0, 7.0, 0.0),
+					db.TestPrice(db.NewDate(2020, 3, 1), 7.0, 7.0, 0.0, true),
 				},
 				"B": {
 					// Before the first action.
-					db.TestPrice(db.NewDate(2020, 1, 1), 5.0, 5.0, 0.0),
+					db.TestPrice(db.NewDate(2020, 1, 1), 5.0, 5.0, 0.0, true),
 					// At delisted action.
-					db.TestPrice(db.NewDate(2020, 2, 1), 6.0, 6.0, 0.0),
+					db.TestPrice(db.NewDate(2020, 2, 1), 6.0, 6.0, 0.0, true),
 					// Listed action must be at this date.
-					db.TestPrice(db.NewDate(2020, 3, 1), 10.0, 10.0, 0.0),
+					db.TestPrice(db.NewDate(2020, 3, 1), 10.0, 10.0, 0.0, true),
 				},
 				"C": {
-					db.TestPrice(db.NewDate(2021, 1, 1), 5.0, 5.0, 0.0),
-					db.TestPrice(db.NewDate(2021, 2, 1), 6.0, 6.0, 0.0),
-					db.TestPrice(db.NewDate(2021, 3, 1), 10.0, 10.0, 0.0),
+					db.TestPrice(db.NewDate(2021, 1, 1), 5.0, 5.0, 0.0, true),
+					db.TestPrice(db.NewDate(2021, 2, 1), 6.0, 6.0, 0.0, true),
+					db.TestPrice(db.NewDate(2021, 3, 1), 10.0, 10.0, 0.0, true),
 				},
 			}
 			ds.ComputeActions(ctx)
@@ -350,7 +350,7 @@ C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 				NumTickers: 3,
 				NumActions: 4,
 				NumPrices:  5,
-				NumMonthly: 0,
+				NumMonthly: 3,
 			})
 		})
 	})

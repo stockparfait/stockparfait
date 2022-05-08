@@ -229,14 +229,16 @@ func (p *PriceRow) SetActive(active bool) {
 }
 
 // TestPrice creates a PriceRow instance for use in tests.
-func TestPrice(date Date, close, adj, dv float32) PriceRow {
-	return PriceRow{
+func TestPrice(date Date, close, adj, dv float32, active bool) PriceRow {
+	p := PriceRow{
 		Date:               date,
 		Close:              close,
 		CloseSplitAdjusted: adj,
 		CloseFullyAdjusted: adj,
 		DollarVolume:       dv,
 	}
+	p.SetActive(active)
+	return p
 }
 
 // ResampledRow is a multi-day bar with some additional daily statistics.  Size:
@@ -258,12 +260,12 @@ type ResampledRow struct {
 }
 
 // TestResampled creates a new ResampledRow for use in tests.
-func TestResampled(dateOpen, dateClose Date, open, close, dv float32, active bool) ResampledRow {
+func TestResampled(dateOpen, dateClose Date, open, close, adj, dv float32, active bool) ResampledRow {
 	return ResampledRow{
 		OpenSplitAdjusted:  open,
 		Close:              close,
-		CloseSplitAdjusted: close,
-		CloseFullyAdjusted: close,
+		CloseSplitAdjusted: adj,
+		CloseFullyAdjusted: adj,
 		DollarVolume:       dv,
 		DateOpen:           dateOpen,
 		DateClose:          dateClose,

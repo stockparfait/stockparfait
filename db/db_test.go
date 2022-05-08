@@ -48,23 +48,23 @@ func TestDB(t *testing.T) {
 			},
 		}
 		pricesA := []PriceRow{
-			TestPrice(NewDate(2019, 1, 1), 10.0, 10.0, 1000.0),
-			TestPrice(NewDate(2019, 1, 2), 11.0, 11.0, 1100.0),
-			TestPrice(NewDate(2019, 1, 3), 12.0, 12.0, 1200.0),
+			TestPrice(NewDate(2019, 1, 1), 10.0, 10.0, 1000.0, true),
+			TestPrice(NewDate(2019, 1, 2), 11.0, 11.0, 1100.0, true),
+			TestPrice(NewDate(2019, 1, 3), 12.0, 12.0, 1200.0, true),
 		}
 		pricesB := []PriceRow{
-			TestPrice(NewDate(2019, 1, 1), 100.0, 100.0, 100.0),
-			TestPrice(NewDate(2019, 1, 2), 110.0, 110.0, 110.0),
-			TestPrice(NewDate(2019, 1, 3), 120.0, 120.0, 120.0),
+			TestPrice(NewDate(2019, 1, 1), 100.0, 100.0, 100.0, true),
+			TestPrice(NewDate(2019, 1, 2), 110.0, 110.0, 110.0, true),
+			TestPrice(NewDate(2019, 1, 3), 120.0, 120.0, 120.0, true),
 		}
 		monthly := map[string][]ResampledRow{
 			"A": {
-				TestResampled(NewDate(2019, 1, 1), NewDate(2019, 1, 31), 10.0, 10.0, 1000.0, true),
-				TestResampled(NewDate(2019, 2, 1), NewDate(2019, 2, 28), 10.0, 10.0, 1000.0, true),
+				TestResampled(NewDate(2019, 1, 1), NewDate(2019, 1, 31), 10.0, 10.0, 10.0, 1000.0, true),
+				TestResampled(NewDate(2019, 2, 1), NewDate(2019, 2, 28), 10.0, 10.0, 10.0, 1000.0, true),
 			},
 			"B": {
-				TestResampled(NewDate(2019, 1, 1), NewDate(2019, 1, 31), 100.0, 100.0, 1000.0, true),
-				TestResampled(NewDate(2019, 2, 1), NewDate(2019, 2, 28), 100.0, 100.0, 1000.0, true),
+				TestResampled(NewDate(2019, 1, 1), NewDate(2019, 1, 31), 100.0, 100.0, 100.0, 1000.0, true),
+				TestResampled(NewDate(2019, 2, 1), NewDate(2019, 2, 28), 100.0, 100.0, 100.0, 1000.0, true),
 			},
 		}
 
@@ -76,6 +76,56 @@ func TestDB(t *testing.T) {
 			So(db.WritePrices("B", pricesB), ShouldBeNil)
 			So(db.WriteMonthly(monthly), ShouldBeNil)
 			So(db.WriteMetadata(), ShouldBeNil)
+		})
+
+		Convey("ComputeMonthly works", func() {
+			daily := []PriceRow{
+				TestPrice(NewDate(2020, 1, 3), 100.0, 50.0, 1000.0, true),
+				TestPrice(NewDate(2020, 1, 4), 110.0, 55.0, 1000.0, true),
+				TestPrice(NewDate(2020, 1, 15), 102.0, 51.0, 2000.0, true),
+				TestPrice(NewDate(2020, 2, 5), 130.0, 65.0, 1000.0, true),
+				TestPrice(NewDate(2020, 2, 6), 140.0, 70.0, 1000.0, true),
+				TestPrice(NewDate(2020, 2, 7), 150.0, 75.0, 1000.0, false),
+				TestPrice(NewDate(2020, 3, 1), 160.0, 80.0, 500.0, true),
+			}
+			So(ComputeMonthly(daily), ShouldResemble, []ResampledRow{
+				{
+					DateOpen:           NewDate(2020, 1, 3),
+					DateClose:          NewDate(2020, 1, 15),
+					OpenSplitAdjusted:  50.0,
+					Close:              102.0,
+					CloseSplitAdjusted: 51.0,
+					CloseFullyAdjusted: 51.0,
+					DollarVolume:       4000.0,
+					SumRelativeMove:    5.0/50.0 + 4.0/55.0,
+					NumSamples:         3,
+					Active:             true,
+				},
+				{
+					DateOpen:           NewDate(2020, 2, 5),
+					DateClose:          NewDate(2020, 2, 7),
+					OpenSplitAdjusted:  65.0,
+					Close:              150.0,
+					CloseSplitAdjusted: 75.0,
+					CloseFullyAdjusted: 75.0,
+					DollarVolume:       3000.0,
+					SumRelativeMove:    5.0/65.0 + 5.0/70.0,
+					NumSamples:         3,
+					Active:             false,
+				},
+				{
+					DateOpen:           NewDate(2020, 3, 1),
+					DateClose:          NewDate(2020, 3, 1),
+					OpenSplitAdjusted:  80.0,
+					Close:              160.0,
+					CloseSplitAdjusted: 80.0,
+					CloseFullyAdjusted: 80.0,
+					DollarVolume:       500.0,
+					SumRelativeMove:    0.0,
+					NumSamples:         1,
+					Active:             true,
+				},
+			})
 		})
 
 		Convey("ticker access methods work", func() {

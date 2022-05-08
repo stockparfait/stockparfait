@@ -82,8 +82,8 @@ func TestConstraints(t *testing.T) {
 		})
 
 		Convey("CheckPrice", func() {
-			So(tc.CheckPrice(TestPrice(start, 10.0, 10.0, 100.0)), ShouldBeTrue)
-			So(tc.CheckPrice(TestPrice(afterEnd, 10.0, 10.0, 100.0)), ShouldBeFalse)
+			So(tc.CheckPrice(TestPrice(start, 10.0, 10.0, 100.0, true)), ShouldBeTrue)
+			So(tc.CheckPrice(TestPrice(afterEnd, 10.0, 10.0, 100.0, true)), ShouldBeFalse)
 		})
 
 		Convey("CheckResampled", func() {

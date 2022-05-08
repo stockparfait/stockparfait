@@ -74,6 +74,7 @@ type Dataset struct {
 	RawActions    map[string][]Action
 	Actions       map[string][]db.ActionRow
 	Prices        map[string][]db.PriceRow
+	Monthly       map[string][]db.ResampledRow
 	NumRawActions int
 	NumActions    int
 	NumPrices     int
@@ -86,6 +87,7 @@ func NewDataset() *Dataset {
 		RawActions: make(map[string][]Action),
 		Actions:    make(map[string][]db.ActionRow),
 		Prices:     make(map[string][]db.PriceRow),
+		Monthly:    make(map[string][]db.ResampledRow),
 	}
 }
 
@@ -344,8 +346,12 @@ func (d *Dataset) DownloadAll(ctx context.Context, cachePath string, tables ...T
 		if err := database.WritePrices(ticker, prices); err != nil {
 			return errors.Annotate(err, "failed to write prices for %s", ticker)
 		}
+		d.Monthly[ticker] = db.ComputeMonthly(prices)
 	}
-	// TODO: write monthly resamples
+	logging.Infof(ctx, "writing monthly resampled prices...")
+	if err := database.WriteMonthly(d.Monthly); err != nil {
+		return errors.Annotate(err, "failed to write monthly prices")
+	}
 	logging.Infof(ctx, "writing metadata...")
 	if err := database.WriteMetadata(); err != nil {
 		return errors.Annotate(err, "failed to write metadata")

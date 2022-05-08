@@ -231,6 +231,55 @@ func (db *Database) WritePrices(ticker string, prices []PriceRow) error {
 	return nil
 }
 
+// ComputeMonthly converts daily price series into resampled monthly price
+// series.
+func ComputeMonthly(prices []PriceRow) []ResampledRow {
+	if len(prices) == 0 {
+		return nil
+	}
+	abs32 := func(x float32) float32 {
+		if x < 0.0 {
+			return -x
+		}
+		return x
+	}
+
+	res := []ResampledRow{}
+	var currMonth Date
+	var currRes ResampledRow
+	var prevClose float32
+	for _, p := range prices {
+		if currMonth != p.Date.MonthStart() {
+			if !currMonth.IsZero() {
+				res = append(res, currRes)
+			}
+			prevClose = 0.0 // do not add cross-month volatility
+			currRes = ResampledRow{
+				OpenSplitAdjusted: p.CloseSplitAdjusted,
+				DateOpen:          p.Date,
+			}
+		}
+		currMonth = p.Date.MonthStart()
+		relMove := abs32(p.CloseSplitAdjusted - prevClose)
+		if prevClose > 0.0 {
+			relMove = relMove / prevClose
+		} else {
+			relMove = 0.0
+		}
+		prevClose = p.CloseSplitAdjusted
+		currRes.Close = p.CloseUnadjusted()
+		currRes.CloseSplitAdjusted = p.CloseSplitAdjusted
+		currRes.CloseFullyAdjusted = p.CloseFullyAdjusted
+		currRes.DollarVolume += p.DollarVolume
+		currRes.DateClose = p.Date
+		currRes.SumRelativeMove += relMove
+		currRes.NumSamples++
+		currRes.Active = p.Active()
+	}
+	res = append(res, currRes)
+	return res
+}
+
 // WriteMonthly saves the monthly resampled table to the DB file and sets the
 // number of samples in the metadata. ResampledRow's are indexed by ticker, and
 // for each ticker are assumed to be sorted by the closing date.
