@@ -348,6 +348,7 @@ func (d *Dataset) DownloadAll(ctx context.Context, cachePath string, tables ...T
 		}
 		d.Monthly[ticker] = db.ComputeMonthly(prices)
 	}
+	logging.Infof(ctx, "writing monthly resampled prices...")
 	if err := database.WriteMonthly(d.Monthly); err != nil {
 		return errors.Annotate(err, "failed to write monthly prices")
 	}
