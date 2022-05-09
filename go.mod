@@ -8,4 +8,5 @@ require (
 	github.com/stockparfait/errors v0.0.4
 	github.com/stockparfait/fetch v0.0.4
 	github.com/stockparfait/logging v0.0.4
+	github.com/stockparfait/parallel v0.0.2 // indirect
 )

@@ -17,11 +17,13 @@ package sharadar
 import (
 	"context"
 	"io"
+	"runtime"
 	"sort"
 	"strings"
 
 	"github.com/stockparfait/errors"
 	"github.com/stockparfait/logging"
+	"github.com/stockparfait/parallel"
 	"github.com/stockparfait/stockparfait/db"
 	"github.com/stockparfait/stockparfait/ndl"
 )
@@ -143,6 +145,64 @@ func (d *Dataset) FetchActions(ctx context.Context, actions ...ActionType) error
 	return nil
 }
 
+type pricesResult struct {
+	Prices map[string][]db.PriceRow
+	Error  error
+}
+
+type pricesJobsIter struct {
+	Reader    *ndl.CSVReader
+	ColMap    map[string]int
+	BatchSize int // for efficient parallelization should be at least 1000
+	Done      bool
+}
+
+var _ parallel.JobsIter = &pricesJobsIter{}
+
+func (it *pricesJobsIter) Next() (parallel.Job, error) {
+	if it.BatchSize <= 0 {
+		return nil, errors.Reason("batch size = %d must be > 0", it.BatchSize)
+	}
+	if it.Done {
+		return nil, parallel.Done
+	}
+	rows := [][]string{}
+	for i := 0; i < it.BatchSize; i++ {
+		row, err := it.Reader.Read()
+		if err == io.EOF {
+			it.Done = true
+			break
+		}
+		rows = append(rows, row)
+	}
+	if len(rows) == 0 {
+		it.Done = true
+		return nil, parallel.Done
+	}
+	job := func() interface{} {
+		prices := map[string][]db.PriceRow{}
+		for _, row := range rows {
+			var p Price
+			if err := p.FromCSV(row, it.ColMap); err != nil {
+				return pricesResult{
+					Error: errors.Annotate(err, "failed to parse CSV row"),
+				}
+			}
+			prices[p.Ticker] = append(prices[p.Ticker], db.PriceRow{
+				Date:               p.Date,
+				Close:              p.CloseUnadjusted,
+				CloseSplitAdjusted: p.Close,
+				CloseFullyAdjusted: p.CloseAdjusted,
+				DollarVolume:       p.Close * p.Volume,
+			})
+		}
+		return pricesResult{
+			Prices: prices,
+		}
+	}
+	return job, nil
+}
+
 // BulkDownloadPrices downloads daily prices using bulk download API. It must be
 // run after downloading TICKERS table, since it will skip any ticker not in
 // TICKERS.
@@ -175,33 +235,45 @@ func (d *Dataset) BulkDownloadPrices(ctx context.Context, table TableName) error
 	}
 
 	logging.Infof(ctx, "unzipping the prices CSV file...")
+	cctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	m := parallel.Map(cctx, runtime.NumCPU(), &pricesJobsIter{
+		Reader:    r,
+		ColMap:    colMap,
+		BatchSize: 10000,
+	})
 	for {
-		row, err := r.Read()
+		v, err := m.Next()
 		if err != nil {
-			if err == io.EOF {
+			if err == parallel.Done {
 				break
 			}
 			return errors.Annotate(err, "failed to read CSV")
 		}
-		var p Price
-		if err := p.FromCSV(row, colMap); err != nil {
-			return errors.Annotate(err, "failed to parse CSV row")
+		pr, ok := v.(pricesResult)
+		if !ok {
+			return errors.Reason("incorrect result type: %T", v)
 		}
-		if _, ok := d.Tickers[p.Ticker]; !ok {
-			logging.Warningf(ctx, "skipping %s prices, it's not in TICKERS table",
-				p.Ticker)
-			continue
+		if pr.Error != nil {
+			cancel() // flush the parallel jobs
+			for err == nil {
+				_, err = m.Next()
+			}
+			return errors.Annotate(pr.Error, "failed to parse CSV")
 		}
-		d.Prices[p.Ticker] = append(d.Prices[p.Ticker], db.PriceRow{
-			Date:               p.Date,
-			Close:              p.CloseUnadjusted,
-			CloseSplitAdjusted: p.Close,
-			CloseFullyAdjusted: p.CloseAdjusted,
-			DollarVolume:       p.Close * p.Volume,
-		})
-		d.NumPrices++
-		if d.NumPrices%1000_000 == 0 {
-			logging.Debugf(ctx, "unzipped %dM prices", d.NumPrices/1000_000)
+		for t, prices := range pr.Prices {
+			if _, ok := d.Tickers[t]; !ok {
+				logging.Warningf(ctx, "skipping %s prices, it's not in TICKERS table", t)
+				continue
+			}
+			for _, p := range prices {
+				d.Prices[t] = append(d.Prices[t], p)
+				d.NumPrices++
+				if d.NumPrices%1000_000 == 0 {
+					logging.Debugf(ctx, "unzipped %dM prices", d.NumPrices/1000_000)
+				}
+			}
 		}
 	}
 
