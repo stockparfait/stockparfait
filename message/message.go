@@ -60,8 +60,8 @@ type Message interface {
 // type.
 var rMessage = reflect.TypeOf((*Message)(nil)).Elem()
 
-// corvertToType recursively converts raw JSON value to basic types, slices and
-// map[String]* of the target type. Pointer types implementing Message are
+// convertToType recursively converts raw JSON value to basic types, slices and
+// map[string]* of the target type. Pointer types implementing Message are
 // initialized with their Init() method.
 func convertToType(jv interface{}, t reflect.Type) (reflect.Value, error) {
 	var Nil reflect.Value

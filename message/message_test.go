@@ -63,6 +63,7 @@ func TestMessage(t *testing.T) {
 			var d Dog
 			So(d.Init(testJSON(`{"name": "Doggy"}`)), ShouldBeNil)
 			So(d.Name, ShouldEqual, "Doggy")
+			So(d.Sex, ShouldEqual, "female")
 			So(d.Breed, ShouldEqual, "village dog")
 			So(d.Age, ShouldEqual, 2.5)
 			So(*d.Legs, ShouldEqual, 4)
