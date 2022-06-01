@@ -116,6 +116,7 @@ func TestTimeseries(t *testing.T) {
 		Convey("Deltas logarithmic", func() {
 			dts, err := ts.Deltas(DeltaParams{Log: true})
 			So(err, ShouldBeNil)
+			So(ts.Data(), ShouldResemble, data()) // the original ts is not modified
 			So(dts.Dates(), ShouldResemble, dates()[1:])
 			roundSlice := func(x []float64) []float64 {
 				res := make([]float64, len(x))

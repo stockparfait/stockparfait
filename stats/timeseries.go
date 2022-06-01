@@ -90,12 +90,12 @@ func rangeSlice(dates []db.Date, start, end db.Date) (s, e int) {
 	s = len(dates)
 	e = len(dates)
 	var startSet, endSet bool
-	for i := range dates {
-		if !startSet && !start.After(dates[i]) {
+	for i, d := range dates {
+		if !startSet && !start.After(d) {
 			s = i
 			startSet = true
 		}
-		if !endSet && end.Before(dates[i]) {
+		if !endSet && end.Before(d) {
 			e = i
 			endSet = true
 		}
@@ -152,7 +152,8 @@ type DeltaParams struct {
 func (t *Timeseries) Deltas(params DeltaParams) (*Timeseries, error) {
 	data := t.Data()
 	if params.Log {
-		for i, d := range data {
+		data = make([]float64, len(t.Data()))
+		for i, d := range t.Data() {
 			data[i] = math.Log(d)
 		}
 	}
@@ -186,9 +187,9 @@ func (t *Timeseries) Deltas(params DeltaParams) (*Timeseries, error) {
 	return NewTimeseries().Init(dates, deltas), nil
 }
 
+// PriceField is an enum type indicating which PriceRow field to use.
 type PriceField uint8
 
-// Types of
 const (
 	PriceUnadjusted PriceField = iota
 	PriceSplitAdjusted
@@ -196,8 +197,7 @@ const (
 	PriceDollarVolume
 )
 
-// FromPrices initializes the Timeseries from prices according to the projection
-// function.
+// FromPrices initializes the Timeseries from PriceRow slice.
 func (t *Timeseries) FromPrices(prices []db.PriceRow, f PriceField) *Timeseries {
 	dates := make([]db.Date, len(prices))
 	data := make([]float64, len(prices))
