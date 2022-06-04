@@ -41,7 +41,7 @@ func round(x float64, places int) float64 {
 }
 
 // roundSlice rounds the elements of the slice to the given number of
-// significant decimal places, for approximate comparisons in tests.
+// significant decimal digits, for approximate comparisons in tests.
 func roundSlice(s []float64, places int) []float64 {
 	res := make([]float64, len(s))
 	for i := range s {

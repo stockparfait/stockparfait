@@ -207,7 +207,7 @@ func (h *Histogram) Count(i int) uint {
 	return h.counts[i]
 }
 
-// Size in the sum total of all counts.
+// Size is the sum total of all counts.
 func (h *Histogram) Size() uint { return h.size }
 
 // Add samples to the Histogram.
