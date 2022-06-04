@@ -118,16 +118,12 @@ func TestTimeseries(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(ts.Data(), ShouldResemble, data()) // the original ts is not modified
 			So(dts.Dates(), ShouldResemble, dates()[1:])
-			roundSlice := func(x []float64) []float64 {
-				res := make([]float64, len(x))
-				for i := range x {
-					res[i] = math.Round(x[i]*1000_000.0) / 1000_000.0
-				}
-				return res
-			}
-			So(roundSlice(dts.Data()), ShouldResemble, roundSlice([]float64{
-				math.Log(2.0), math.Log(3.0 / 2.0), math.Log(4.0 / 3.0),
-				math.Log(5.0 / 4.0)}))
+			So(roundSlice(dts.Data(), 5), ShouldResemble, roundSlice([]float64{
+				math.Log(2.0),
+				math.Log(3.0 / 2.0),
+				math.Log(4.0 / 3.0),
+				math.Log(5.0 / 4.0),
+			}, 5))
 		})
 
 		Convey("Deltas normalized", func() {
