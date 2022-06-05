@@ -266,11 +266,11 @@ func NewSampleDistributionFromRand(ctx context.Context, d Distribution, samples 
 	return NewSampleDistribution(sample, buckets)
 }
 
-// RandDistribution takes a Rand-like function generating random samples and
-// creates a Distribution based on it. In particular, its own Rand function
-// simply calls the supplied one. It estimates and caches mean, MAD and
-// quantiles (as a histogram) from a set number of samples. It never stores the
-// generated samples, so its memory footprint remains small.
+// RandDistribution uses a transformed Rand method of a source distribution to
+// create another distribution. In particular, its own Rand function simply
+// calls the source's Rand and applies the transform. It estimates and caches
+// mean, MAD and quantiles (as a histogram) from a set number of samples. It
+// never stores the generated samples, so its memory footprint remains small.
 type RandDistribution struct {
 	ctx       context.Context
 	source    Distribution                 // the source distribution
@@ -304,7 +304,7 @@ func (d *RandDistribution) Rand() float64 {
 	return d.xform(d.source)
 }
 
-// Histogram of the generater, lazily cached.
+// Histogram of the generator, lazily cached.
 func (d *RandDistribution) Histogram() *Histogram {
 	if d.histogram == nil || d.mean == nil {
 		d.histogram = NewHistogram(d.buckets)
@@ -375,9 +375,9 @@ func (d *RandDistribution) Seed(seed uint64) {
 	d.source.Seed(seed)
 }
 
-// CompoundRandDistribution creates a RandDistribution out of a random generator
-// compounded n times. That is, `rnd` is invoked n times and the sum of its
-// samples is a new single sample in the new distribution.
+// CompoundRandDistribution creates a RandDistribution out of source compounded
+// n times. That is, source.Rand() is invoked n times and the sum of its samples
+// is a new single sample in the new distribution.
 func CompoundRandDistribution(ctx context.Context, source Distribution, n, samples int, buckets *Buckets) *RandDistribution {
 	xform := func(d Distribution) float64 {
 		acc := 0.0
@@ -418,7 +418,7 @@ func ExpectationMC(ctx context.Context, f func(x float64) float64,
 			prevRes = sum / float64(count)
 		}
 		count++
-		if low > x || x > high {
+		if x < low || high < x {
 			continue
 		}
 		sum += f(x)
