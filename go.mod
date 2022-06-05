@@ -9,4 +9,6 @@ require (
 	github.com/stockparfait/fetch v0.0.4
 	github.com/stockparfait/logging v0.0.4
 	github.com/stockparfait/parallel v0.0.2 // indirect
+	golang.org/x/exp v0.0.0-20220602145555-4a0574d9293f // indirect
+	gonum.org/v1/gonum v0.11.0 // indirect
 )
