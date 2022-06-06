@@ -114,6 +114,13 @@ func TestHistogram(t *testing.T) {
 			So(round(h.Quantile(0.5), 5), ShouldEqual, 500.0)
 			So(round(h.Quantile(0.88), 5), ShouldEqual, 880.0)
 			So(round(h.Quantile(1.0), 5), ShouldEqual, 1000.0)
+			So(h.CDF(-1.0), ShouldEqual, 0.0)
+			So(h.CDF(0.0), ShouldEqual, 0.0)
+			So(h.CDF(500.0), ShouldEqual, 0.5)
+			So(h.CDF(550.0), ShouldEqual, 0.55)
+			So(h.CDF(950.0), ShouldEqual, 0.95)
+			So(h.CDF(1000.0), ShouldEqual, 1.0)
+			So(h.CDF(1001.0), ShouldEqual, 1.0)
 
 			Convey("from another histogram", func() {
 				h2 := NewHistogram(b)
@@ -139,6 +146,14 @@ func TestHistogram(t *testing.T) {
 			So(round(h.Quantile(0.88), 5), ShouldEqual, 879.6)
 			So(round(h.Quantile(1.0), 5), ShouldEqual, 1000.0)
 
+			So(h.CDF(0.0), ShouldEqual, 0.0)
+			So(h.CDF(1.0), ShouldEqual, 0.0)
+			So(round(h.CDF(500.0), 4), ShouldEqual, 0.501)
+			So(round(h.CDF(550.0), 4), ShouldEqual, 0.551)
+			So(round(h.CDF(950.0), 4), ShouldEqual, 0.951)
+			So(h.CDF(1000.0), ShouldEqual, 1.0)
+			So(h.CDF(1001.0), ShouldEqual, 1.0)
+
 			Convey("PDF integrates to 1.0", func() {
 				sum := 0.0
 				for i, f := range h.PDFs() {
@@ -152,21 +167,28 @@ func TestHistogram(t *testing.T) {
 			b, err := NewBuckets(9, 0.01, 100.0, SymmetricExponentialSpacing)
 			So(err, ShouldBeNil)
 			h := NewHistogram(b)
-			for i := -500; i < 500; i++ {
+			for i := -100; i < 100; i++ {
 				h.Add(float64(i))
 			}
-			So(h.Size(), ShouldEqual, 1000)
+			So(h.Size(), ShouldEqual, 200)
 			So(h.Buckets().NumBuckets, ShouldEqual, 9)
 			So(h.Buckets().Bounds, ShouldResemble, []float64{
 				-100.0, -10.0, -1.0, -0.1, -0.01, 0.01, 0.1, 1.0, 10.0, 100.0})
 			So(h.Counts(), ShouldResemble, []uint{
-				490, 9, 1, 0, 1, 0, 0, 9, 490})
-			So(roundFixed(h.Mean(), 3), ShouldEqual, 0.0)
-			So(round(h.Quantile(0.0), 5), ShouldEqual, -100.0)   // actual: -500.0
-			So(round(h.Quantile(0.25), 5), ShouldEqual, -30.888) // actual: -250.0
+				90, 9, 1, 0, 1, 0, 0, 9, 90})
+			So(roundFixed(h.Mean(), 2), ShouldEqual, 0.0)
+			So(round(h.Quantile(0.0), 5), ShouldEqual, -100.0)   // actual: -100.0
+			So(round(h.Quantile(0.25), 5), ShouldEqual, -27.826) // actual: -50.0
 			So(round(h.Quantile(0.5), 5), ShouldEqual, -0.1)     // actual: 0.0
-			So(round(h.Quantile(0.88), 5), ShouldEqual, 56.899)  // actual: 380.0
-			So(round(h.Quantile(1.0), 5), ShouldEqual, 100.0)    // actual: 500.0
+			So(round(h.Quantile(0.88), 5), ShouldEqual, 54.117)  // actual: 76.0
+			So(round(h.Quantile(1.0), 5), ShouldEqual, 100.0)    // actual: 100.0
+
+			So(h.CDF(-501.0), ShouldEqual, 0.0)
+			So(h.CDF(-500.0), ShouldEqual, 0.0)
+			So(round(h.CDF(0.0), 3), ShouldEqual, 0.5)
+			So(round(h.CDF(80), 4), ShouldEqual, 0.9)
+			So(h.CDF(100.0), ShouldEqual, 1.0)
+			So(h.CDF(101.0), ShouldEqual, 1.0)
 		})
 	})
 }

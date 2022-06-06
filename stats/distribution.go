@@ -23,8 +23,6 @@ import (
 	"golang.org/x/exp/rand"
 	"gonum.org/v1/gonum/mathext"
 	"gonum.org/v1/gonum/stat/distuv"
-
-	"github.com/stockparfait/errors"
 )
 
 // SafeLog is a "safe" natural logarithm, which for x <= 0 returns -Inf.
@@ -353,7 +351,7 @@ func (d *RandDistribution) MAD() float64 {
 
 // CDF implements Distribution.
 func (d *RandDistribution) CDF(x float64) float64 {
-	panic(errors.Reason("CDF is not yet implemented for RandDistribution"))
+	return d.Histogram().CDF(x)
 }
 
 // Copy implements Distribution.
