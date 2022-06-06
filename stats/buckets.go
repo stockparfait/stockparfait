@@ -270,6 +270,29 @@ func (h *Histogram) Quantile(q float64) float64 {
 	return h.buckets.X(idx, shift)
 }
 
+// CDF value at x, approximated using histogram counts. It is effectively an
+// inverse of Quantile(), interpolating values of x when it falls between bucket
+// boundaries.
+func (h *Histogram) CDF(x float64) float64 {
+	if x >= h.buckets.MaxVal {
+		return 1.0
+	}
+	if h.buckets.Spacing == SymmetricExponentialSpacing {
+		if x <= -h.buckets.MaxVal {
+			return 0.0
+		}
+	} else if x <= h.buckets.MinVal {
+		return 0.0
+	}
+	b := h.buckets.Bucket(x)
+	var countLow uint
+	for i := 0; i < b; i++ {
+		countLow += h.Count(i)
+	}
+	coeff := (x - h.buckets.X(b, 0.0)) / h.buckets.Size(b)
+	return (float64(countLow) + coeff*float64(h.Count(b))) / float64(h.Size())
+}
+
 // PDF value at the i'th bucket. Return 0.0 if i is out of range. It integrates
 // to 1.0 when dx = h.Buckets().Size(i).
 func (h *Histogram) PDF(i int) float64 {

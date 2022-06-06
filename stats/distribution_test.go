@@ -132,6 +132,10 @@ func TestDistribution(t *testing.T) {
 			So(round(d.MAD(), 2), ShouldEqual, 1.0)
 		})
 
+		Convey("CDF", func() {
+			So(round(d.CDF(0.5), 2), ShouldEqual, 0.5) // inverse of Quantile(0.5)
+		})
+
 		Convey("Compounded", func() {
 			d := NewNormalDistribution(2.0, 3.0)
 			d.Seed(seed)
