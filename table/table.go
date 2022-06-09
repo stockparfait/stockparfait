@@ -46,9 +46,9 @@ type Table struct {
 	Rows   []Row
 }
 
-// NewTable creates a new Table instance with an optional header, which can be
-// nil.  With the exception of nil, the header is expected to be of the same
-// length as every subsequently added row.
+// NewTable creates a new Table instance with optional column headers.  It is
+// expected that, when present, the number of column headers is the same as the
+// number of elements in each Row.
 func NewTable(header ...string) *Table {
 	return &Table{Header: header}
 }
@@ -58,17 +58,17 @@ func (t *Table) AddRow(rows ...Row) {
 	t.Rows = append(t.Rows, rows...)
 }
 
-// Params are parameters for pretty-printing or CSV export of table rows.
+// Params are parameters for pretty-printing or CSV export of Table data.
 type Params struct {
 	Rows        int  // max. number of rows to write; 0 = unlimited (default)
 	NoHeader    bool // whether to print the header, default - yes
-	MaxColWidth int  // for WriteText only; 0 = unlimited
+	MaxColWidth int  // for WriteText only; 0 = unlimited, otherwise must be >= 4
 }
 
-// WriteCSV writes the entire table to w in CSV format with the header.
+// WriteCSV writes the entire table to w in CSV format.
 func (t *Table) WriteCSV(w io.Writer, p Params) error {
 	cw := csv.NewWriter(w)
-	if !p.NoHeader {
+	if !p.NoHeader && len(t.Header) > 0 {
 		if err := cw.Write(t.Header); err != nil {
 			return errors.Annotate(err, "failed to write header")
 		}
@@ -138,7 +138,7 @@ func (t *Table) WriteText(w io.Writer, p Params) error {
 		return string(b)
 	}
 
-	dashesRow := func() []string {
+	dashedRow := func() []string {
 		row := make([]string, len(widths))
 		for i, w := range widths {
 			row[i] = dashes(w)
@@ -164,7 +164,7 @@ func (t *Table) WriteText(w io.Writer, p Params) error {
 		if err := write(t.Header); err != nil {
 			return errors.Annotate(err, "failed to write header")
 		}
-		if err := write(dashesRow()); err != nil {
+		if err := write(dashedRow()); err != nil {
 			return errors.Annotate(err, "failed to write header separator")
 		}
 	}

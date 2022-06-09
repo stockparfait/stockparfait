@@ -33,12 +33,15 @@ func TestBuckets(t *testing.T) {
 
 	Convey("Table methods work", t, func() {
 		t := NewTable("Make", "Model")
+		headless := NewTable()
 
 		So(t.Header, ShouldResemble, []string{"Make", "Model"})
 		t.AddRow(TestRow{"Toyota", "Prius"}, TestRow{"Honda", "Clarity"})
+		headless.AddRow(TestRow{"Toyota", "Prius"}, TestRow{"Honda", "Clarity"})
 
 		Convey("AddRow worked", func() {
 			So(len(t.Rows), ShouldEqual, 2)
+			So(len(headless.Rows), ShouldEqual, 2)
 		})
 
 		Convey("WriteCSV", func() {
@@ -47,6 +50,15 @@ func TestBuckets(t *testing.T) {
 				So(t.WriteCSV(&buf, Params{}), ShouldBeNil)
 				So("\n"+buf.String(), ShouldEqual, `
 Make,Model
+Toyota,Prius
+Honda,Clarity
+`)
+			})
+
+			Convey("Default Params, headless", func() {
+				var buf bytes.Buffer
+				So(headless.WriteCSV(&buf, Params{}), ShouldBeNil)
+				So("\n"+buf.String(), ShouldEqual, `
 Toyota,Prius
 Honda,Clarity
 `)
@@ -68,6 +80,15 @@ Toyota,Prius
 				So("\n"+buf.String(), ShouldEqual, `
   Make |   Model
 ------ | -------
+Toyota |   Prius
+ Honda | Clarity
+`)
+			})
+
+			Convey("Default Params, headless", func() {
+				var buf bytes.Buffer
+				So(headless.WriteText(&buf, Params{}), ShouldBeNil)
+				So("\n"+buf.String(), ShouldEqual, `
 Toyota |   Prius
  Honda | Clarity
 `)
