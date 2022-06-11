@@ -39,28 +39,42 @@ func TestPlot(t *testing.T) {
 
 		Convey("Adding graphs", func() {
 			Convey("to existing groups", func() {
-				pdfGraph := NewGraph(XYKind, "p.d.f.").
-					SetTitle("Distributions").
-					SetXLabel("price").
-					SetYLogScale(true)
-				timeGraph := NewGraph(SeriesKind, "time")
+				pdfGraph, err := c.EnsureGraph(XYKind, "p.d.f.", "xy")
+				So(err, ShouldBeNil)
+				pdfGraph.SetTitle("Distributions").SetXLabel("price").SetYLogScale(true)
+
+				timeGraph, err := c.EnsureGraph(SeriesKind, "time", "series")
+				So(err, ShouldBeNil)
 
 				So(pdfGraph.Title, ShouldEqual, "Distributions")
 				So(pdfGraph.XLabel, ShouldEqual, "price")
 				So(pdfGraph.YLogScale, ShouldBeTrue)
+				So(pdfGraph.GroupName, ShouldEqual, "xy")
 
-				So(c.AddGraph(pdfGraph, "xy"), ShouldBeNil)
-				So(c.AddGraph(timeGraph, "series"), ShouldBeNil)
-				So(c.AddGraph(NewGraph(SeriesKind, "wrong"), "xy"), ShouldNotBeNil)
+				// Correct graph exists.
+				g, err := c.EnsureGraph(XYKind, "p.d.f.", "xy")
+				So(err, ShouldBeNil)
+				So(g, ShouldEqual, pdfGraph)
+
+				_, err = c.EnsureGraph(SeriesKind, "wrong", "xy")
+				So(err, ShouldNotBeNil)
+				// A graph with the wrong kind already exists.
+				_, err = c.EnsureGraph(XYKind, "time", "xy")
+				So(err, ShouldNotBeNil)
+
 				// Duplicate graph name in another group.
-				So(c.AddGraph(NewGraph(XYKind, "time"), "xy"), ShouldNotBeNil)
+				_, err = c.EnsureGraph(SeriesKind, "time", "xy")
+				So(err, ShouldNotBeNil)
+
 				So(len(c.graphMap), ShouldEqual, 2)
+				So(len(c.Groups), ShouldEqual, 2)
 				So(c.Groups[0].Graphs[0], ShouldEqual, pdfGraph)
+				So(c.Groups[1].Graphs[0], ShouldEqual, timeGraph)
 			})
 
 			Convey("to a new group", func() {
-				g := NewGraph(XYKind, "scatter")
-				So(c.AddGraph(g, "dots"), ShouldBeNil)
+				g, err := c.EnsureGraph(XYKind, "scatter", "dots")
+				So(err, ShouldBeNil)
 				So(len(c.Groups), ShouldEqual, 3)
 				So(c.Groups[:2], ShouldResemble, []*Group{xyGroup, seriesGroup})
 				So(c.Groups[2].Graphs[0], ShouldEqual, g)
@@ -78,12 +92,19 @@ func TestPlot(t *testing.T) {
 				So(c.AddGroup(gr), ShouldBeNil)
 				So(c.Groups, ShouldResemble, []*Group{xyGroup, seriesGroup, gr})
 				So(len(c.graphMap), ShouldEqual, 2)
+
+				So(c.GetGroup("prep"), ShouldEqual, gr)
+				So(c.GetGraph("one"), ShouldEqual, g1)
 			})
 		})
 
 		Convey("Adding plots", func() {
-			So(c.AddGraph(NewGraph(XYKind, "lines"), "xy"), ShouldBeNil)
-			So(c.AddGraph(NewGraph(SeriesKind, "prices"), "time"), ShouldBeNil)
+			g1, err := c.EnsureGraph(XYKind, "lines", "xy")
+			So(err, ShouldBeNil)
+			So(g1.Name, ShouldEqual, "lines")
+
+			_, err = c.EnsureGraph(SeriesKind, "prices", "time")
+			So(err, ShouldBeNil)
 
 			x := []float64{1.0, 2.0, 3.0}
 			y := []float64{10.0, 20.0, 30.0}

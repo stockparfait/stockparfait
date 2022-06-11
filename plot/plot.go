@@ -136,6 +136,7 @@ type Graph struct {
 	YLogScale  bool    // whether both Y axis are log-scale
 	PlotsRight []*Plot // plots using the right Y axis
 	PlotsLeft  []*Plot // plots using the left Y axis
+	GroupName  string  // for internal caching in Canvas
 }
 
 func NewGraph(kind Kind, name string) *Graph {
@@ -208,10 +209,12 @@ func (g *Group) SetXLogScale(b bool) *Group {
 	return g
 }
 
-// addGraph to both the slice and the map, to keep them in sync.
+// addGraph to both the slice and the map, and update graph's GroupName, to keep
+// all of them in sync.
 func (g *Group) addGraph(graph *Graph) {
 	g.Graphs = append(g.Graphs, graph)
 	g.graphMap[graph.Name] = graph
+	graph.GroupName = g.Name
 }
 
 // AddGraph to the Group. It's an error if the Graph Kind doesn't match the
@@ -268,6 +271,15 @@ func (c *Canvas) AddGroup(group *Group) error {
 	return nil
 }
 
+// GetGroup by name, if it exists, otherwise nil.
+func (c *Canvas) GetGroup(name string) *Group {
+	g, ok := c.groupMap[name]
+	if !ok {
+		return nil
+	}
+	return g
+}
+
 // AddGraph to the group by name. If the group doesn't exist, it is created with
 // the same Kind as the Graph.
 func (c *Canvas) AddGraph(graph *Graph, groupName string) error {
@@ -285,6 +297,40 @@ func (c *Canvas) AddGraph(graph *Graph, groupName string) error {
 	}
 	c.graphMap[graph.Name] = graph
 	return nil
+}
+
+// GetGraph by name, if it exists, otherwise nil.
+func (c *Canvas) GetGraph(name string) *Graph {
+	g, ok := c.graphMap[name]
+	if !ok {
+		return nil
+	}
+	return g
+}
+
+// EnsureGraph creates the requested Graph and/or Group as necessary, and makes
+// sure that the existing graph is indeed in the requested group. If the graph
+// exists but in the wrong group, it's an error. Returns the graph which can be
+// used for further configuration.
+func (c *Canvas) EnsureGraph(kind Kind, graphName, groupName string) (*Graph, error) {
+	if graph, ok := c.graphMap[graphName]; ok {
+		if graph.Kind != kind {
+			return nil, errors.Reason("graph %s has kind %s != required kind %s",
+				graphName, graph.Kind, kind)
+		}
+		if graph.GroupName != groupName {
+			return nil, errors.Reason(
+				"cannot ensure graph %s in group %s: it already exists in group %s",
+				graphName, groupName, graph.GroupName)
+		}
+		return graph, nil
+	}
+	graph := NewGraph(kind, graphName)
+	if err := c.AddGraph(graph, groupName); err != nil {
+		return nil, errors.Annotate(err, "cannot ensure graph %s in group %s",
+			graphName, groupName)
+	}
+	return graph, nil
 }
 
 // AddPlotRight to the graph by name to be displayed using the right Y axis. The
