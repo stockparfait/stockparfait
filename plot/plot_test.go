@@ -30,6 +30,8 @@ func TestPlot(t *testing.T) {
 		c := NewCanvas()
 		xyGroup := NewGroup(XYKind, "xy").SetXLogScale(true)
 		seriesGroup := NewGroup(SeriesKind, "series")
+
+		So(xyGroup.XLogScale, ShouldBeTrue)
 		So(c.AddGroup(xyGroup), ShouldBeNil)
 		So(c.AddGroup(seriesGroup), ShouldBeNil)
 		So(c.AddGroup(NewGroup(XYKind, "xy")), ShouldNotBeNil)
@@ -99,7 +101,7 @@ func TestPlot(t *testing.T) {
 
 			timePlot := NewSeriesPlot(ts)
 
-			Convey("Plot access methods", func() {
+			Convey("access methods work", func() {
 				x2, y2 := xyPlot.GetXY()
 				So(x2, ShouldResemble, x)
 				So(y2, ShouldResemble, y)
@@ -109,7 +111,7 @@ func TestPlot(t *testing.T) {
 				So(timePlot.GetTimeseries(), ShouldResemble, ts)
 			})
 
-			Convey("to the right Y axis", func() {
+			Convey("add to the right Y axis", func() {
 				So(c.AddPlotRight(xyPlot, "lines"), ShouldBeNil)
 				So(c.AddPlotRight(timePlot, "prices"), ShouldBeNil)
 				So(c.AddPlotRight(timePlot, "lines"), ShouldNotBeNil)
@@ -119,7 +121,7 @@ func TestPlot(t *testing.T) {
 				So(c.graphMap["prices"].PlotsRight, ShouldResemble, []*Plot{timePlot})
 			})
 
-			Convey("to the left Y axis", func() {
+			Convey("add to the left Y axis", func() {
 				So(c.AddPlotLeft(xyPlot, "lines"), ShouldBeNil)
 				So(c.AddPlotLeft(timePlot, "prices"), ShouldBeNil)
 				So(c.AddPlotLeft(timePlot, "lines"), ShouldNotBeNil)

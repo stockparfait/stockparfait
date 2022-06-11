@@ -23,7 +23,8 @@ import (
 	"github.com/stockparfait/stockparfait/stats"
 )
 
-// Kind is an enum for different kinds of plots.
+// Kind is an enum for different kinds of plots; currently time series and
+// arbitrary (x, y) plots, such as curves or scatter plots.
 type Kind int
 
 // Values of Kind.
@@ -43,7 +44,8 @@ func (k Kind) String() string {
 	}
 }
 
-// ChartType is an enum of different ways to plot data.
+// ChartType is an enum of different ways to plot data: as a connected solid or
+// dashed line, or as individual dots for scatter plots.
 type ChartType int
 
 // Values of ChartType.
@@ -119,18 +121,19 @@ func (p *Plot) GetTimeseries() *stats.Timeseries {
 // GetXY extracts X and Y slices from an untimed Plot. Panics if Kind != XYKind.
 func (p *Plot) GetXY() ([]float64, []float64) {
 	if p.Kind != XYKind {
-		panic(errors.Reason("Kind is not XYKind"))
+		panic(errors.Reason("kind %s is not XYKind", p.Kind))
 	}
 	return p.X, p.Y
 }
 
-// Graph containing Plots.
+// Graph is a container for Plots, and visually it corresponds to a single (X,
+// Y) or (Date, Y) chart where these plots are displayed.
 type Graph struct {
-	Kind       Kind
-	Name       string
-	Title      string
-	XLabel     string
-	YLogScale  bool
+	Kind       Kind    // each graph can only display one kind of plots
+	Name       string  // unique internal name of the graph
+	Title      string  // user visible graph title; defaults to Name
+	XLabel     string  // label on the X axis
+	YLogScale  bool    // whether both Y axis are log-scale
 	PlotsRight []*Plot // plots using the right Y axis
 	PlotsLeft  []*Plot // plots using the left Y axis
 }
@@ -139,7 +142,7 @@ func NewGraph(kind Kind, name string) *Graph {
 	return &Graph{
 		Kind:   kind,
 		Name:   name,
-		Title:  "Unnamed",
+		Title:  name,
 		XLabel: "Value",
 	}
 }
@@ -181,7 +184,9 @@ func (g *Graph) AddPlotLeft(p *Plot) error {
 	return nil
 }
 
-// Group of Graphs sharding the same X axis.
+// Group of Graphs sharing the same X axis. Visually, all graphs should be
+// displayed one after another in the given order, having the same width and
+// aligned vertically, to match their X axis positions.
 type Group struct {
 	Kind      Kind              // must match Graph's Kind
 	Name      string            // internal unique name of the group
@@ -203,6 +208,12 @@ func (g *Group) SetXLogScale(b bool) *Group {
 	return g
 }
 
+// addGraph to both the slice and the map, to keep them in sync.
+func (g *Group) addGraph(graph *Graph) {
+	g.Graphs = append(g.Graphs, graph)
+	g.graphMap[graph.Name] = graph
+}
+
 // AddGraph to the Group. It's an error if the Graph Kind doesn't match the
 // Group Kind.
 func (g *Group) AddGraph(graph *Graph) error {
@@ -214,8 +225,7 @@ func (g *Group) AddGraph(graph *Graph) error {
 		return errors.Reason("graph %s already exists in group %s",
 			graph.Name, g.Name)
 	}
-	g.Graphs = append(g.Graphs, graph)
-	g.graphMap[graph.Name] = graph
+	g.addGraph(graph)
 	return nil
 }
 
@@ -233,20 +243,25 @@ func NewCanvas() *Canvas {
 	}
 }
 
+// addGroup to both the slice and the map, to keep them in sync.
+func (c *Canvas) addGroup(group *Group) {
+	c.Groups = append(c.Groups, group)
+	c.groupMap[group.Name] = group
+}
+
 func (c *Canvas) AddGroup(group *Group) error {
 	if _, ok := c.groupMap[group.Name]; ok {
 		return errors.Reason("group %s already exists in Canvas", group.Name)
 	}
-	// First, just check for graph duplicates, to not modify Canvas in case of an
-	// error.
+	// First, just check for graph duplicates, not to modify Canvas in case of an
+	// error. We assume that graphs in the group all have different names.
 	for name := range group.graphMap {
 		if _, ok := c.graphMap[name]; ok {
 			return errors.Reason("graph %s in group %s already exists in Canvas",
 				name, group.Name)
 		}
 	}
-	c.Groups = append(c.Groups, group)
-	c.groupMap[group.Name] = group
+	c.addGroup(group)
 	for name, graph := range group.graphMap {
 		c.graphMap[name] = graph
 	}
@@ -262,8 +277,7 @@ func (c *Canvas) AddGraph(graph *Graph, groupName string) error {
 	group, ok := c.groupMap[groupName]
 	if !ok {
 		group = NewGroup(graph.Kind, groupName)
-		c.Groups = append(c.Groups, group)
-		c.groupMap[groupName] = group
+		c.addGroup(group)
 	}
 	if err := group.AddGraph(graph); err != nil {
 		return errors.Annotate(err, "failed to add graph %s to group %s",
