@@ -28,43 +28,54 @@ func TestPlot(t *testing.T) {
 
 	Convey("Plot API works", t, func() {
 		c := NewCanvas()
-		So(c.AddGroup(NewGroup(XYKind, "xy").SetXLogScale(true)), ShouldBeNil)
-		So(c.AddGroup(NewGroup(SeriesKind, "series")), ShouldBeNil)
+		xyGroup := NewGroup(XYKind, "xy").SetXLogScale(true)
+		seriesGroup := NewGroup(SeriesKind, "series")
+		So(c.AddGroup(xyGroup), ShouldBeNil)
+		So(c.AddGroup(seriesGroup), ShouldBeNil)
 		So(c.AddGroup(NewGroup(XYKind, "xy")), ShouldNotBeNil)
-		So(len(c.Groups), ShouldEqual, 2)
+		So(c.Groups, ShouldResemble, []*Group{xyGroup, seriesGroup})
 
 		Convey("Adding graphs", func() {
 			Convey("to existing groups", func() {
-				So(c.AddGraph(NewGraph(XYKind, "p.d.f.").
+				pdfGraph := NewGraph(XYKind, "p.d.f.").
 					SetTitle("Distributions").
 					SetXLabel("price").
-					SetYLogScale(true), "xy"), ShouldBeNil)
-				So(c.AddGraph(NewGraph(SeriesKind, "time"), "series"), ShouldBeNil)
+					SetYLogScale(true)
+				timeGraph := NewGraph(SeriesKind, "time")
+
+				So(pdfGraph.Title, ShouldEqual, "Distributions")
+				So(pdfGraph.XLabel, ShouldEqual, "price")
+				So(pdfGraph.YLogScale, ShouldBeTrue)
+
+				So(c.AddGraph(pdfGraph, "xy"), ShouldBeNil)
+				So(c.AddGraph(timeGraph, "series"), ShouldBeNil)
 				So(c.AddGraph(NewGraph(SeriesKind, "wrong"), "xy"), ShouldNotBeNil)
 				// Duplicate graph name in another group.
 				So(c.AddGraph(NewGraph(XYKind, "time"), "xy"), ShouldNotBeNil)
-				So(len(c.Graphs), ShouldEqual, 2)
-				So(c.Groups["xy"].Graphs["p.d.f."].Title, ShouldEqual, "Distributions")
-				So(c.Groups["xy"].Graphs["p.d.f."].XLabel, ShouldEqual, "price")
-				So(c.Groups["xy"].Graphs["p.d.f."].YLogScale, ShouldEqual, true)
-				So(c.Groups["series"].Graphs["time"].Kind, ShouldEqual, SeriesKind)
+				So(len(c.graphMap), ShouldEqual, 2)
+				So(c.Groups[0].Graphs[0], ShouldEqual, pdfGraph)
 			})
 
 			Convey("to a new group", func() {
 				g := NewGraph(XYKind, "scatter")
 				So(c.AddGraph(g, "dots"), ShouldBeNil)
 				So(len(c.Groups), ShouldEqual, 3)
-				So(c.Groups["dots"].Graphs["scatter"], ShouldEqual, g)
+				So(c.Groups[:2], ShouldResemble, []*Group{xyGroup, seriesGroup})
+				So(c.Groups[2].Graphs[0], ShouldEqual, g)
 			})
 
 			Convey("from a group pre-populated with graphs", func() {
 				gr := NewGroup(XYKind, "prep")
-				So(gr.AddGraph(NewGraph(XYKind, "one")), ShouldBeNil)
-				So(gr.AddGraph(NewGraph(XYKind, "two")), ShouldBeNil)
+				g1 := NewGraph(XYKind, "one")
+				g2 := NewGraph(XYKind, "two")
+
+				So(gr.AddGraph(g1), ShouldBeNil)
+				So(gr.AddGraph(g2), ShouldBeNil)
 				So(gr.AddGraph(NewGraph(XYKind, "one")), ShouldNotBeNil)
+
 				So(c.AddGroup(gr), ShouldBeNil)
-				So(len(c.Groups), ShouldEqual, 3)
-				So(len(c.Graphs), ShouldEqual, 2)
+				So(c.Groups, ShouldResemble, []*Group{xyGroup, seriesGroup, gr})
+				So(len(c.graphMap), ShouldEqual, 2)
 			})
 		})
 
@@ -104,8 +115,8 @@ func TestPlot(t *testing.T) {
 				So(c.AddPlotRight(timePlot, "lines"), ShouldNotBeNil)
 				So(c.AddPlotRight(xyPlot, "nonexistent"), ShouldNotBeNil)
 
-				So(c.Graphs["lines"].PlotsRight, ShouldResemble, []*Plot{xyPlot})
-				So(c.Graphs["prices"].PlotsRight, ShouldResemble, []*Plot{timePlot})
+				So(c.graphMap["lines"].PlotsRight, ShouldResemble, []*Plot{xyPlot})
+				So(c.graphMap["prices"].PlotsRight, ShouldResemble, []*Plot{timePlot})
 			})
 
 			Convey("to the left Y axis", func() {
@@ -114,8 +125,8 @@ func TestPlot(t *testing.T) {
 				So(c.AddPlotLeft(timePlot, "lines"), ShouldNotBeNil)
 				So(c.AddPlotLeft(xyPlot, "nonexistent"), ShouldNotBeNil)
 
-				So(c.Graphs["lines"].PlotsLeft, ShouldResemble, []*Plot{xyPlot})
-				So(c.Graphs["prices"].PlotsLeft, ShouldResemble, []*Plot{timePlot})
+				So(c.graphMap["lines"].PlotsLeft, ShouldResemble, []*Plot{xyPlot})
+				So(c.graphMap["prices"].PlotsLeft, ShouldResemble, []*Plot{timePlot})
 			})
 		})
 	})

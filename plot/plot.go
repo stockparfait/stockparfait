@@ -183,17 +183,18 @@ func (g *Graph) AddPlotLeft(p *Plot) error {
 
 // Group of Graphs sharding the same X axis.
 type Group struct {
-	Kind      Kind // must match Graph's Kind
-	Name      string
-	XLogScale bool
-	Graphs    map[string]*Graph
+	Kind      Kind              // must match Graph's Kind
+	Name      string            // internal unique name of the group
+	XLogScale bool              // whether to use log-scale for X axis
+	Graphs    []*Graph          // to preserve the order
+	graphMap  map[string]*Graph // for quick access
 }
 
 func NewGroup(kind Kind, name string) *Group {
 	return &Group{
-		Kind:   kind,
-		Name:   name,
-		Graphs: make(map[string]*Graph),
+		Kind:     kind,
+		Name:     name,
+		graphMap: make(map[string]*Graph),
 	}
 }
 
@@ -209,38 +210,45 @@ func (g *Group) AddGraph(graph *Graph) error {
 		return errors.Reason("group's Kind [%s] != graph's Kind [%s]",
 			g.Kind, graph.Kind)
 	}
-	if _, ok := g.Graphs[graph.Name]; ok {
+	if _, ok := g.graphMap[graph.Name]; ok {
 		return errors.Reason("graph %s already exists in group %s",
 			graph.Name, g.Name)
 	}
-	g.Graphs[graph.Name] = graph
+	g.Graphs = append(g.Graphs, graph)
+	g.graphMap[graph.Name] = graph
 	return nil
 }
 
 // Canvas is the master collection for all the plot groups
 type Canvas struct {
-	Groups map[string]*Group
-	Graphs map[string]*Graph // direct Graph reference within Groups
+	Groups   []*Group          // to preserve the order
+	groupMap map[string]*Group // for quick reference by name
+	graphMap map[string]*Graph // direct Graph reference within Groups
 }
 
 func NewCanvas() *Canvas {
 	return &Canvas{
-		Groups: make(map[string]*Group),
-		Graphs: make(map[string]*Graph),
+		groupMap: make(map[string]*Group),
+		graphMap: make(map[string]*Graph),
 	}
 }
 
 func (c *Canvas) AddGroup(group *Group) error {
-	if _, ok := c.Groups[group.Name]; ok {
+	if _, ok := c.groupMap[group.Name]; ok {
 		return errors.Reason("group %s already exists in Canvas", group.Name)
 	}
-	c.Groups[group.Name] = group
-	for name, graph := range group.Graphs {
-		if _, ok := c.Graphs[name]; ok {
+	// First, just check for graph duplicates, to not modify Canvas in case of an
+	// error.
+	for name := range group.graphMap {
+		if _, ok := c.graphMap[name]; ok {
 			return errors.Reason("graph %s in group %s already exists in Canvas",
 				name, group.Name)
 		}
-		c.Graphs[name] = graph
+	}
+	c.Groups = append(c.Groups, group)
+	c.groupMap[group.Name] = group
+	for name, graph := range group.graphMap {
+		c.graphMap[name] = graph
 	}
 	return nil
 }
@@ -248,26 +256,27 @@ func (c *Canvas) AddGroup(group *Group) error {
 // AddGraph to the group by name. If the group doesn't exist, it is created with
 // the same Kind as the Graph.
 func (c *Canvas) AddGraph(graph *Graph, groupName string) error {
-	if _, ok := c.Graphs[graph.Name]; ok {
+	if _, ok := c.graphMap[graph.Name]; ok {
 		return errors.Reason("graph %s already exists in Canvas", graph.Name)
 	}
-	group, ok := c.Groups[groupName]
+	group, ok := c.groupMap[groupName]
 	if !ok {
 		group = NewGroup(graph.Kind, groupName)
-		c.Groups[groupName] = group
+		c.Groups = append(c.Groups, group)
+		c.groupMap[groupName] = group
 	}
 	if err := group.AddGraph(graph); err != nil {
 		return errors.Annotate(err, "failed to add graph %s to group %s",
 			graph.Name, groupName)
 	}
-	c.Graphs[graph.Name] = graph
+	c.graphMap[graph.Name] = graph
 	return nil
 }
 
 // AddPlotRight to the graph by name to be displayed using the right Y axis. The
 // graph must exist in Canvas.
 func (c *Canvas) AddPlotRight(p *Plot, graphName string) error {
-	graph, ok := c.Graphs[graphName]
+	graph, ok := c.graphMap[graphName]
 	if !ok {
 		return errors.Reason("no such graph in Canvas: %s", graphName)
 	}
@@ -280,7 +289,7 @@ func (c *Canvas) AddPlotRight(p *Plot, graphName string) error {
 // AddPlotLeft to the graph by name to be displayed using the left Y axis. The
 // graph must exist in Canvas.
 func (c *Canvas) AddPlotLeft(p *Plot, graphName string) error {
-	graph, ok := c.Graphs[graphName]
+	graph, ok := c.graphMap[graphName]
 	if !ok {
 		return errors.Reason("no such graph in Canvas: %s", graphName)
 	}
