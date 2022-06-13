@@ -15,6 +15,7 @@
 package plot
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/stockparfait/errors"
@@ -357,4 +358,63 @@ func (c *Canvas) AddPlotLeft(p *Plot, graphName string) error {
 		return errors.Annotate(err, "failed to add plot %s to Canvas", p.Legend)
 	}
 	return nil
+}
+
+type contextKey int
+
+const (
+	canvasContextKey contextKey = iota
+)
+
+// Use injects the Canvas into the context.
+func Use(ctx context.Context, c *Canvas) context.Context {
+	return context.WithValue(ctx, canvasContextKey, c)
+}
+
+// Get a Canvas instance from the context, or nil if not present.
+func Get(ctx context.Context) *Canvas {
+	c, ok := ctx.Value(canvasContextKey).(*Canvas)
+	if !ok {
+		return nil
+	}
+	return c
+}
+
+// AddGroup to the Canvas in context. It's an error if Canvas is not in context.
+func AddGroup(ctx context.Context, group *Group) error {
+	c := Get(ctx)
+	if c == nil {
+		return errors.Reason("no Canvas in context")
+	}
+	return c.AddGroup(group)
+}
+
+// EnsureGraph in the Canvas in context. It's an error if Canvas is not in
+// context.
+func EnsureGraph(ctx context.Context, kind Kind, graphName, groupName string) (*Graph, error) {
+	c := Get(ctx)
+	if c == nil {
+		return nil, errors.Reason("no Canvas in context")
+	}
+	return c.EnsureGraph(kind, graphName, groupName)
+}
+
+// AddPlotRight to the graph by name for the right Y axis. Canvas must exist in
+// the context.
+func AddPlotRight(ctx context.Context, p *Plot, graphName string) error {
+	c := Get(ctx)
+	if c == nil {
+		return errors.Reason("no Canvas in context")
+	}
+	return c.AddPlotRight(p, graphName)
+}
+
+// AddPlotLeft to the graph by name for the left Y axis. Canvas must exist in
+// the context.
+func AddPlotLeft(ctx context.Context, p *Plot, graphName string) error {
+	c := Get(ctx)
+	if c == nil {
+		return errors.Reason("no Canvas in context")
+	}
+	return c.AddPlotLeft(p, graphName)
 }
