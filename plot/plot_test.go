@@ -15,6 +15,7 @@
 package plot
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stockparfait/stockparfait/db"
@@ -28,22 +29,23 @@ func TestPlot(t *testing.T) {
 
 	Convey("Plot API works", t, func() {
 		c := NewCanvas()
+		ctx := Use(context.Background(), c)
 		xyGroup := NewGroup(XYKind, "xy").SetXLogScale(true)
 		seriesGroup := NewGroup(SeriesKind, "series")
 
 		So(xyGroup.XLogScale, ShouldBeTrue)
-		So(c.AddGroup(xyGroup), ShouldBeNil)
-		So(c.AddGroup(seriesGroup), ShouldBeNil)
-		So(c.AddGroup(NewGroup(XYKind, "xy")), ShouldNotBeNil)
+		So(AddGroup(ctx, xyGroup), ShouldBeNil)
+		So(AddGroup(ctx, seriesGroup), ShouldBeNil)
+		So(AddGroup(ctx, NewGroup(XYKind, "xy")), ShouldNotBeNil)
 		So(c.Groups, ShouldResemble, []*Group{xyGroup, seriesGroup})
 
 		Convey("Adding graphs", func() {
 			Convey("to existing groups", func() {
-				pdfGraph, err := c.EnsureGraph(XYKind, "p.d.f.", "xy")
+				pdfGraph, err := EnsureGraph(ctx, XYKind, "p.d.f.", "xy")
 				So(err, ShouldBeNil)
 				pdfGraph.SetTitle("Distributions").SetXLabel("price").SetYLogScale(true)
 
-				timeGraph, err := c.EnsureGraph(SeriesKind, "time", "series")
+				timeGraph, err := EnsureGraph(ctx, SeriesKind, "time", "series")
 				So(err, ShouldBeNil)
 
 				So(pdfGraph.Title, ShouldEqual, "Distributions")
@@ -52,18 +54,18 @@ func TestPlot(t *testing.T) {
 				So(pdfGraph.GroupName, ShouldEqual, "xy")
 
 				// Correct graph exists.
-				g, err := c.EnsureGraph(XYKind, "p.d.f.", "xy")
+				g, err := EnsureGraph(ctx, XYKind, "p.d.f.", "xy")
 				So(err, ShouldBeNil)
 				So(g, ShouldEqual, pdfGraph)
 
-				_, err = c.EnsureGraph(SeriesKind, "wrong", "xy")
+				_, err = EnsureGraph(ctx, SeriesKind, "wrong", "xy")
 				So(err, ShouldNotBeNil)
 				// A graph with the wrong kind already exists.
-				_, err = c.EnsureGraph(XYKind, "time", "xy")
+				_, err = EnsureGraph(ctx, XYKind, "time", "xy")
 				So(err, ShouldNotBeNil)
 
 				// Duplicate graph name in another group.
-				_, err = c.EnsureGraph(SeriesKind, "time", "xy")
+				_, err = EnsureGraph(ctx, SeriesKind, "time", "xy")
 				So(err, ShouldNotBeNil)
 
 				So(len(c.graphMap), ShouldEqual, 2)
@@ -73,7 +75,7 @@ func TestPlot(t *testing.T) {
 			})
 
 			Convey("to a new group", func() {
-				g, err := c.EnsureGraph(XYKind, "scatter", "dots")
+				g, err := EnsureGraph(ctx, XYKind, "scatter", "dots")
 				So(err, ShouldBeNil)
 				So(len(c.Groups), ShouldEqual, 3)
 				So(c.Groups[:2], ShouldResemble, []*Group{xyGroup, seriesGroup})
@@ -89,7 +91,7 @@ func TestPlot(t *testing.T) {
 				So(gr.AddGraph(g2), ShouldBeNil)
 				So(gr.AddGraph(NewGraph(XYKind, "one")), ShouldNotBeNil)
 
-				So(c.AddGroup(gr), ShouldBeNil)
+				So(AddGroup(ctx, gr), ShouldBeNil)
 				So(c.Groups, ShouldResemble, []*Group{xyGroup, seriesGroup, gr})
 				So(len(c.graphMap), ShouldEqual, 2)
 
@@ -99,11 +101,11 @@ func TestPlot(t *testing.T) {
 		})
 
 		Convey("Adding plots", func() {
-			g1, err := c.EnsureGraph(XYKind, "lines", "xy")
+			g1, err := EnsureGraph(ctx, XYKind, "lines", "xy")
 			So(err, ShouldBeNil)
 			So(g1.Name, ShouldEqual, "lines")
 
-			_, err = c.EnsureGraph(SeriesKind, "prices", "time")
+			_, err = EnsureGraph(ctx, SeriesKind, "prices", "time")
 			So(err, ShouldBeNil)
 
 			x := []float64{1.0, 2.0, 3.0}
@@ -133,20 +135,20 @@ func TestPlot(t *testing.T) {
 			})
 
 			Convey("add to the right Y axis", func() {
-				So(c.AddPlotRight(xyPlot, "lines"), ShouldBeNil)
-				So(c.AddPlotRight(timePlot, "prices"), ShouldBeNil)
-				So(c.AddPlotRight(timePlot, "lines"), ShouldNotBeNil)
-				So(c.AddPlotRight(xyPlot, "nonexistent"), ShouldNotBeNil)
+				So(AddRight(ctx, xyPlot, "lines"), ShouldBeNil)
+				So(AddRight(ctx, timePlot, "prices"), ShouldBeNil)
+				So(AddRight(ctx, timePlot, "lines"), ShouldNotBeNil)
+				So(AddRight(ctx, xyPlot, "nonexistent"), ShouldNotBeNil)
 
 				So(c.graphMap["lines"].PlotsRight, ShouldResemble, []*Plot{xyPlot})
 				So(c.graphMap["prices"].PlotsRight, ShouldResemble, []*Plot{timePlot})
 			})
 
 			Convey("add to the left Y axis", func() {
-				So(c.AddPlotLeft(xyPlot, "lines"), ShouldBeNil)
-				So(c.AddPlotLeft(timePlot, "prices"), ShouldBeNil)
-				So(c.AddPlotLeft(timePlot, "lines"), ShouldNotBeNil)
-				So(c.AddPlotLeft(xyPlot, "nonexistent"), ShouldNotBeNil)
+				So(AddLeft(ctx, xyPlot, "lines"), ShouldBeNil)
+				So(AddLeft(ctx, timePlot, "prices"), ShouldBeNil)
+				So(AddLeft(ctx, timePlot, "lines"), ShouldNotBeNil)
+				So(AddLeft(ctx, xyPlot, "nonexistent"), ShouldNotBeNil)
 
 				So(c.graphMap["lines"].PlotsLeft, ShouldResemble, []*Plot{xyPlot})
 				So(c.graphMap["prices"].PlotsLeft, ShouldResemble, []*Plot{timePlot})
