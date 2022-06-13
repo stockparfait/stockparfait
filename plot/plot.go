@@ -399,9 +399,9 @@ func EnsureGraph(ctx context.Context, kind Kind, graphName, groupName string) (*
 	return c.EnsureGraph(kind, graphName, groupName)
 }
 
-// AddPlotRight to the graph by name for the right Y axis. Canvas must exist in
-// the context.
-func AddPlotRight(ctx context.Context, p *Plot, graphName string) error {
+// AddRight adds a plot to the graph by name for the right Y axis. Canvas must
+// exist in the context.
+func AddRight(ctx context.Context, p *Plot, graphName string) error {
 	c := Get(ctx)
 	if c == nil {
 		return errors.Reason("no Canvas in context")
@@ -409,9 +409,9 @@ func AddPlotRight(ctx context.Context, p *Plot, graphName string) error {
 	return c.AddPlotRight(p, graphName)
 }
 
-// AddPlotLeft to the graph by name for the left Y axis. Canvas must exist in
-// the context.
-func AddPlotLeft(ctx context.Context, p *Plot, graphName string) error {
+// AddLeft adds a plot to the graph by name for the left Y axis. Canvas must
+// exist in the context.
+func AddLeft(ctx context.Context, p *Plot, graphName string) error {
 	c := Get(ctx)
 	if c == nil {
 		return errors.Reason("no Canvas in context")

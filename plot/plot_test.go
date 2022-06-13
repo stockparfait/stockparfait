@@ -135,20 +135,20 @@ func TestPlot(t *testing.T) {
 			})
 
 			Convey("add to the right Y axis", func() {
-				So(AddPlotRight(ctx, xyPlot, "lines"), ShouldBeNil)
-				So(AddPlotRight(ctx, timePlot, "prices"), ShouldBeNil)
-				So(AddPlotRight(ctx, timePlot, "lines"), ShouldNotBeNil)
-				So(AddPlotRight(ctx, xyPlot, "nonexistent"), ShouldNotBeNil)
+				So(AddRight(ctx, xyPlot, "lines"), ShouldBeNil)
+				So(AddRight(ctx, timePlot, "prices"), ShouldBeNil)
+				So(AddRight(ctx, timePlot, "lines"), ShouldNotBeNil)
+				So(AddRight(ctx, xyPlot, "nonexistent"), ShouldNotBeNil)
 
 				So(c.graphMap["lines"].PlotsRight, ShouldResemble, []*Plot{xyPlot})
 				So(c.graphMap["prices"].PlotsRight, ShouldResemble, []*Plot{timePlot})
 			})
 
 			Convey("add to the left Y axis", func() {
-				So(AddPlotLeft(ctx, xyPlot, "lines"), ShouldBeNil)
-				So(AddPlotLeft(ctx, timePlot, "prices"), ShouldBeNil)
-				So(AddPlotLeft(ctx, timePlot, "lines"), ShouldNotBeNil)
-				So(AddPlotLeft(ctx, xyPlot, "nonexistent"), ShouldNotBeNil)
+				So(AddLeft(ctx, xyPlot, "lines"), ShouldBeNil)
+				So(AddLeft(ctx, timePlot, "prices"), ShouldBeNil)
+				So(AddLeft(ctx, timePlot, "lines"), ShouldNotBeNil)
+				So(AddLeft(ctx, xyPlot, "nonexistent"), ShouldNotBeNil)
 
 				So(c.graphMap["lines"].PlotsLeft, ShouldResemble, []*Plot{xyPlot})
 				So(c.graphMap["prices"].PlotsLeft, ShouldResemble, []*Plot{timePlot})
