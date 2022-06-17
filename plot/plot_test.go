@@ -15,6 +15,7 @@
 package plot
 
 import (
+	"bytes"
 	"context"
 	"testing"
 
@@ -30,22 +31,22 @@ func TestPlot(t *testing.T) {
 	Convey("Plot API works", t, func() {
 		c := NewCanvas()
 		ctx := Use(context.Background(), c)
-		xyGroup := NewGroup(XYKind, "xy").SetXLogScale(true)
-		seriesGroup := NewGroup(SeriesKind, "series")
+		xyGroup := NewGroup(KindXY, "xy").SetXLogScale(true)
+		seriesGroup := NewGroup(KindSeries, "series")
 
 		So(xyGroup.XLogScale, ShouldBeTrue)
 		So(AddGroup(ctx, xyGroup), ShouldBeNil)
 		So(AddGroup(ctx, seriesGroup), ShouldBeNil)
-		So(AddGroup(ctx, NewGroup(XYKind, "xy")), ShouldNotBeNil)
+		So(AddGroup(ctx, NewGroup(KindXY, "xy")), ShouldNotBeNil)
 		So(c.Groups, ShouldResemble, []*Group{xyGroup, seriesGroup})
 
 		Convey("Adding graphs", func() {
 			Convey("to existing groups", func() {
-				pdfGraph, err := EnsureGraph(ctx, XYKind, "p.d.f.", "xy")
+				pdfGraph, err := EnsureGraph(ctx, KindXY, "p.d.f.", "xy")
 				So(err, ShouldBeNil)
 				pdfGraph.SetTitle("Distributions").SetXLabel("price").SetYLogScale(true)
 
-				timeGraph, err := EnsureGraph(ctx, SeriesKind, "time", "series")
+				timeGraph, err := EnsureGraph(ctx, KindSeries, "time", "series")
 				So(err, ShouldBeNil)
 
 				So(pdfGraph.Title, ShouldEqual, "Distributions")
@@ -54,18 +55,18 @@ func TestPlot(t *testing.T) {
 				So(pdfGraph.GroupName, ShouldEqual, "xy")
 
 				// Correct graph exists.
-				g, err := EnsureGraph(ctx, XYKind, "p.d.f.", "xy")
+				g, err := EnsureGraph(ctx, KindXY, "p.d.f.", "xy")
 				So(err, ShouldBeNil)
 				So(g, ShouldEqual, pdfGraph)
 
-				_, err = EnsureGraph(ctx, SeriesKind, "wrong", "xy")
+				_, err = EnsureGraph(ctx, KindSeries, "wrong", "xy")
 				So(err, ShouldNotBeNil)
 				// A graph with the wrong kind already exists.
-				_, err = EnsureGraph(ctx, XYKind, "time", "xy")
+				_, err = EnsureGraph(ctx, KindXY, "time", "xy")
 				So(err, ShouldNotBeNil)
 
 				// Duplicate graph name in another group.
-				_, err = EnsureGraph(ctx, SeriesKind, "time", "xy")
+				_, err = EnsureGraph(ctx, KindSeries, "time", "xy")
 				So(err, ShouldNotBeNil)
 
 				So(len(c.graphMap), ShouldEqual, 2)
@@ -75,7 +76,7 @@ func TestPlot(t *testing.T) {
 			})
 
 			Convey("to a new group", func() {
-				g, err := EnsureGraph(ctx, XYKind, "scatter", "dots")
+				g, err := EnsureGraph(ctx, KindXY, "scatter", "dots")
 				So(err, ShouldBeNil)
 				So(len(c.Groups), ShouldEqual, 3)
 				So(c.Groups[:2], ShouldResemble, []*Group{xyGroup, seriesGroup})
@@ -83,13 +84,13 @@ func TestPlot(t *testing.T) {
 			})
 
 			Convey("from a group pre-populated with graphs", func() {
-				gr := NewGroup(XYKind, "prep")
-				g1 := NewGraph(XYKind, "one")
-				g2 := NewGraph(XYKind, "two")
+				gr := NewGroup(KindXY, "prep")
+				g1 := NewGraph(KindXY, "one")
+				g2 := NewGraph(KindXY, "two")
 
 				So(gr.AddGraph(g1), ShouldBeNil)
 				So(gr.AddGraph(g2), ShouldBeNil)
-				So(gr.AddGraph(NewGraph(XYKind, "one")), ShouldNotBeNil)
+				So(gr.AddGraph(NewGraph(KindXY, "one")), ShouldNotBeNil)
 
 				So(AddGroup(ctx, gr), ShouldBeNil)
 				So(c.Groups, ShouldResemble, []*Group{xyGroup, seriesGroup, gr})
@@ -101,11 +102,11 @@ func TestPlot(t *testing.T) {
 		})
 
 		Convey("Adding plots", func() {
-			g1, err := EnsureGraph(ctx, XYKind, "lines", "xy")
+			g1, err := EnsureGraph(ctx, KindXY, "lines", "xy")
 			So(err, ShouldBeNil)
 			So(g1.Name, ShouldEqual, "lines")
 
-			_, err = EnsureGraph(ctx, SeriesKind, "prices", "time")
+			_, err = EnsureGraph(ctx, KindSeries, "prices", "time")
 			So(err, ShouldBeNil)
 
 			x := []float64{1.0, 2.0, 3.0}
@@ -152,6 +153,16 @@ func TestPlot(t *testing.T) {
 
 				So(c.graphMap["lines"].PlotsLeft, ShouldResemble, []*Plot{xyPlot})
 				So(c.graphMap["prices"].PlotsLeft, ShouldResemble, []*Plot{timePlot})
+			})
+
+			Convey("JSON conversion works", func() {
+				So(AddLeft(ctx, xyPlot, "lines"), ShouldBeNil)
+				So(AddLeft(ctx, timePlot, "prices"), ShouldBeNil)
+				var buf bytes.Buffer
+				So(WriteJS(ctx, &buf), ShouldBeNil)
+				So("\n"+buf.String(), ShouldEqual, `
+var DATA = {"Groups":[{"Kind":"KindXY","XLogScale":true,"Graphs":[{"Kind":"KindXY","Title":"lines","XLabel":"Value","YLogScale":false,"PlotsRight":null,"PlotsLeft":[{"Kind":"KindXY","X":[1,2,3],"Y":[10,20,30],"Dates":null,"YLabel":"p","Legend":"PDF","ChartType":"ChartDashed"}]}]},{"Kind":"KindSeries","XLogScale":false,"Graphs":null},{"Kind":"KindSeries","XLogScale":false,"Graphs":[{"Kind":"KindSeries","Title":"prices","XLabel":"Value","YLogScale":false,"PlotsRight":null,"PlotsLeft":[{"Kind":"KindSeries","X":null,"Y":[10,20,30],"Dates":[{"YearVal":2020,"MonthVal":1,"DayVal":1},{"YearVal":2020,"MonthVal":1,"DayVal":2},{"YearVal":2020,"MonthVal":1,"DayVal":3}],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartLine"}]}]}]}
+;`)
 			})
 		})
 	})
