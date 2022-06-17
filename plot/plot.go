@@ -16,7 +16,9 @@ package plot
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 
 	"github.com/stockparfait/errors"
 
@@ -30,19 +32,30 @@ type Kind int
 
 // Values of Kind.
 const (
-	SeriesKind Kind = iota
-	XYKind
+	KindSeries Kind = iota
+	KindXY
+	KindLast // to check for invalid kinds
 )
+
+var _ json.Marshaler = KindSeries
 
 func (k Kind) String() string {
 	switch k {
-	case SeriesKind:
-		return "SeriesKind"
-	case XYKind:
-		return "XYKind"
+	case KindSeries:
+		return "KindSeries"
+	case KindXY:
+		return "KindXY"
 	default:
 		return fmt.Sprintf("<Undefined Kind: %d>", k)
 	}
+}
+
+// MarshalJSON implements json.Marshaler.
+func (k Kind) MarshalJSON() ([]byte, error) {
+	if k >= KindLast {
+		return nil, errors.Reason("invalid kind: %s", k)
+	}
+	return []byte(`"` + k.String() + `"`), nil
 }
 
 // ChartType is an enum of different ways to plot data: as a connected solid or
@@ -54,14 +67,38 @@ const (
 	ChartLine ChartType = iota
 	ChartDashed
 	ChartScatter
+	ChartLast // to check for invalid chart types
 )
+
+var _ json.Marshaler = ChartLine
+
+func (c ChartType) String() string {
+	switch c {
+	case ChartLine:
+		return "ChartLine"
+	case ChartDashed:
+		return "ChartDashed"
+	case ChartScatter:
+		return "ChartScatter"
+	default:
+		return fmt.Sprintf("<Undefined ChartType: %d>", c)
+	}
+}
+
+// MarshalJSON implements json.Marshaler.
+func (c ChartType) MarshalJSON() ([]byte, error) {
+	if c >= ChartLast {
+		return nil, errors.Reason("invalid chart type: %s", c)
+	}
+	return []byte(`"` + c.String() + `"`), nil
+}
 
 // Plot holds data and configuration of a single plot.
 type Plot struct {
 	Kind      Kind
-	X         []float64 // when Kind = XYKind
+	X         []float64 // when Kind = KindXY
 	Y         []float64
-	Dates     []db.Date // when Kind = SeriesKind
+	Dates     []db.Date // when Kind = KindSeries
 	YLabel    string    // value label on the Y axis
 	Legend    string    // name in the legend
 	ChartType ChartType
@@ -70,7 +107,7 @@ type Plot struct {
 // NewSeriesPlot creates an instance of a time series plot.
 func NewSeriesPlot(ts *stats.Timeseries) *Plot {
 	return &Plot{
-		Kind:   SeriesKind,
+		Kind:   KindSeries,
 		Y:      ts.Data(),
 		Dates:  ts.Dates(),
 		YLabel: "values",
@@ -85,7 +122,7 @@ func NewXYPlot(x, y []float64) *Plot {
 		panic(errors.Reason("len(x)=%d != len(y)=%d", len(x), len(y)))
 	}
 	return &Plot{
-		Kind:   XYKind,
+		Kind:   KindXY,
 		X:      x,
 		Y:      y,
 		YLabel: "values",
@@ -111,18 +148,18 @@ func (p *Plot) SetChartType(t ChartType) *Plot {
 	return p
 }
 
-// GetTimeseries from a series Plot. Panics if Kind != SeriesKind.
+// GetTimeseries from a series Plot. Panics if Kind != KindSeries.
 func (p *Plot) GetTimeseries() *stats.Timeseries {
-	if p.Kind != SeriesKind {
-		panic(errors.Reason("Kind is not SeriesKind"))
+	if p.Kind != KindSeries {
+		panic(errors.Reason("Kind is not KindSeries"))
 	}
 	return stats.NewTimeseries().Init(p.Dates, p.Y)
 }
 
-// GetXY extracts X and Y slices from an untimed Plot. Panics if Kind != XYKind.
+// GetXY extracts X and Y slices from an untimed Plot. Panics if Kind != KindXY.
 func (p *Plot) GetXY() ([]float64, []float64) {
-	if p.Kind != XYKind {
-		panic(errors.Reason("kind %s is not XYKind", p.Kind))
+	if p.Kind != KindXY {
+		panic(errors.Reason("kind %s is not KindXY", p.Kind))
 	}
 	return p.X, p.Y
 }
@@ -131,13 +168,13 @@ func (p *Plot) GetXY() ([]float64, []float64) {
 // Y) or (Date, Y) chart where these plots are displayed.
 type Graph struct {
 	Kind       Kind    // each graph can only display one kind of plots
-	Name       string  // unique internal name of the graph
+	Name       string  `json:"-"` // unique internal name of the graph
 	Title      string  // user visible graph title; defaults to Name
 	XLabel     string  // label on the X axis
 	YLogScale  bool    // whether both Y axis are log-scale
 	PlotsRight []*Plot // plots using the right Y axis
 	PlotsLeft  []*Plot // plots using the left Y axis
-	GroupName  string  // for internal caching in Canvas
+	GroupName  string  `json:"-"` // for internal caching in Canvas
 }
 
 func NewGraph(kind Kind, name string) *Graph {
@@ -191,7 +228,7 @@ func (g *Graph) AddPlotLeft(p *Plot) error {
 // aligned vertically, to match their X axis positions.
 type Group struct {
 	Kind      Kind              // must match Graph's Kind
-	Name      string            // internal unique name of the group
+	Name      string            `json:"-"` // internal unique name of the group
 	XLogScale bool              // whether to use log-scale for X axis
 	Graphs    []*Graph          // to preserve the order
 	graphMap  map[string]*Graph // for quick access
@@ -360,6 +397,31 @@ func (c *Canvas) AddPlotLeft(p *Plot, graphName string) error {
 	return nil
 }
 
+func (c *Canvas) WriteJSON(w io.Writer) error {
+	enc := json.NewEncoder(w)
+	if err := enc.Encode(c); err != nil {
+		return errors.Annotate(err, "failed to encode JSON")
+	}
+	return nil
+}
+
+// WriteJS writes "var DATA = <JSON>;" string to w, suitable for importing as a
+// javascript module.
+func (c *Canvas) WriteJS(w io.Writer) error {
+	_, err := fmt.Fprintf(w, "var DATA = ")
+	if err != nil {
+		return errors.Annotate(err, "failed to write JS prefix")
+	}
+	if err = c.WriteJSON(w); err != nil {
+		return errors.Annotate(err, "failed to write JSON part of JS")
+	}
+	_, err = fmt.Fprintf(w, ";")
+	if err != nil {
+		return errors.Annotate(err, "failed to write JS suffix")
+	}
+	return nil
+}
+
 type contextKey int
 
 const (
@@ -417,4 +479,20 @@ func AddLeft(ctx context.Context, p *Plot, graphName string) error {
 		return errors.Reason("no Canvas in context")
 	}
 	return c.AddPlotLeft(p, graphName)
+}
+
+func WriteJSON(ctx context.Context, w io.Writer) error {
+	c := Get(ctx)
+	if c == nil {
+		return errors.Reason("no Canvas in context")
+	}
+	return c.WriteJSON(w)
+}
+
+func WriteJS(ctx context.Context, w io.Writer) error {
+	c := Get(ctx)
+	if c == nil {
+		return errors.Reason("no Canvas in context")
+	}
+	return c.WriteJS(w)
 }
