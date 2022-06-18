@@ -161,7 +161,7 @@ func TestPlot(t *testing.T) {
 				var buf bytes.Buffer
 				So(WriteJS(ctx, &buf), ShouldBeNil)
 				So("\n"+buf.String(), ShouldEqual, `
-var DATA = {"Groups":[{"Kind":"KindXY","XLogScale":true,"Graphs":[{"Kind":"KindXY","Title":"lines","XLabel":"Value","YLogScale":false,"PlotsRight":null,"PlotsLeft":[{"Kind":"KindXY","X":[1,2,3],"Y":[10,20,30],"Dates":null,"YLabel":"p","Legend":"PDF","ChartType":"ChartDashed"}]}]},{"Kind":"KindSeries","XLogScale":false,"Graphs":null},{"Kind":"KindSeries","XLogScale":false,"Graphs":[{"Kind":"KindSeries","Title":"prices","XLabel":"Value","YLogScale":false,"PlotsRight":null,"PlotsLeft":[{"Kind":"KindSeries","X":null,"Y":[10,20,30],"Dates":[{"YearVal":2020,"MonthVal":1,"DayVal":1},{"YearVal":2020,"MonthVal":1,"DayVal":2},{"YearVal":2020,"MonthVal":1,"DayVal":3}],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartLine"}]}]}]}
+var DATA = {"Groups":[{"Kind":"KindXY","XLogScale":true,"Graphs":[{"Kind":"KindXY","Title":"lines","XLabel":"Value","YLogScale":false,"PlotsRight":null,"PlotsLeft":[{"Kind":"KindXY","X":[1,2,3],"Y":[10,20,30],"Dates":null,"YLabel":"p","Legend":"PDF","ChartType":"ChartDashed"}]}]},{"Kind":"KindSeries","XLogScale":false,"Graphs":null},{"Kind":"KindSeries","XLogScale":false,"Graphs":[{"Kind":"KindSeries","Title":"prices","XLabel":"Value","YLogScale":false,"PlotsRight":null,"PlotsLeft":[{"Kind":"KindSeries","X":null,"Y":[10,20,30],"Dates":["2020-01-01","2020-01-02","2020-01-03"],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartLine"}]}]}]}
 ;`)
 			})
 		})

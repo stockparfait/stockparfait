@@ -70,6 +70,9 @@ type Date struct {
 	DayVal   uint8
 }
 
+var _ json.Marshaler = Date{}
+var _ json.Unmarshaler = &Date{}
+
 // NewDate is the constructor for Date.
 func NewDate(year uint16, month, day uint8) Date {
 	return Date{year, month, day}
@@ -111,6 +114,26 @@ func (d Date) Day() uint8   { return d.DayVal }
 // String representation of the value.
 func (d Date) String() string {
 	return fmt.Sprintf("%04d-%02d-%02d", d.Year(), d.Month(), d.Day())
+}
+
+// MarshalJSON implements json.Marshaler.
+func (d Date) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + d.String() + `"`), nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler. NOTE: unlike other methods, this
+// is a pointer method.
+func (d *Date) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return errors.Annotate(err, "Date JSON must be a string")
+	}
+	date, err := NewDateFromString(s)
+	if err != nil {
+		return errors.Annotate(err, "failed to parse Date string")
+	}
+	*d = date
+	return nil
 }
 
 // ToTime converts Date to Time in UTC.
