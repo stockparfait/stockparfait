@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 
 	"github.com/stockparfait/errors"
 
@@ -96,9 +97,9 @@ func (c ChartType) MarshalJSON() ([]byte, error) {
 // Plot holds data and configuration of a single plot.
 type Plot struct {
 	Kind      Kind
-	X         []float64 // when Kind = KindXY
+	X         []float64 `json:"X,omitempty"` // when Kind = KindXY
 	Y         []float64
-	Dates     []db.Date // when Kind = KindSeries
+	Dates     []db.Date `json:"Dates,omitempty"` // when Kind = KindSeries
 	YLabel    string    // value label on the Y axis
 	Legend    string    // name in the legend
 	ChartType ChartType
@@ -128,6 +129,53 @@ func NewXYPlot(x, y []float64) *Plot {
 		YLabel: "values",
 		Legend: "Unnamed",
 	}
+}
+
+// Size returns the number of points in the plot.
+func (p *Plot) Size() int {
+	return len(p.Y)
+}
+
+// MinX computes the smallest value of X. Note, that X might not be sorted
+// (e.g. as a scatter plot), so we have to walk through all the values. If
+// undefined, returns +Inf.
+func (p *Plot) MinX() float64 {
+	min := math.Inf(1)
+	for _, x := range p.X {
+		if x < min {
+			min = x
+		}
+	}
+	return min
+}
+
+// MaxX computes the largest value of X. Note, that X might not be sorted
+// (e.g. as a scatter plot), so we have to walk through all the values. If
+// undefined, returns -Inf.
+func (p *Plot) MaxX() float64 {
+	max := math.Inf(-1)
+	for _, x := range p.X {
+		if x > max {
+			max = x
+		}
+	}
+	return max
+}
+
+// MinDate returns the earliest Date for a KindSeries plot, or zero value.
+func (p *Plot) MinDate() db.Date {
+	if len(p.Dates) == 0 {
+		return db.Date{}
+	}
+	return p.Dates[0]
+}
+
+// MaxDate returns the lastest Date for a KindSeries plot, or zero value.
+func (p *Plot) MaxDate() db.Date {
+	if len(p.Dates) == 0 {
+		return db.Date{}
+	}
+	return p.Dates[len(p.Dates)-1]
 }
 
 // SetYLabel of the plot - used as the value label on the Y axis.
@@ -167,14 +215,18 @@ func (p *Plot) GetXY() ([]float64, []float64) {
 // Graph is a container for Plots, and visually it corresponds to a single (X,
 // Y) or (Date, Y) chart where these plots are displayed.
 type Graph struct {
-	Kind       Kind    // each graph can only display one kind of plots
-	Name       string  `json:"-"` // unique internal name of the graph
-	Title      string  // user visible graph title; defaults to Name
-	XLabel     string  // label on the X axis
-	YLogScale  bool    // whether both Y axis are log-scale
-	PlotsRight []*Plot // plots using the right Y axis
-	PlotsLeft  []*Plot // plots using the left Y axis
-	GroupName  string  `json:"-"` // for internal caching in Canvas
+	Kind       Kind     // each graph can only display one kind of plots
+	Name       string   `json:"-"` // unique internal name of the graph
+	Title      string   // user visible graph title; defaults to Name
+	XLabel     string   // label on the X axis
+	YLogScale  bool     // whether both Y axis are log-scale
+	PlotsRight []*Plot  // plots using the right Y axis
+	PlotsLeft  []*Plot  // plots using the left Y axis
+	GroupName  string   `json:"-"` // for internal caching in Canvas
+	minX       *float64 // exact bounds for all the plots
+	maxX       *float64
+	minDate    *db.Date
+	maxDate    *db.Date
 }
 
 func NewGraph(kind Kind, name string) *Graph {
@@ -201,6 +253,45 @@ func (g *Graph) SetYLogScale(b bool) *Graph {
 	return g
 }
 
+func (g *Graph) updateBounds(p *Plot) {
+	if p.Size() == 0 {
+		return
+	}
+	// first := len(g.PlotsRight) == 0 && len(g.PlotsLeft) == 0
+	switch g.Kind {
+	case KindXY:
+		minX := p.MinX()
+		maxX := p.MaxX()
+		if g.minX == nil {
+			g.minX = &minX
+		}
+		if g.maxX == nil {
+			g.maxX = &maxX
+		}
+		if *g.minX > minX {
+			*g.minX = minX
+		}
+		if *g.maxX < maxX {
+			*g.maxX = maxX
+		}
+	case KindSeries:
+		minDate := p.MinDate()
+		maxDate := p.MaxDate()
+		if g.minDate == nil {
+			g.minDate = &minDate
+		}
+		if g.maxDate == nil {
+			g.maxDate = &maxDate
+		}
+		if g.minDate.After(minDate) {
+			*g.minDate = minDate
+		}
+		if g.maxDate.Before(maxDate) {
+			*g.maxDate = maxDate
+		}
+	}
+}
+
 // AddPlotRight adds a plot to be displayed using the right Y axis. It's an
 // error if the plot and the Graph have different Kinds.
 func (g *Graph) AddPlotRight(p *Plot) error {
@@ -208,6 +299,7 @@ func (g *Graph) AddPlotRight(p *Plot) error {
 		return errors.Reason("plot's kind [%s] != graph's kind [%s]",
 			p.Kind, g.Kind)
 	}
+	g.updateBounds(p) // must be before appending the plot
 	g.PlotsRight = append(g.PlotsRight, p)
 	return nil
 }
@@ -219,6 +311,7 @@ func (g *Graph) AddPlotLeft(p *Plot) error {
 		return errors.Reason("plot's kind [%s] != graph's kind [%s]",
 			p.Kind, g.Kind)
 	}
+	g.updateBounds(p) // must be before appending the plot
 	g.PlotsLeft = append(g.PlotsLeft, p)
 	return nil
 }
@@ -232,6 +325,10 @@ type Group struct {
 	XLogScale bool              // whether to use log-scale for X axis
 	Graphs    []*Graph          // to preserve the order
 	graphMap  map[string]*Graph // for quick access
+	MinX      *float64          `json:"MinX,omitempty"`
+	MaxX      *float64          `json:"MaxX,omitempty"`
+	MinDate   *db.Date          `json:"MinDate,omitempty"`
+	MaxDate   *db.Date          `json:"MaxDate,omitempty"`
 }
 
 func NewGroup(kind Kind, name string) *Group {
@@ -247,12 +344,56 @@ func (g *Group) SetXLogScale(b bool) *Group {
 	return g
 }
 
+func (g *Group) updateBounds(graph *Graph) {
+	switch g.Kind {
+	case KindXY:
+		if graph.minX != nil {
+			minX := *graph.minX
+			if g.MinX == nil {
+				g.MinX = &minX
+			}
+			if *g.MinX > minX {
+				*g.MinX = minX
+			}
+		}
+		if graph.maxX != nil {
+			maxX := *graph.maxX
+			if g.MaxX == nil {
+				g.MaxX = &maxX
+			}
+			if *g.MaxX < maxX {
+				*g.MaxX = maxX
+			}
+		}
+	case KindSeries:
+		if graph.minDate != nil {
+			minDate := *graph.minDate
+			if g.MinDate == nil {
+				g.MinDate = &minDate
+			}
+			if g.MinDate.After(minDate) {
+				*g.MinDate = minDate
+			}
+		}
+		if graph.maxDate != nil {
+			maxDate := *graph.maxDate
+			if g.MaxDate == nil {
+				g.MaxDate = &maxDate
+			}
+			if g.MaxDate.Before(maxDate) {
+				*g.MaxDate = maxDate
+			}
+		}
+	}
+}
+
 // addGraph to both the slice and the map, and update graph's GroupName, to keep
 // all of them in sync.
 func (g *Group) addGraph(graph *Graph) {
 	g.Graphs = append(g.Graphs, graph)
 	g.graphMap[graph.Name] = graph
 	graph.GroupName = g.Name
+	g.updateBounds(graph)
 }
 
 // AddGraph to the Group. It's an error if the Graph Kind doesn't match the
@@ -346,6 +487,17 @@ func (c *Canvas) GetGraph(name string) *Graph {
 	return g
 }
 
+func (c *Canvas) updateBounds(graph *Graph) error {
+	group, ok := c.groupMap[graph.GroupName]
+	if !ok {
+		return errors.Reason(
+			"graph %s belongs to group %s which doesn't exist in Canvas",
+			graph.Name, graph.GroupName)
+	}
+	group.updateBounds(graph)
+	return nil
+}
+
 // EnsureGraph creates the requested Graph and/or Group as necessary, and makes
 // sure that the existing graph is indeed in the requested group. If the graph
 // exists but in the wrong group, it's an error. Returns the graph which can be
@@ -381,6 +533,9 @@ func (c *Canvas) AddPlotRight(p *Plot, graphName string) error {
 	if err := graph.AddPlotRight(p); err != nil {
 		return errors.Annotate(err, "failed to add plot %s to Canvas", p.Legend)
 	}
+	if err := c.updateBounds(graph); err != nil {
+		return errors.Annotate(err, "failed to update bounds")
+	}
 	return nil
 }
 
@@ -393,6 +548,9 @@ func (c *Canvas) AddPlotLeft(p *Plot, graphName string) error {
 	}
 	if err := graph.AddPlotLeft(p); err != nil {
 		return errors.Annotate(err, "failed to add plot %s to Canvas", p.Legend)
+	}
+	if err := c.updateBounds(graph); err != nil {
+		return errors.Annotate(err, "failed to update bounds")
 	}
 	return nil
 }
