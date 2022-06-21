@@ -257,7 +257,6 @@ func (g *Graph) updateBounds(p *Plot) {
 	if p.Size() == 0 {
 		return
 	}
-	// first := len(g.PlotsRight) == 0 && len(g.PlotsLeft) == 0
 	switch g.Kind {
 	case KindXY:
 		minX := p.MinX()
@@ -299,7 +298,7 @@ func (g *Graph) AddPlotRight(p *Plot) error {
 		return errors.Reason("plot's kind [%s] != graph's kind [%s]",
 			p.Kind, g.Kind)
 	}
-	g.updateBounds(p) // must be before appending the plot
+	g.updateBounds(p)
 	g.PlotsRight = append(g.PlotsRight, p)
 	return nil
 }
@@ -311,7 +310,7 @@ func (g *Graph) AddPlotLeft(p *Plot) error {
 		return errors.Reason("plot's kind [%s] != graph's kind [%s]",
 			p.Kind, g.Kind)
 	}
-	g.updateBounds(p) // must be before appending the plot
+	g.updateBounds(p)
 	g.PlotsLeft = append(g.PlotsLeft, p)
 	return nil
 }
