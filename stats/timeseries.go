@@ -194,7 +194,7 @@ const (
 	PriceUnadjusted PriceField = iota
 	PriceSplitAdjusted
 	PriceFullyAdjusted
-	PriceDollarVolume
+	PriceCashVolume
 )
 
 // FromPrices initializes the Timeseries from PriceRow slice.
@@ -210,8 +210,8 @@ func (t *Timeseries) FromPrices(prices []db.PriceRow, f PriceField) *Timeseries 
 			data[i] = float64(p.CloseSplitAdjusted)
 		case PriceFullyAdjusted:
 			data[i] = float64(p.CloseFullyAdjusted)
-		case PriceDollarVolume:
-			data[i] = float64(p.DollarVolume)
+		case PriceCashVolume:
+			data[i] = float64(p.CashVolume)
 		default:
 			panic(errors.Reason("unsupported PriceField: %d", f))
 		}

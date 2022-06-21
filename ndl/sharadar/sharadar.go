@@ -193,7 +193,7 @@ func (it *pricesJobsIter) Next() (parallel.Job, error) {
 				Close:              p.CloseUnadjusted,
 				CloseSplitAdjusted: p.Close,
 				CloseFullyAdjusted: p.CloseAdjusted,
-				DollarVolume:       p.Close * p.Volume,
+				CashVolume:         p.Close * p.Volume,
 			})
 		}
 		return pricesResult{

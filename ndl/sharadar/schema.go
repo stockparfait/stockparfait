@@ -23,7 +23,7 @@ import (
 	"github.com/stockparfait/stockparfait/ndl"
 )
 
-// Scale categorises dollar value scale as follows:
+// Scale categorises cash (dollar) value scale as follows:
 //
 // 1 - Nano <$50m;
 // 2 - Micro < $300m;
