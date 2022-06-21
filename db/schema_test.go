@@ -125,7 +125,7 @@ func TestSchema(t *testing.T) {
 			So(p.CloseUnadjusted(), ShouldEqual, 100.0)
 			So(p.CloseSplitAdjusted, ShouldEqual, 50.0)
 			So(p.CloseFullyAdjusted, ShouldEqual, 50.0)
-			So(p.DollarVolume, ShouldEqual, 1000.0)
+			So(p.CashVolume, ShouldEqual, 1000.0)
 			So(p.Active(), ShouldBeFalse)
 		})
 	})

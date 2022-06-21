@@ -270,7 +270,7 @@ func ComputeMonthly(prices []PriceRow) []ResampledRow {
 		currRes.Close = p.CloseUnadjusted()
 		currRes.CloseSplitAdjusted = p.CloseSplitAdjusted
 		currRes.CloseFullyAdjusted = p.CloseFullyAdjusted
-		currRes.DollarVolume += p.DollarVolume
+		currRes.CashVolume += p.CashVolume
 		currRes.DateClose = p.Date
 		currRes.SumRelativeMove += relMove
 		currRes.NumSamples++

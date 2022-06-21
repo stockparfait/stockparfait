@@ -209,14 +209,14 @@ C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 					{
 						Date:               db.NewDate(2021, 11, 8),
 						Close:              0.35,
-						DollarVolume:       10.0 * 0.35,
+						CashVolume:         10.0 * 0.35,
 						CloseSplitAdjusted: 0.35,
 						CloseFullyAdjusted: 0.35,
 					},
 					{
 						Date:               db.NewDate(2021, 11, 9),
 						Close:              0.33,
-						DollarVolume:       7500.0 * 0.33,
+						CashVolume:         7500.0 * 0.33,
 						CloseSplitAdjusted: 0.33,
 						CloseFullyAdjusted: 0.33,
 					},
@@ -225,14 +225,14 @@ C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 					{
 						Date:               db.NewDate(2021, 9, 23),
 						Close:              10.0,
-						DollarVolume:       5.0 * 2692.0,
+						CashVolume:         5.0 * 2692.0,
 						CloseSplitAdjusted: 5.0,
 						CloseFullyAdjusted: 5.0,
 					},
 					{
 						Date:               db.NewDate(2021, 9, 24),
 						Close:              9.75,
-						DollarVolume:       9.75 * 38502.0,
+						CashVolume:         9.75 * 38502.0,
 						CloseSplitAdjusted: 9.75,
 						CloseFullyAdjusted: 9.75,
 					},

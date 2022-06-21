@@ -170,8 +170,8 @@ func TestTimeseries(t *testing.T) {
 				So(ts.Data(), ShouldResemble, []float64{5.0, 6.0})
 			})
 
-			Convey("Dollar Volume", func() {
-				ts := NewTimeseries().FromPrices(prices, PriceDollarVolume)
+			Convey("Cash Volume", func() {
+				ts := NewTimeseries().FromPrices(prices, PriceCashVolume)
 				So(ts.Dates(), ShouldResemble, []db.Date{dt1, dt2})
 				So(ts.Data(), ShouldResemble, []float64{1000.0, 2000.0})
 			})

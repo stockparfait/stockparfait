@@ -222,12 +222,15 @@ func TestAction(date Date, dividend, split float32, active bool) ActionRow {
 // Note, that the sign of the (unadjusted) Close price indicates whether the
 // ticker is listed at the close of the day (negate = delisted). Therefore, use
 // CloseUnadjusted() and Active() methods to get the corresponding values.
+//
+// Price and cash volume are assumed to be in the stock's native currency,
+// e.g. dollar for the US stocks.
 type PriceRow struct {
 	Date               Date
 	Close              float32 // unadjusted; negative means delisted
 	CloseSplitAdjusted float32 // adjusted only for splits
 	CloseFullyAdjusted float32 // adjusted for splits, dividends, spinoffs
-	DollarVolume       float32
+	CashVolume         float32 // shares volume * closing price
 }
 
 // CloseUnadjusted price, separated from the activity status.
@@ -258,7 +261,7 @@ func TestPrice(date Date, close, adj, dv float32, active bool) PriceRow {
 		Close:              close,
 		CloseSplitAdjusted: adj,
 		CloseFullyAdjusted: adj,
-		DollarVolume:       dv,
+		CashVolume:         dv,
 	}
 	p.SetActive(active)
 	return p
@@ -271,7 +274,7 @@ type ResampledRow struct {
 	Close              float32 // unadjusted
 	CloseSplitAdjusted float32 // adjusted only for splits
 	CloseFullyAdjusted float32 // adjusted for splits, dividends, spinoffs
-	DollarVolume       float32
+	CashVolume         float32
 	DateOpen           Date
 	DateClose          Date
 	// Sum of relative daily movements within the bar: sum(|p(t+1)-p(t)|/p(t)).
@@ -289,7 +292,7 @@ func TestResampled(dateOpen, dateClose Date, open, close, adj, dv float32, activ
 		Close:              close,
 		CloseSplitAdjusted: adj,
 		CloseFullyAdjusted: adj,
-		DollarVolume:       dv,
+		CashVolume:         dv,
 		DateOpen:           dateOpen,
 		DateClose:          dateClose,
 		SumRelativeMove:    10.0,
