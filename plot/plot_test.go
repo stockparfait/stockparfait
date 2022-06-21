@@ -109,59 +109,92 @@ func TestPlot(t *testing.T) {
 			_, err = EnsureGraph(ctx, KindSeries, "prices", "time")
 			So(err, ShouldBeNil)
 
-			x := []float64{1.0, 2.0, 3.0}
-			y := []float64{10.0, 20.0, 30.0}
-			dates := []db.Date{
+			x1 := []float64{1.0, 2.0, 3.0}
+			y1 := []float64{10.0, 20.0, 30.0}
+			dates1 := []db.Date{
 				db.NewDate(2020, 1, 1),
 				db.NewDate(2020, 1, 2),
 				db.NewDate(2020, 1, 3),
 			}
-			ts := stats.NewTimeseries().Init(dates, y)
+			ts1 := stats.NewTimeseries().Init(dates1, y1)
 
-			xyPlot := NewXYPlot(x, y).
+			x2 := []float64{-1.5, 1.0, 3.5}
+			y2 := []float64{20.0, 30.0, 10.0}
+			dates2 := []db.Date{
+				db.NewDate(2019, 12, 31),
+				db.NewDate(2020, 1, 2),
+				db.NewDate(2020, 3, 1),
+			}
+			ts2 := stats.NewTimeseries().Init(dates2, y2)
+
+			xyPlot1 := NewXYPlot(x1, y1).
 				SetYLabel("p").
 				SetLegend("PDF").
 				SetChartType(ChartDashed)
 
-			timePlot := NewSeriesPlot(ts)
+			timePlot1 := NewSeriesPlot(ts1)
+
+			xyPlot2 := NewXYPlot(x2, y2).SetChartType(ChartScatter)
+			timePlot2 := NewSeriesPlot(ts2)
 
 			Convey("access methods work", func() {
-				x2, y2 := xyPlot.GetXY()
-				So(x2, ShouldResemble, x)
-				So(y2, ShouldResemble, y)
-				So(func() { xyPlot.GetTimeseries() }, ShouldPanic)
+				xx, yy := xyPlot1.GetXY()
+				So(xx, ShouldResemble, x1)
+				So(yy, ShouldResemble, y1)
+				So(func() { xyPlot1.GetTimeseries() }, ShouldPanic)
+				So(xyPlot1.MinX(), ShouldEqual, 1.0)
+				So(xyPlot1.MaxX(), ShouldEqual, 3.0)
 
-				So(func() { timePlot.GetXY() }, ShouldPanic)
-				So(timePlot.GetTimeseries(), ShouldResemble, ts)
+				So(func() { timePlot1.GetXY() }, ShouldPanic)
+				So(timePlot1.GetTimeseries(), ShouldResemble, ts1)
+				So(timePlot1.MinDate(), ShouldResemble, db.NewDate(2020, 1, 1))
+				So(timePlot1.MaxDate(), ShouldResemble, db.NewDate(2020, 1, 3))
 			})
 
 			Convey("add to the right Y axis", func() {
-				So(AddRight(ctx, xyPlot, "lines"), ShouldBeNil)
-				So(AddRight(ctx, timePlot, "prices"), ShouldBeNil)
-				So(AddRight(ctx, timePlot, "lines"), ShouldNotBeNil)
-				So(AddRight(ctx, xyPlot, "nonexistent"), ShouldNotBeNil)
+				So(AddRight(ctx, xyPlot1, "lines"), ShouldBeNil)
+				So(AddRight(ctx, timePlot1, "prices"), ShouldBeNil)
+				So(AddRight(ctx, timePlot1, "lines"), ShouldNotBeNil)
+				So(AddRight(ctx, xyPlot1, "nonexistent"), ShouldNotBeNil)
 
-				So(c.graphMap["lines"].PlotsRight, ShouldResemble, []*Plot{xyPlot})
-				So(c.graphMap["prices"].PlotsRight, ShouldResemble, []*Plot{timePlot})
+				So(AddRight(ctx, xyPlot2, "lines"), ShouldBeNil)
+				So(AddRight(ctx, timePlot2, "prices"), ShouldBeNil)
+
+				So(c.graphMap["lines"].PlotsRight, ShouldResemble, []*Plot{
+					xyPlot1, xyPlot2})
+				So(c.graphMap["lines"].Kind, ShouldEqual, KindXY)
+				So(*c.graphMap["lines"].minX, ShouldEqual, -1.5)
+				So(*c.graphMap["lines"].maxX, ShouldEqual, 3.5)
+
+				So(c.graphMap["prices"].PlotsRight, ShouldResemble, []*Plot{
+					timePlot1, timePlot2})
+				So(c.graphMap["prices"].Kind, ShouldEqual, KindSeries)
+				So(*c.graphMap["prices"].minDate, ShouldResemble, db.NewDate(2019, 12, 31))
+				So(*c.graphMap["prices"].maxDate, ShouldResemble, db.NewDate(2020, 3, 1))
+
+				So(*c.groupMap["xy"].MinX, ShouldEqual, -1.5)
+				So(*c.groupMap["xy"].MaxX, ShouldEqual, 3.5)
 			})
 
 			Convey("add to the left Y axis", func() {
-				So(AddLeft(ctx, xyPlot, "lines"), ShouldBeNil)
-				So(AddLeft(ctx, timePlot, "prices"), ShouldBeNil)
-				So(AddLeft(ctx, timePlot, "lines"), ShouldNotBeNil)
-				So(AddLeft(ctx, xyPlot, "nonexistent"), ShouldNotBeNil)
+				So(AddLeft(ctx, xyPlot1, "lines"), ShouldBeNil)
+				So(AddLeft(ctx, timePlot1, "prices"), ShouldBeNil)
+				So(AddLeft(ctx, timePlot1, "lines"), ShouldNotBeNil)
+				So(AddLeft(ctx, xyPlot1, "nonexistent"), ShouldNotBeNil)
 
-				So(c.graphMap["lines"].PlotsLeft, ShouldResemble, []*Plot{xyPlot})
-				So(c.graphMap["prices"].PlotsLeft, ShouldResemble, []*Plot{timePlot})
+				So(c.graphMap["lines"].PlotsLeft, ShouldResemble, []*Plot{xyPlot1})
+				So(c.graphMap["prices"].PlotsLeft, ShouldResemble, []*Plot{timePlot1})
 			})
 
 			Convey("JSON conversion works", func() {
-				So(AddLeft(ctx, xyPlot, "lines"), ShouldBeNil)
-				So(AddLeft(ctx, timePlot, "prices"), ShouldBeNil)
+				So(AddLeft(ctx, xyPlot1, "lines"), ShouldBeNil)
+				So(AddLeft(ctx, timePlot1, "prices"), ShouldBeNil)
+				So(AddRight(ctx, xyPlot2, "lines"), ShouldBeNil)
+				So(AddRight(ctx, timePlot2, "prices"), ShouldBeNil)
 				var buf bytes.Buffer
 				So(WriteJS(ctx, &buf), ShouldBeNil)
 				So("\n"+buf.String(), ShouldEqual, `
-var DATA = {"Groups":[{"Kind":"KindXY","XLogScale":true,"Graphs":[{"Kind":"KindXY","Title":"lines","XLabel":"Value","YLogScale":false,"PlotsRight":null,"PlotsLeft":[{"Kind":"KindXY","X":[1,2,3],"Y":[10,20,30],"Dates":null,"YLabel":"p","Legend":"PDF","ChartType":"ChartDashed"}]}]},{"Kind":"KindSeries","XLogScale":false,"Graphs":null},{"Kind":"KindSeries","XLogScale":false,"Graphs":[{"Kind":"KindSeries","Title":"prices","XLabel":"Value","YLogScale":false,"PlotsRight":null,"PlotsLeft":[{"Kind":"KindSeries","X":null,"Y":[10,20,30],"Dates":["2020-01-01","2020-01-02","2020-01-03"],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartLine"}]}]}]}
+var DATA = {"Groups":[{"Kind":"KindXY","XLogScale":true,"Graphs":[{"Kind":"KindXY","Title":"lines","XLabel":"Value","YLogScale":false,"PlotsRight":[{"Kind":"KindXY","X":[-1.5,1,3.5],"Y":[20,30,10],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartScatter"}],"PlotsLeft":[{"Kind":"KindXY","X":[1,2,3],"Y":[10,20,30],"YLabel":"p","Legend":"PDF","ChartType":"ChartDashed"}]}],"MinX":-1.5,"MaxX":3.5},{"Kind":"KindSeries","XLogScale":false,"Graphs":null},{"Kind":"KindSeries","XLogScale":false,"Graphs":[{"Kind":"KindSeries","Title":"prices","XLabel":"Value","YLogScale":false,"PlotsRight":[{"Kind":"KindSeries","Y":[20,30,10],"Dates":["2019-12-31","2020-01-02","2020-03-01"],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartLine"}],"PlotsLeft":[{"Kind":"KindSeries","Y":[10,20,30],"Dates":["2020-01-01","2020-01-02","2020-01-03"],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartLine"}]}],"MinDate":"2019-12-31","MaxDate":"2020-03-01"}]}
 ;`)
 			})
 		})
