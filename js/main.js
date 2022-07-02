@@ -90,10 +90,70 @@ function addGroupXY(elem, group) {
 
 function addGraphSeries(elem, graph, minDate, maxDate, xLogScale) {
     canvas = addCanvas(elem, graph.Title);
+    var conf = {
+	type: 'line',
+	data: { datasets: [] },
+	options: {
+	    maintainAspectRatio: false,
+            scales: {
+		x: {
+		    type: 'time',
+		    ticks: {source: 'auto'},
+		    time: {
+			displayFormats: {day: 'yyyy-MM-dd'},
+			minUnit: 'day',
+		    },
+		    min: minDate,
+		    max: maxDate,
+		},
+	    },
+	},
+    }
+    addPlots(graph, conf);
+    var chart = new Chart(canvas.getContext('2d'), conf);
+    console.log('addGraphSeries: ', conf);
 }
 
 function addGraphXY(elem, graph, minX, maxX, xLogScale) {
     canvas = addCanvas(elem, graph.Title);
+    var conf = {
+	type: 'line',
+	data: { datasets: [] },
+	options: {
+	    maintainAspectRatio: false,
+            scales: {
+		x: {
+		    type: xLogScale? 'logarithmic' : 'linear',
+		    ticks: {source: 'auto'},
+		    min: minX,
+		    max: maxX,
+		},
+	    },
+	},
+    }
+    addPlots(graph, conf);
+    var chart = new Chart(canvas.getContext('2d'), conf);
+}
+
+function addPlots(graph, conf) {
+    if(graph.PlotsLeft != null && graph.PlotsLeft.length > 0) {
+	conf.options.scales.yLeft = {
+	    type: graph.YlogScale ? 'logarithmic' : 'linear',
+	    position: 'left',
+	};
+	for(var i=0; i<graph.PlotsLeft.length; i++) {
+	    conf.data.datasets.push(plotDataset(graph.PlotsLeft[i], 'yLeft'));
+	}
+    }
+    if(graph.PlotsRight != null && graph.PlotsRight.length > 0) {
+	conf.options.scales.yRight = {
+	    type: graph.YlogScale ? 'logarithmic' : 'linear',
+	    position: 'right',
+	};
+	for(var i=0; i<graph.PlotsRight.length; i++) {
+	    conf.data.datasets.push(plotDataset(graph.PlotsRight[i], 'yRight'));
+	}
+    }
 }
 
 function addCanvas(elem, title) {
@@ -112,15 +172,23 @@ function addCanvas(elem, title) {
 }
 
 function plotDataSeries(plot) {
-    return [];
+    var data = [];
+    for(var i=0; i<plot.Dates.length; i++) {
+	data.push({x: plot.Dates[i], y: plot.Y[i]});
+    }
+    return data;
 }
 
 function plotDataXY(plot) {
-    return [];
+    var data = [];
+    for(var i=0; i<plot.Y.length; i++) {
+	data.push({x: plot.X[i], y: plot.Y[i]});
+    }
+    return data;
 }
 
 // plotDataset generates a Chart compatible dataset object from plot.
-function plotDataset(plot) {
+function plotDataset(plot, yAxisID) {
     var data = [];
     if(plot.Kind == 'KindSeries') {
 	data = plotDataSeries(plot);
@@ -129,6 +197,7 @@ function plotDataset(plot) {
     }
     ds = {
 	data: data,
+	yAxisID: yAxisID,
 	label: plot.YLabel,
 	backgroundColor: 'white', // inside points
 	borderColor: nextColor(),
