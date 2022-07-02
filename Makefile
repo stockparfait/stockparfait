@@ -16,6 +16,12 @@
 INSTALLS=./apps/sharadar
 GOPATH=$(shell go env GOPATH)
 
+CHARTJS_VERSION=v3.8.0
+CHARTJS_URL="https://cdn.jsdelivr.net/npm/chart.js@$(CHARTJS_VERSION)/dist/chart.min.js"
+
+CHARTJS_ADAPTER_VERSION=v2.0.0
+CHARTJS_ADAPTER_URL="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@$(CHARTJS_ADAPTER_VERSION)/dist/chartjs-adapter-date-fns.bundle.min.js"
+
 all:
 	@echo "Please pick a target:"
 	@echo "  make init     - initialize the development environment"
@@ -25,12 +31,18 @@ all:
 	@echo "  make goconvey - start a goconvey session (Crtl-C to exit)"
 	@echo "  make clean    - delete generated files"
 
-init:
+init: js/chart.min.js js/chartjs-adapter-date-fns.bundle.min.js
 	go install github.com/smartystreets/goconvey@v1.7.2
 	go install honnef.co/go/tools/cmd/staticcheck@2021.1.2
 	go install github.com/sergey-a-berezin/gocovcheck@v1.3.0
 	go install github.com/sergey-a-berezin/gocovcheck/jsonread@v1.3.0
 	@echo "Bootstrap done!"
+
+js/chart.min.js:
+	curl $(CHARTJS_URL) > js/chart.min.js
+
+js/chartjs-adapter-date-fns.bundle.min.js:
+	curl $(CHARTJS_ADAPTER_URL) > js/chartjs-adapter-date-fns.bundle.min.js
 
 install:
 	go install $(INSTALLS)
@@ -47,3 +59,4 @@ goconvey:
 clean:
 	rm -f ".coverage"
 	rm -f "coverage.html"
+	rm -f js/chart.min.js js/chartjs-adapter-date-fns.bundle.min.js

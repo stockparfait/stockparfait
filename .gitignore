@@ -1,6 +1,11 @@
 # Mac OS file system junk.
 .DS_Store
 
+# Dynamically generated files
+js/chart.min.js
+js/chartjs-adapter-date-fns.bundle.min.js
+js/data.js
+
 # Output of the go coverage tool
 .coverage
 coverage.html

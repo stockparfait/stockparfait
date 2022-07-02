@@ -1,0 +1,27 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html> <head>
+<title>Stock Parfait</title>
+<link href="plot.css" rel="stylesheet">
+<script src="chart.min.js"></script>
+<script src="chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="data.js"></script>
+<script src="main.js"></script>
+<script>
+window.onload = () => {
+    plots = document.getElementById('plots')
+    if(typeof DATA === 'undefined') {
+	errorMsg(plots,
+		 'Please generate <code>data.js</code> file '+
+		 'containing: <div class="code_block">var DATA = ...;</div>');
+	return;
+    }
+    initPlots(plots, DATA);
+};
+</script>
+</head>
+
+<body>
+<h1>Stock Parfait</h1>
+<div class="plots" id="plots"><div>
+</body>
+</html>
