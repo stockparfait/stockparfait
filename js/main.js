@@ -111,7 +111,6 @@ function addGraphSeries(elem, graph, minDate, maxDate, xLogScale) {
     }
     addPlots(graph, conf);
     var chart = new Chart(canvas.getContext('2d'), conf);
-    console.log('addGraphSeries: ', conf);
 }
 
 function addGraphXY(elem, graph, minX, maxX, xLogScale) {
