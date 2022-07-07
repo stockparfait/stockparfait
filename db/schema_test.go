@@ -15,12 +15,33 @@
 package db
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 	"unsafe"
 
+	"github.com/stockparfait/stockparfait/message"
+
 	. "github.com/smartystreets/goconvey/convey"
 )
+
+func testJSON(js string) interface{} {
+	var res interface{}
+	if err := json.Unmarshal([]byte(js), &res); err != nil {
+		panic(err)
+	}
+	return res
+}
+
+type TestDateMessage struct {
+	Value Date
+	Ptr   *Date
+	Slice []Date
+}
+
+func (m *TestDateMessage) InitMessage(js interface{}) error {
+	return message.Init(m, js)
+}
 
 func TestSchema(t *testing.T) {
 	t.Parallel()
@@ -158,6 +179,32 @@ func TestSchema(t *testing.T) {
 
 			So(t.UnmarshalJSON([]byte(`"2019-01-02"`)), ShouldBeNil)
 			So(t.String(), ShouldEqual, "2019-01-02 00:00:00")
+		})
+
+		Convey("Message with Date works correctly", func() {
+			Convey("with regular values", func() {
+				var m TestDateMessage
+				So(m.InitMessage(testJSON(`
+{
+  "Value": "2020-02-02",
+  "Ptr": "2021-03-05",
+  "Slice": ["2019-01-01", "2022-05-04"]
+}`)), ShouldBeNil)
+				ptr := NewDate(2021, 3, 5)
+				So(m, ShouldResemble, TestDateMessage{
+					Value: NewDate(2020, 2, 2),
+					Ptr:   &ptr,
+					Slice: []Date{NewDate(2019, 1, 1), NewDate(2022, 5, 4)},
+				})
+			})
+
+			Convey("with zero values", func() {
+				var m TestDateMessage
+				So(m.InitMessage(testJSON(`{}`)), ShouldBeNil)
+				So(m.Value.IsZero(), ShouldBeTrue)
+				So(m.Ptr, ShouldBeNil)
+				So(m.Slice, ShouldBeNil)
+			})
 		})
 	})
 }

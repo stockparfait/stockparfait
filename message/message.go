@@ -36,22 +36,24 @@ import (
 //     Weight float64 `default:"25.5"` // json key is "Weight"
 //     Sex string `required:"true" choices:"male,female"`
 //     Ignored int `json:"-"`
-//     Pups []*Dog `json:"pups"` // note the pointer:
-//                               // *Dog implements Message, Dog doesn't
+//     Parent *Dog              // recursively parse Message
+//     Pups []Dog `json:"pups"` // note the lack of pointer:
+//                              // *Dog implements Message, Dog doesn't,
+//                              // but it's still correctly populated.
 //   }
 //
-//   func (d *Dog) Init(js interface{}) error {
+//   func (d *Dog) InitMessage(js interface{}) error {
 //     return message.Init(d, js)
 //   }
 type Message interface {
-	// Init converts a generic JSON read by the encoding/json package into the
-	// specific message. In particular, this method typically checks for required
-	// fields, sets the default values of optional fields, and makes sure that no
-	// unrecognized fields are present.
+	// InitMessage converts a generic JSON read by the encoding/json package into
+	// the specific message. In particular, this method typically checks for
+	// required fields, sets the default values of optional fields, and makes sure
+	// that no unrecognized fields are present.
 	//
 	// If a Message contains other Messages as fields, this method should be
 	// called recursively on the nested Messages.
-	Init(js interface{}) error
+	InitMessage(js interface{}) error
 }
 
 // rMessage is the reflected Message type. Since it's an interface, we cannot
@@ -60,24 +62,47 @@ type Message interface {
 // type.
 var rMessage = reflect.TypeOf((*Message)(nil)).Elem()
 
+func convertToMessage(jv interface{}, t reflect.Type) (reflect.Value, error) {
+	var Nil reflect.Value
+	if !t.Implements(rMessage) {
+		return Nil, errors.Reason("type %s must implement Message", t.Name())
+	}
+	if t.Kind() != reflect.Ptr {
+		return Nil, errors.Reason(
+			"type %s implements Message but is not a pointer", t.Name())
+	}
+	ptr := reflect.New(t.Elem())
+	err := ptr.MethodByName("InitMessage").Call(
+		[]reflect.Value{reflect.ValueOf(jv)})[0].Interface()
+	if err != nil {
+		return Nil, errors.Annotate(err.(error), "%s.InitMessage() failed", t.Name())
+	}
+	return ptr, nil
+}
+
 // convertToType recursively converts raw JSON value to basic types, slices and
 // map[string]* of the target type. Pointer types implementing Message are
-// initialized with their Init() method.
+// initialized with their InitMessage() method.
 func convertToType(jv interface{}, t reflect.Type) (reflect.Value, error) {
 	var Nil reflect.Value
+	if t.Implements(rMessage) {
+		ptr, err := convertToMessage(jv, t)
+		if err != nil {
+			return Nil, errors.Annotate(err, "failed to parse Message %s", t.Name())
+		}
+		return ptr, nil
+	}
+	if ptrTp := reflect.PtrTo(t); ptrTp.Implements(rMessage) {
+		ptr, err := convertToMessage(jv, ptrTp)
+		if err != nil {
+			return Nil, errors.Annotate(err, "failed to parse Message %s", t.Name())
+		}
+		return reflect.Indirect(ptr), nil
+	}
 	switch t.Kind() {
 	case reflect.Ptr:
 		if jv == nil {
 			return reflect.Zero(t), nil
-		}
-		if t.Implements(rMessage) {
-			res := reflect.New(t.Elem())
-			err := res.MethodByName("Init").Call(
-				[]reflect.Value{reflect.ValueOf(jv)})[0].Interface()
-			if err != nil {
-				return Nil, err.(error)
-			}
-			return res, nil
 		}
 		v, err := convertToType(jv, t.Elem())
 		if err != nil {
