@@ -39,6 +39,8 @@ type TestDateMessage struct {
 	Slice []Date
 }
 
+var _ message.Message = &TestDateMessage{}
+
 func (m *TestDateMessage) InitMessage(js interface{}) error {
 	return message.Init(m, js)
 }
