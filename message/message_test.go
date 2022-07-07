@@ -37,14 +37,15 @@ type Dog struct {
 	Legs       *int    `default:"4"`
 	HasBone    bool    `default:"true"`
 	Dead       bool
-	Pups       []*Dog            `json:"pups,omitempty"`
+	Parent     *Dog              `json:"parent"` // test both *Dog & Dog
+	Pups       []Dog             `json:"pups,omitempty"`
 	Tags       map[string]string `json:"tags"`
 	Ignored    int               `json:"-"`
 	unexported int
 }
 
 // Init implements Message.
-func (d *Dog) Init(js interface{}) error {
+func (d *Dog) InitMessage(js interface{}) error {
 	return Init(d, js)
 }
 
@@ -52,7 +53,7 @@ type BadChoice struct {
 	Choice string `choices:"foo,bar"` // no default
 }
 
-func (b *BadChoice) Init(js interface{}) error {
+func (b *BadChoice) InitMessage(js interface{}) error {
 	return Init(b, js)
 }
 
@@ -61,7 +62,7 @@ func TestMessage(t *testing.T) {
 	Convey("Init() works", t, func() {
 		Convey("with required fields only", func() {
 			var d Dog
-			So(d.Init(testJSON(`{"name": "Doggy"}`)), ShouldBeNil)
+			So(d.InitMessage(testJSON(`{"name": "Doggy"}`)), ShouldBeNil)
 			So(d.Name, ShouldEqual, "Doggy")
 			So(d.Sex, ShouldEqual, "female")
 			So(d.Breed, ShouldEqual, "village dog")
@@ -74,8 +75,9 @@ func TestMessage(t *testing.T) {
 
 		Convey("with recursive Message entries", func() {
 			var d Dog
-			So(d.Init(testJSON(`{
+			So(d.InitMessage(testJSON(`{
         "name": "Mommy", "Legs": null, "HasBone": false, "Age": 5.2, "Dead": true,
+        "parent": {"name": "Oldie"},
         "tags": {"tag1": "foo", "tag2": "bar"},
         "pups": [
           {"name": "Bad Boy", "Age": 0.1, "Sex": "male"},
@@ -87,6 +89,7 @@ func TestMessage(t *testing.T) {
 			So(d.HasBone, ShouldBeFalse)
 			So(d.Age, ShouldEqual, 5.2)
 			So(d.Dead, ShouldBeTrue)
+			So(d.Parent.Name, ShouldEqual, "Oldie")
 			So(d.Tags, ShouldResemble, map[string]string{"tag1": "foo", "tag2": "bar"})
 			So(len(d.Pups), ShouldEqual, 2)
 			boy := d.Pups[0]
@@ -105,26 +108,26 @@ func TestMessage(t *testing.T) {
 		Convey("with missing fields in recursive Init() call", func() {
 			var d Dog
 			// A pup is missing its name.
-			So(d.Init(testJSON(`{"name": "Mommy", "pups": [{"Age": 0.1}]}`)), ShouldNotBeNil)
+			So(d.InitMessage(testJSON(`{"name": "Mommy", "pups": [{"Age": 0.1}]}`)), ShouldNotBeNil)
 		})
 
 		Convey("with ignored fields", func() {
 			var d Dog
-			err := d.Init(testJSON(`{"name": "D", "Ignored": 5}`))
+			err := d.InitMessage(testJSON(`{"name": "D", "Ignored": 5}`))
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldContainSubstring, "unsupported fields for Dog: Ignored")
 		})
 
 		Convey("with unexported fields", func() {
 			var d Dog
-			err := d.Init(testJSON(`{"name": "D", "unexported": 5}`))
+			err := d.InitMessage(testJSON(`{"name": "D", "unexported": 5}`))
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldContainSubstring, "unsupported fields for Dog: unexported")
 		})
 
 		Convey("with incorrect sex", func() {
 			var d Dog
-			err := d.Init(testJSON(`{"name": "D", "Sex": "neutered"}`))
+			err := d.InitMessage(testJSON(`{"name": "D", "Sex": "neutered"}`))
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldContainSubstring,
 				"value for Sex is not in its choice list: 'neutered'")
@@ -132,7 +135,7 @@ func TestMessage(t *testing.T) {
 
 		Convey("with incorrect default choice", func() {
 			var b BadChoice
-			err := b.Init(testJSON(`{}`))
+			err := b.InitMessage(testJSON(`{}`))
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldContainSubstring,
 				"error setting Go zero value for Choice")

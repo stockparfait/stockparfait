@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/stockparfait/errors"
+	"github.com/stockparfait/stockparfait/message"
 )
 
 // lessLex is a lexicographic ordering on the slices of int.
@@ -72,6 +73,7 @@ type Date struct {
 
 var _ json.Marshaler = Date{}
 var _ json.Unmarshaler = &Date{}
+var _ message.Message = &Date{}
 
 // NewDate is the constructor for Date.
 func NewDate(year uint16, month, day uint8) Date {
@@ -127,6 +129,20 @@ func (d *Date) UnmarshalJSON(data []byte) error {
 	var s string
 	if err := json.Unmarshal(data, &s); err != nil {
 		return errors.Annotate(err, "Date JSON must be a string")
+	}
+	date, err := NewDateFromString(s)
+	if err != nil {
+		return errors.Annotate(err, "failed to parse Date string")
+	}
+	*d = date
+	return nil
+}
+
+// InitMessage implements message.Message.
+func (d *Date) InitMessage(js interface{}) error {
+	s, ok := js.(string)
+	if !ok {
+		return errors.Reason("expected a string, got %v", js)
 	}
 	date, err := NewDateFromString(s)
 	if err != nil {
