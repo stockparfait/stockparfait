@@ -15,6 +15,7 @@
 package db
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -69,13 +70,13 @@ func TestDB(t *testing.T) {
 		}
 
 		Convey("write methods work", func() {
-			db := NewDatabase(dbPath)
-			So(db.WriteTickers(tickers), ShouldBeNil)
-			So(db.WriteActions(actions), ShouldBeNil)
-			So(db.WritePrices("A", pricesA), ShouldBeNil)
-			So(db.WritePrices("B", pricesB), ShouldBeNil)
-			So(db.WriteMonthly(monthly), ShouldBeNil)
-			So(db.WriteMetadata(), ShouldBeNil)
+			w := NewWriter(dbPath)
+			So(w.WriteTickers(tickers), ShouldBeNil)
+			So(w.WriteActions(actions), ShouldBeNil)
+			So(w.WritePrices("A", pricesA), ShouldBeNil)
+			So(w.WritePrices("B", pricesB), ShouldBeNil)
+			So(w.WriteMonthly(monthly), ShouldBeNil)
+			So(w.WriteMetadata(), ShouldBeNil)
 		})
 
 		Convey("ComputeMonthly works", func() {
@@ -129,7 +130,7 @@ func TestDB(t *testing.T) {
 		})
 
 		Convey("ticker access methods work", func() {
-			db := NewDatabase(dbPath)
+			db := NewReader(dbPath)
 			r, err := db.TickerRow("A")
 			So(err, ShouldBeNil)
 			So(r, ShouldResemble, tickers["A"])
@@ -141,46 +142,54 @@ func TestDB(t *testing.T) {
 			r, err = db.TickerRow("UNKNOWN")
 			So(err, ShouldNotBeNil)
 
-			ts, err := db.Tickers(NewConstraints().Ticker("A", "OTHER"))
+			db.Constraints.Ticker("A", "OTHER")
+
+			ts, err := db.Tickers()
 			So(err, ShouldBeNil)
 			So(ts, ShouldResemble, []string{"A"})
 		})
 
 		Convey("action access methods work", func() {
-			db := NewDatabase(dbPath)
-			a, err := db.Actions("A", NewConstraints())
+			db := NewReader(dbPath)
+			a, err := db.Actions("A")
 			So(err, ShouldBeNil)
 			So(a, ShouldResemble, actions["A"])
 
-			a, err = db.Actions("B", NewConstraints().EndAt(NewDate(2019, 6, 1)))
+			db.Constraints.EndAt(NewDate(2019, 6, 1))
+
+			a, err = db.Actions("B")
 			So(err, ShouldBeNil)
 			So(a, ShouldResemble, actions["B"][:1])
 		})
 
 		Convey("price access methods work", func() {
-			db := NewDatabase(dbPath)
-			p, err := db.Prices("A", NewConstraints())
+			db := NewReader(dbPath)
+			p, err := db.Prices("A")
 			So(err, ShouldBeNil)
 			So(p, ShouldResemble, pricesA)
 
-			p, err = db.Prices("B", NewConstraints().StartAt(NewDate(2019, 1, 2)))
+			db.Constraints.StartAt(NewDate(2019, 1, 2))
+
+			p, err = db.Prices("B")
 			So(err, ShouldBeNil)
 			So(p, ShouldResemble, pricesB[1:])
 		})
 
 		Convey("monthly access methods work", func() {
-			db := NewDatabase(dbPath)
-			a, err := db.Monthly("A", NewConstraints())
+			db := NewReader(dbPath)
+			a, err := db.Monthly("A")
 			So(err, ShouldBeNil)
 			So(a, ShouldResemble, monthly["A"])
 
-			a, err = db.Monthly("B", NewConstraints().EndAt(NewDate(2019, 2, 15)))
+			db.Constraints.EndAt(NewDate(2019, 2, 15))
+
+			a, err = db.Monthly("B")
 			So(err, ShouldBeNil)
 			So(a, ShouldResemble, monthly["B"][:1])
 		})
 
 		Convey("metadata access methods work", func() {
-			db := NewDatabase(dbPath)
+			db := NewReader(dbPath)
 			m, err := db.Metadata()
 			So(err, ShouldBeNil)
 			So(m, ShouldResemble, Metadata{
@@ -190,6 +199,36 @@ func TestDB(t *testing.T) {
 				NumActions: 3,
 				NumPrices:  6,
 				NumMonthly: 4,
+			})
+		})
+
+		Convey("NewReaderFromConfig", func() {
+			var c DataConfig
+			js := fmt.Sprintf(`{
+  "DB path": "%s",
+  "tickers": ["A", "B"],
+  "exclude tickers": ["B", "C"],
+  "exchanges": ["E1", "E2"],
+  "names": ["n1", "n2"],
+  "categories": ["c1", "c2"],
+  "sectors": ["s1", "s2"],
+  "industries": ["i1", "i2"],
+  "start": "2021-01-01",
+  "end": "2021-10-02"
+  }`, dbPath)
+			So(c.InitMessage(testJSON(js)), ShouldBeNil)
+			r := NewReaderFromConfig(&c)
+			So(r.cachePath, ShouldEqual, dbPath)
+			So(r.Constraints, ShouldResemble, &Constraints{
+				Tickers:        map[string]struct{}{"A": {}, "B": {}},
+				ExcludeTickers: map[string]struct{}{"B": {}, "C": {}},
+				Exchanges:      map[string]struct{}{"E1": {}, "E2": {}},
+				Names:          map[string]struct{}{"n1": {}, "n2": {}},
+				Categories:     map[string]struct{}{"c1": {}, "c2": {}},
+				Sectors:        map[string]struct{}{"s1": {}, "s2": {}},
+				Industries:     map[string]struct{}{"i1": {}, "i2": {}},
+				Start:          NewDate(2021, 1, 1),
+				End:            NewDate(2021, 10, 2),
 			})
 		})
 	})

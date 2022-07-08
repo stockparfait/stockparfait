@@ -405,27 +405,27 @@ func (d *Dataset) DownloadAll(ctx context.Context, cachePath string, tables ...T
 	d.ComputeActions(ctx)
 	logging.Infof(ctx, "created %d DB actions", d.NumActions)
 	logging.Infof(ctx, "writing tickers...")
-	database := db.NewDatabase(cachePath)
-	if err := database.WriteTickers(d.Tickers); err != nil {
+	w := db.NewWriter(cachePath)
+	if err := w.WriteTickers(d.Tickers); err != nil {
 		return errors.Annotate(err, "failed to write tickers")
 	}
 	logging.Infof(ctx, "writing actions...")
-	if err := database.WriteActions(d.Actions); err != nil {
+	if err := w.WriteActions(d.Actions); err != nil {
 		return errors.Annotate(err, "failed to write actions")
 	}
 	logging.Infof(ctx, "writing prices...")
 	for ticker, prices := range d.Prices {
-		if err := database.WritePrices(ticker, prices); err != nil {
+		if err := w.WritePrices(ticker, prices); err != nil {
 			return errors.Annotate(err, "failed to write prices for %s", ticker)
 		}
 		d.Monthly[ticker] = db.ComputeMonthly(prices)
 	}
 	logging.Infof(ctx, "writing monthly resampled prices...")
-	if err := database.WriteMonthly(d.Monthly); err != nil {
+	if err := w.WriteMonthly(d.Monthly); err != nil {
 		return errors.Annotate(err, "failed to write monthly prices")
 	}
 	logging.Infof(ctx, "writing metadata...")
-	if err := database.WriteMetadata(); err != nil {
+	if err := w.WriteMetadata(); err != nil {
 		return errors.Annotate(err, "failed to write metadata")
 	}
 	logging.Infof(ctx, "all done.")
