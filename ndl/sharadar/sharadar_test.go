@@ -341,7 +341,7 @@ C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 
 			ds := NewDataset()
 			So(ds.DownloadAll(ctx, tmpdir, EquitiesTable), ShouldBeNil)
-			d := db.NewDatabase(tmpdir)
+			d := db.NewReader(tmpdir)
 			meta, err := d.Metadata()
 			So(err, ShouldBeNil)
 			So(meta, ShouldResemble, db.Metadata{

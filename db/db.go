@@ -15,7 +15,6 @@
 package db
 
 import (
-	"context"
 	"encoding/gob"
 	"encoding/json"
 	"os"
@@ -23,27 +22,8 @@ import (
 	"sync"
 
 	"github.com/stockparfait/errors"
+	"github.com/stockparfait/stockparfait/message"
 )
-
-type contextKey int
-
-const (
-	dbContextKey contextKey = iota
-)
-
-// UseDB injects database into the context.
-func UseDB(ctx context.Context, db *Database) context.Context {
-	return context.WithValue(ctx, dbContextKey, db)
-}
-
-// GetDB extracts database from the context.
-func GetDB(ctx context.Context) *Database {
-	db, ok := ctx.Value(dbContextKey).(*Database)
-	if !ok {
-		return nil
-	}
-	return db
-}
 
 func writeGob(fileName string, v interface{}) error {
 	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
@@ -71,7 +51,8 @@ func readGob(fileName string, v interface{}) error {
 	return nil
 }
 
-type Database struct {
+type Reader struct {
+	Constraints   *Constraints
 	cachePath     string
 	tickers       map[string]TickerRow
 	actions       map[string][]ActionRow
@@ -83,149 +64,259 @@ type Database struct {
 	actionsError  error
 	monthlyOnce   sync.Once
 	monthlyError  error
-	mkdirOnce     sync.Once
-	mkdirError    error
 	metadataOnce  sync.Once
 	metadataError error
 }
 
-func NewDatabase(cachePath string) *Database {
-	return &Database{
-		cachePath: cachePath,
-		tickers:   make(map[string]TickerRow),
-		actions:   make(map[string][]ActionRow),
-		monthly:   make(map[string][]ResampledRow),
+func NewReader(cachePath string) *Reader {
+	return &Reader{
+		Constraints: NewConstraints(),
+		cachePath:   cachePath,
+		tickers:     make(map[string]TickerRow),
+		actions:     make(map[string][]ActionRow),
+		monthly:     make(map[string][]ResampledRow),
 	}
 }
 
-func (db *Database) tickersFile() string {
-	return filepath.Join(db.cachePath, "tickers.gob")
+func tickersFile(cachePath string) string {
+	return filepath.Join(cachePath, "tickers.gob")
 }
 
-func (db *Database) actionsFile() string {
-	return filepath.Join(db.cachePath, "actions.gob")
+func actionsFile(cachePath string) string {
+	return filepath.Join(cachePath, "actions.gob")
 }
 
-func (db *Database) pricesDir() string {
-	return filepath.Join(db.cachePath, "prices")
+func pricesDir(cachePath string) string {
+	return filepath.Join(cachePath, "prices")
 }
 
-func (db *Database) pricesFile(ticker string) string {
-	return filepath.Join(db.pricesDir(), ticker+".gob")
+func pricesFile(cachePath, ticker string) string {
+	return filepath.Join(pricesDir(cachePath), ticker+".gob")
 }
 
-func (db *Database) monthlyFile() string {
-	return filepath.Join(db.cachePath, "monthly.gob")
+func monthlyFile(cachePath string) string {
+	return filepath.Join(cachePath, "monthly.gob")
 }
 
-func (db *Database) metadataFile() string {
-	return filepath.Join(db.cachePath, "metadata.json")
+func metadataFile(cachePath string) string {
+	return filepath.Join(cachePath, "metadata.json")
 }
 
-func (db *Database) cacheMetadata() error {
-	db.metadataOnce.Do(func() {
-		fileName := db.metadataFile()
+func (r *Reader) cacheMetadata() error {
+	r.metadataOnce.Do(func() {
+		fileName := metadataFile(r.cachePath)
 		f, err := os.Open(fileName)
 		if err != nil {
-			db.metadataError = errors.Annotate(err,
+			r.metadataError = errors.Annotate(err,
 				"failed to open file for reading: '%s'", fileName)
 		}
 		defer f.Close()
 
 		dec := json.NewDecoder(f)
-		if err := dec.Decode(&db.metadata); err != nil {
-			db.metadataError = errors.Annotate(err, "failed to decode JSON")
+		if err := dec.Decode(&r.metadata); err != nil {
+			r.metadataError = errors.Annotate(err, "failed to decode JSON")
 		}
 	})
-	return db.metadataError
+	return r.metadataError
 }
 
-func (db *Database) cacheTickers() error {
-	db.tickersOnce.Do(func() {
-		if err := readGob(db.tickersFile(), &db.tickers); err != nil {
-			db.tickersError = errors.Annotate(
-				err, "failed to load %s", db.tickersFile())
+func (r *Reader) cacheTickers() error {
+	r.tickersOnce.Do(func() {
+		if err := readGob(tickersFile(r.cachePath), &r.tickers); err != nil {
+			r.tickersError = errors.Annotate(
+				err, "failed to load %s", tickersFile(r.cachePath))
 		}
 	})
-	return db.tickersError
+	return r.tickersError
 }
 
-func (db *Database) cacheActions() error {
-	db.actionsOnce.Do(func() {
-		if err := readGob(db.actionsFile(), &db.actions); err != nil {
-			db.actionsError = errors.Annotate(
-				err, "failed to load %s", db.actionsFile())
+func (r *Reader) cacheActions() error {
+	r.actionsOnce.Do(func() {
+		if err := readGob(actionsFile(r.cachePath), &r.actions); err != nil {
+			r.actionsError = errors.Annotate(
+				err, "failed to load %s", actionsFile(r.cachePath))
 		}
 	})
-	return db.actionsError
+	return r.actionsError
 }
 
-func (db *Database) cacheMonthly() error {
-	db.monthlyOnce.Do(func() {
-		if err := readGob(db.monthlyFile(), &db.monthly); err != nil {
-			db.monthlyError = errors.Annotate(
-				err, "failed to load %s", db.monthlyFile())
+func (r *Reader) cacheMonthly() error {
+	r.monthlyOnce.Do(func() {
+		if err := readGob(monthlyFile(r.cachePath), &r.monthly); err != nil {
+			r.monthlyError = errors.Annotate(
+				err, "failed to load %s", monthlyFile(r.cachePath))
 		}
 	})
-	return db.monthlyError
+	return r.monthlyError
 }
 
-func (db *Database) createDirs() error {
-	db.mkdirOnce.Do(func() {
-		if err := os.MkdirAll(db.pricesDir(), os.ModeDir|0755); err != nil {
-			db.mkdirError = errors.Annotate(
-				err, "failed to create %s", db.pricesDir())
+// Metadata for the database. It is cached in memory upon the first call.
+func (r *Reader) Metadata() (Metadata, error) {
+	if err := r.cacheMetadata(); err != nil {
+		return Metadata{}, errors.Annotate(err, "failed to load metadata")
+	}
+	return r.metadata, nil
+}
+
+// TickerRow for the given ticker. It's an error if a ticker is not in R.
+// Tickers are cached in memory upon the first call. Go routine safe.
+func (r *Reader) TickerRow(ticker string) (TickerRow, error) {
+	if err := r.cacheTickers(); err != nil {
+		return TickerRow{}, errors.Annotate(err, "failed to load tickers")
+	}
+	row, ok := r.tickers[ticker]
+	if !ok {
+		return TickerRow{}, errors.Reason("no such ticker: %s", ticker)
+	}
+	return row, nil
+}
+
+// Tickers returns the list of tickers satisfying current Reader's constraints.
+// All tickers are cached in memory, and tickers are filtered for each call.
+// Therefore, modifying Reader's constraints takes effect at the next call
+// without re-reading the tickers.  Go-routine safe assuming constraints are not
+// modified.
+func (r *Reader) Tickers() ([]string, error) {
+	if err := r.cacheTickers(); err != nil {
+		return nil, errors.Annotate(err, "failed to load tickers")
+	}
+	tickers := []string{}
+	for t, row := range r.tickers {
+		if r.Constraints.CheckTicker(t) && r.Constraints.CheckTickerRow(row) {
+			tickers = append(tickers, t)
+		}
+	}
+	return tickers, nil
+}
+
+// Actions for ticker satisfying the Reader's constraints, sorted by date.
+// All actions for all tickers are cached in memory upon the first call. Go routine
+// safe, assuming Reader's constraints are not modified.
+func (r *Reader) Actions(ticker string) ([]ActionRow, error) {
+	if err := r.cacheActions(); err != nil {
+		return nil, errors.Annotate(err, "failed to load actions")
+	}
+	actions, ok := r.actions[ticker]
+	if !ok {
+		return nil, errors.Reason("no actions found for ticker %s", ticker)
+	}
+	res := []ActionRow{}
+	for _, a := range actions {
+		if r.Constraints.CheckAction(a) {
+			res = append(res, a)
+		}
+	}
+	return res, nil
+}
+
+// Prices for ticker satilfying Reader's constraints, sorted by date. Prices are
+// NOT cached in memory, and are read from disk every time. It is probably go
+// routine safe, if the underlying OS allows to open and read the same file
+// multiple times from the same process. Reading different tickers is definitely
+// safe in parallel, assuming consraints are not modified.
+func (r *Reader) Prices(ticker string) ([]PriceRow, error) {
+	prices := []PriceRow{}
+	if err := readGob(pricesFile(r.cachePath, ticker), &prices); err != nil {
+		return nil, errors.Annotate(err, "failed to read prices for %s", ticker)
+	}
+	res := []PriceRow{}
+	for _, p := range prices {
+		if r.Constraints.CheckPrice(p) {
+			res = append(res, p)
+		}
+	}
+	return res, nil
+}
+
+// Monthly price data for ticker satisfying Reader's constraints, sorted by
+// date.  Data for all tickers are cached in memory upon the first call. Go
+// routine safe assuming constraints are not modified.
+func (r *Reader) Monthly(ticker string) ([]ResampledRow, error) {
+	if err := r.cacheMonthly(); err != nil {
+		return nil, errors.Annotate(err, "failed to load monthly data")
+	}
+	monthly, ok := r.monthly[ticker]
+	if !ok {
+		return nil, errors.Reason("no monthly data found for ticker %s", ticker)
+	}
+	res := []ResampledRow{}
+	for _, row := range monthly {
+		if r.Constraints.CheckResampled(row) {
+			res = append(res, row)
+		}
+	}
+	return res, nil
+}
+
+type Writer struct {
+	cachePath  string
+	metadata   Metadata
+	mkdirOnce  sync.Once
+	mkdirError error
+}
+
+func NewWriter(cachePath string) *Writer {
+	return &Writer{cachePath: cachePath}
+}
+
+func (w *Writer) createDirs() error {
+	w.mkdirOnce.Do(func() {
+		if err := os.MkdirAll(pricesDir(w.cachePath), os.ModeDir|0755); err != nil {
+			w.mkdirError = errors.Annotate(
+				err, "failed to create %s", pricesDir(w.cachePath))
 		}
 	})
-	return db.mkdirError
+	return w.mkdirError
 }
 
 // WriteTickers saves the tickers table to the DB file, and sets the number of
 // tickers in the metadata.
-func (db *Database) WriteTickers(tickers map[string]TickerRow) error {
-	if err := db.createDirs(); err != nil {
+func (w *Writer) WriteTickers(tickers map[string]TickerRow) error {
+	if err := w.createDirs(); err != nil {
 		return errors.Annotate(err, "failed to create DB directories")
 	}
-	if err := writeGob(db.tickersFile(), tickers); err != nil {
-		return errors.Annotate(err, "failed to write '%s'", db.tickersFile())
+	if err := writeGob(tickersFile(w.cachePath), tickers); err != nil {
+		return errors.Annotate(err, "failed to write '%s'", tickersFile(w.cachePath))
 	}
-	db.metadata.NumTickers = len(tickers)
+	w.metadata.NumTickers = len(tickers)
 	return nil
 }
 
 // WriteActions saves the actions table to the DB file, and sets the number of
 // actions in the metadata. Actions are indexed by ticker, and for each ticker
 // actions are assumed to be sorted by date.
-func (db *Database) WriteActions(actions map[string][]ActionRow) error {
-	if err := db.createDirs(); err != nil {
+func (w *Writer) WriteActions(actions map[string][]ActionRow) error {
+	if err := w.createDirs(); err != nil {
 		return errors.Annotate(err, "failed to create DB directories")
 	}
-	if err := writeGob(db.actionsFile(), actions); err != nil {
-		return errors.Annotate(err, "failed to write '%s'", db.actionsFile())
+	if err := writeGob(actionsFile(w.cachePath), actions); err != nil {
+		return errors.Annotate(err, "failed to write '%s'",
+			actionsFile(w.cachePath))
 	}
-	db.metadata.NumActions = 0
+	w.metadata.NumActions = 0
 	for _, as := range actions {
-		db.metadata.NumActions += len(as)
+		w.metadata.NumActions += len(as)
 	}
 	return nil
 }
 
 // WritePrices saves the ticker prices to the DB file and incrementally updates
 // the metadata.  Prices are assumed to be sorted by date.
-func (db *Database) WritePrices(ticker string, prices []PriceRow) error {
-	if err := db.createDirs(); err != nil {
+func (w *Writer) WritePrices(ticker string, prices []PriceRow) error {
+	if err := w.createDirs(); err != nil {
 		return errors.Annotate(err, "failed to create DB directories")
 	}
-	if err := writeGob(db.pricesFile(ticker), prices); err != nil {
-		return errors.Annotate(err, "failed to write '%s'", db.pricesFile(ticker))
+	if err := writeGob(pricesFile(w.cachePath, ticker), prices); err != nil {
+		return errors.Annotate(err, "failed to write '%s'",
+			pricesFile(w.cachePath, ticker))
 	}
-	db.metadata.NumPrices += len(prices)
+	w.metadata.NumPrices += len(prices)
 	for _, p := range prices {
-		if db.metadata.Start.IsZero() || db.metadata.Start.After(p.Date) {
-			db.metadata.Start = p.Date
+		if w.metadata.Start.IsZero() || w.metadata.Start.After(p.Date) {
+			w.metadata.Start = p.Date
 		}
-		if db.metadata.End.IsZero() || db.metadata.End.Before(p.Date) {
-			db.metadata.End = p.Date
+		if w.metadata.End.IsZero() || w.metadata.End.Before(p.Date) {
+			w.metadata.End = p.Date
 		}
 	}
 	return nil
@@ -283,24 +374,25 @@ func ComputeMonthly(prices []PriceRow) []ResampledRow {
 // WriteMonthly saves the monthly resampled table to the DB file and sets the
 // number of samples in the metadata. ResampledRow's are indexed by ticker, and
 // for each ticker are assumed to be sorted by the closing date.
-func (db *Database) WriteMonthly(monthly map[string][]ResampledRow) error {
-	if err := db.createDirs(); err != nil {
+func (w *Writer) WriteMonthly(monthly map[string][]ResampledRow) error {
+	if err := w.createDirs(); err != nil {
 		return errors.Annotate(err, "failed to create DB directories")
 	}
-	if err := writeGob(db.monthlyFile(), monthly); err != nil {
-		return errors.Annotate(err, "failed to write '%s'", db.monthlyFile())
+	if err := writeGob(monthlyFile(w.cachePath), monthly); err != nil {
+		return errors.Annotate(err, "failed to write '%s'",
+			monthlyFile(w.cachePath))
 	}
-	db.metadata.NumMonthly = 0
+	w.metadata.NumMonthly = 0
 	for _, ms := range monthly {
-		db.metadata.NumMonthly += len(ms)
+		w.metadata.NumMonthly += len(ms)
 	}
 	return nil
 }
 
 // WriteMetadata saves the metadata accumulated by the Write* methods. It is
 // stored in JSON format to be human-readable.
-func (db *Database) WriteMetadata() error {
-	fileName := db.metadataFile()
+func (w *Writer) WriteMetadata() error {
+	fileName := metadataFile(w.cachePath)
 	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return errors.Annotate(err, "failed to open file for writing: '%s'", fileName)
@@ -309,102 +401,52 @@ func (db *Database) WriteMetadata() error {
 
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
-	if err := enc.Encode(db.metadata); err != nil {
+	if err := enc.Encode(w.metadata); err != nil {
 		return errors.Annotate(err, "failed to write to '%s'", fileName)
 	}
 	return nil
 }
 
-// Metadata for the database. It is cached in memory upon the first call.
-func (db *Database) Metadata() (Metadata, error) {
-	if err := db.cacheMetadata(); err != nil {
-		return Metadata{}, errors.Annotate(err, "failed to load metadata")
-	}
-	return db.metadata, nil
+// DataConfig is the configuration of the data source.
+type DataConfig struct {
+	DBPath         string   `json:"DB path"` // default: ~/.stockparfait/sharadar
+	Tickers        []string `json:"tickers"`
+	ExcludeTickers []string `json:"exclude tickers"`
+	Exchanges      []string `json:"exchanges"`
+	Names          []string `json:"names"`
+	Categories     []string `json:"categories"`
+	Sectors        []string `json:"sectors"`
+	Industries     []string `json:"industries"`
+	Start          Date     `json:"start"`
+	End            Date     `json:"end"`
 }
 
-// TickerRow for the given ticker. It's an error if a ticker is not in DB.
-// Tickers are cached in memory upon the first call. Go routine safe.
-func (db *Database) TickerRow(ticker string) (TickerRow, error) {
-	if err := db.cacheTickers(); err != nil {
-		return TickerRow{}, errors.Annotate(err, "failed to load tickers")
+var _ message.Message = &DataConfig{}
+
+// InitMessage implements message.Message.
+func (d *DataConfig) InitMessage(js interface{}) error {
+	if err := message.Init(d, js); err != nil {
+		return err
 	}
-	r, ok := db.tickers[ticker]
-	if !ok {
-		return TickerRow{}, errors.Reason("no such ticker: %s", ticker)
+	if d.DBPath == "" {
+		d.DBPath = filepath.Join(os.Getenv("HOME"), ".stockparfait", "sharadar")
 	}
-	return r, nil
+	return nil
 }
 
-// Tickers returns the list of tickers satisfying TickerRow data constraints.
-// Tickers are cached in memory upon the first call. Go routine safe.
-func (db *Database) Tickers(c *Constraints) ([]string, error) {
-	if err := db.cacheTickers(); err != nil {
-		return nil, errors.Annotate(err, "failed to load tickers")
-	}
-	tickers := []string{}
-	for t, r := range db.tickers {
-		if c.CheckTicker(t) && c.CheckTickerRow(r) {
-			tickers = append(tickers, t)
-		}
-	}
-	return tickers, nil
-}
+// NewReaderFromConfig creates a new Reader from the config.
+func NewReaderFromConfig(c *DataConfig) *Reader {
+	r := NewReader(c.DBPath)
+	r.Constraints.
+		Ticker(c.Tickers...).
+		ExcludeTicker(c.ExcludeTickers...).
+		Exchange(c.Exchanges...).
+		Name(c.Names...).
+		Category(c.Categories...).
+		Sector(c.Sectors...).
+		Industry(c.Industries...).
+		StartAt(c.Start).
+		EndAt(c.End)
 
-// Actions for ticker satisfying the constraints, sorted by date. Actions for
-// all tickers are cached in memory upon the first call. Go routine safe.
-func (db *Database) Actions(ticker string, c *Constraints) ([]ActionRow, error) {
-	if err := db.cacheActions(); err != nil {
-		return nil, errors.Annotate(err, "failed to load actions")
-	}
-	actions, ok := db.actions[ticker]
-	if !ok {
-		return nil, errors.Reason("no actions found for ticker %s", ticker)
-	}
-	res := []ActionRow{}
-	for _, a := range actions {
-		if c.CheckAction(a) {
-			res = append(res, a)
-		}
-	}
-	return res, nil
-}
-
-// Prices for ticker satilfying constraints, sorted by date. Prices are NOT
-// cached in memory, and are read from disk every time. It is probably go
-// routine safe, if the underlying OS allows to open and read the same file
-// multiple times from the same process. Reading different tickers is definitely
-// safe in parallel.
-func (db *Database) Prices(ticker string, c *Constraints) ([]PriceRow, error) {
-	prices := []PriceRow{}
-	if err := readGob(db.pricesFile(ticker), &prices); err != nil {
-		return nil, errors.Annotate(err, "failed to read prices for %s", ticker)
-	}
-	res := []PriceRow{}
-	for _, p := range prices {
-		if c.CheckPrice(p) {
-			res = append(res, p)
-		}
-	}
-	return res, nil
-}
-
-// Monthly price data for ticker satisfying the constraints, sorted by date.
-// Data for all tickers are cached in memory upon the first call. Go routine
-// safe.
-func (db *Database) Monthly(ticker string, c *Constraints) ([]ResampledRow, error) {
-	if err := db.cacheMonthly(); err != nil {
-		return nil, errors.Annotate(err, "failed to load monthly data")
-	}
-	monthly, ok := db.monthly[ticker]
-	if !ok {
-		return nil, errors.Reason("no monthly data found for ticker %s", ticker)
-	}
-	res := []ResampledRow{}
-	for _, r := range monthly {
-		if c.CheckResampled(r) {
-			res = append(res, r)
-		}
-	}
-	return res, nil
+	return r
 }
