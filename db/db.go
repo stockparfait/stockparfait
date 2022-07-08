@@ -171,8 +171,11 @@ func (r *Reader) TickerRow(ticker string) (TickerRow, error) {
 	return row, nil
 }
 
-// Tickers returns the list of tickers satisfying Reader's constraints.
-// Tickers are cached in memory upon the first call. Go routine safe.
+// Tickers returns the list of tickers satisfying current Reader's constraints.
+// All tickers are cached in memory, and tickers are filtered for each call.
+// Therefore, modifying Reader's constraints takes effect at the next call
+// without re-reading the tickers.  Go-routine safe assuming constraints are not
+// modified.
 func (r *Reader) Tickers() ([]string, error) {
 	if err := r.cacheTickers(); err != nil {
 		return nil, errors.Annotate(err, "failed to load tickers")
@@ -187,8 +190,8 @@ func (r *Reader) Tickers() ([]string, error) {
 }
 
 // Actions for ticker satisfying the Reader's constraints, sorted by date.
-// Actions for all tickers are cached in memory upon the first call. Go routine
-// safe.
+// All actions for all tickers are cached in memory upon the first call. Go routine
+// safe, assuming Reader's constraints are not modified.
 func (r *Reader) Actions(ticker string) ([]ActionRow, error) {
 	if err := r.cacheActions(); err != nil {
 		return nil, errors.Annotate(err, "failed to load actions")
@@ -206,11 +209,11 @@ func (r *Reader) Actions(ticker string) ([]ActionRow, error) {
 	return res, nil
 }
 
-// Prices for ticker satilfying constraints, sorted by date. Prices are NOT
-// cached in memory, and are read from disk every time. It is probably go
+// Prices for ticker satilfying Reader's constraints, sorted by date. Prices are
+// NOT cached in memory, and are read from disk every time. It is probably go
 // routine safe, if the underlying OS allows to open and read the same file
 // multiple times from the same process. Reading different tickers is definitely
-// safe in parallel.
+// safe in parallel, assuming consraints are not modified.
 func (r *Reader) Prices(ticker string) ([]PriceRow, error) {
 	prices := []PriceRow{}
 	if err := readGob(pricesFile(r.cachePath, ticker), &prices); err != nil {
@@ -225,9 +228,9 @@ func (r *Reader) Prices(ticker string) ([]PriceRow, error) {
 	return res, nil
 }
 
-// Monthly price data for ticker satisfying the constraints, sorted by date.
-// Data for all tickers are cached in memory upon the first call. Go routine
-// safe.
+// Monthly price data for ticker satisfying Reader's constraints, sorted by
+// date.  Data for all tickers are cached in memory upon the first call. Go
+// routine safe assuming constraints are not modified.
 func (r *Reader) Monthly(ticker string) ([]ResampledRow, error) {
 	if err := r.cacheMonthly(); err != nil {
 		return nil, errors.Annotate(err, "failed to load monthly data")
