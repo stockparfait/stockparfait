@@ -65,10 +65,11 @@ type ChartType int
 
 // Values of ChartType.
 const (
-	ChartLine ChartType = iota
-	ChartDashed
-	ChartScatter
-	ChartLast // to check for invalid chart types
+	ChartLine    ChartType = iota
+	ChartDashed            // dashed connected line
+	ChartScatter           // individual dots
+	ChartBars              // histogram bars for each X
+	ChartLast              // to check for invalid chart types
 )
 
 var _ json.Marshaler = ChartLine
@@ -81,6 +82,8 @@ func (c ChartType) String() string {
 		return "ChartDashed"
 	case ChartScatter:
 		return "ChartScatter"
+	case ChartBars:
+		return "ChartBars"
 	default:
 		return fmt.Sprintf("<Undefined ChartType: %d>", c)
 	}

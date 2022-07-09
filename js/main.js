@@ -12,34 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Each color provides a matching foreground / background pair of colors.
 var colors = [
-    'Black',
-    'DarkBlue',
-    'Blue',
-    'DarkGreen',
-    'Green',
-    'Teal',
-    'MidnightBlue',
-    'Indigo',
-    'DarkOliveGreen',
-    'DimGray',
-    'OliveDrab',
-    'LawnGreen',
-    'Aqua',
-    'Aquamarine',
-    'Maroon',
-    'Purple',
-    'Olive',
-    'DarkRed',
-    'DarkMagenta',
-    'SaddleBrown',
-    'Brown',
-    'MediumVioletRed',
-    'GoldenRod',
-    'Crimson',
-    'Red',
+    {'fg': 'Black', 'bg': 'LightGray'},
+    {'fg': 'DarkBlue', 'bg': 'CornflowerBlue'},
+    {'fg': 'Blue', 'bg': 'CornflowerBlue'},
+    {'fg': 'DarkGreen', 'bg': 'GreenYellow'},
+    {'fg': 'Green', 'bg': 'LightGreen'},
+    {'fg': 'Teal', 'bg': 'Turquoise'},
+    {'fg': 'MidnightBlue', 'bg': 'SkyBlue'},
+    {'fg': 'Indigo', 'bg': 'Fuchsia'},
+    {'fg': 'DarkOliveGreen', 'bg': 'DarkSeaGreen'},
+    {'fg': 'DimGray', 'bg': 'Gainsboro'},
+    {'fg': 'OliveDrab', 'bg': 'YellowGreen'},
+    {'fg': 'ForestGreen', 'bg': 'PaleGreen'},
+    {'fg': 'DarkCyan', 'bg': 'Cyan'},
+    {'fg': 'MediumAquaMarine', 'bg': 'AquaMarine'},
+    {'fg': 'Maroon', 'bg': 'Red'},
+    {'fg': 'Purple', 'bg': 'MediumPurple'},
+    {'fg': 'Olive', 'bg': 'Goldenrod'},
+    {'fg': 'DarkRed', 'bg': 'LightCoral'},
+    {'fg': 'DarkMagenta', 'bg': 'Magenta'},
+    {'fg': 'SaddleBrown', 'bg': 'Peru'},
+    {'fg': 'Brown', 'bg': 'SandyBrown'},
+    {'fg': 'MediumVioletRed', 'bg': 'PaleVioletRed'},
+    {'fg': 'GoldenRod', 'bg': 'PaleGoldenRod'},
+    {'fg': 'Crimson', 'bg': 'DeepPink'},
 ];
 
+// nextColor returns an object with 'fg' and 'bg' attributes for the foreground
+// and background colors.
 function nextColor() {
     return colors[Math.floor(Math.random() * colors.length)];
 }
@@ -186,6 +188,13 @@ function plotDataXY(plot) {
     return data;
 }
 
+function chartType(tp) {
+    if(tp == 'ChartBar') {
+	return 'bar';
+    }
+    return 'line';
+}
+
 // plotDataset generates a Chart compatible dataset object from plot.
 function plotDataset(plot, yAxisID) {
     var data = [];
@@ -194,12 +203,14 @@ function plotDataset(plot, yAxisID) {
     } else {
 	data = plotDataXY(plot);
     }
-    ds = {
+    var color = nextColor();
+    var ds = {
 	data: data,
+	type: chartType(plot.ChartType),
 	yAxisID: yAxisID,
 	label: plot.YLabel,
-	backgroundColor: 'white', // inside points
-	borderColor: nextColor(),
+	backgroundColor: color.bg, // inside points or bars
+	borderColor: color.fg,
 	borderWidth: 2,
     };
     if(plot.ChartType == 'ChartDashed') {

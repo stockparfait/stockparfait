@@ -187,14 +187,17 @@ func TestPlot(t *testing.T) {
 			})
 
 			Convey("JSON conversion works", func() {
+				xyPlotBars := NewXYPlot(x2, y2).SetChartType(ChartBars)
+
 				So(AddLeft(ctx, xyPlot1, "lines"), ShouldBeNil)
 				So(AddLeft(ctx, timePlot1, "prices"), ShouldBeNil)
 				So(AddRight(ctx, xyPlot2, "lines"), ShouldBeNil)
+				So(AddRight(ctx, xyPlotBars, "lines"), ShouldBeNil)
 				So(AddRight(ctx, timePlot2, "prices"), ShouldBeNil)
 				var buf bytes.Buffer
 				So(WriteJS(ctx, &buf), ShouldBeNil)
 				So("\n"+buf.String(), ShouldEqual, `
-var DATA = {"Groups":[{"Kind":"KindXY","XLogScale":true,"Graphs":[{"Kind":"KindXY","Title":"lines","XLabel":"Value","YLogScale":false,"PlotsRight":[{"Kind":"KindXY","X":[-1.5,1,3.5],"Y":[20,30,10],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartScatter"}],"PlotsLeft":[{"Kind":"KindXY","X":[1,2,3],"Y":[10,20,30],"YLabel":"p","Legend":"PDF","ChartType":"ChartDashed"}]}],"MinX":-1.5,"MaxX":3.5},{"Kind":"KindSeries","XLogScale":false,"Graphs":null},{"Kind":"KindSeries","XLogScale":false,"Graphs":[{"Kind":"KindSeries","Title":"prices","XLabel":"Value","YLogScale":false,"PlotsRight":[{"Kind":"KindSeries","Y":[20,30,10],"Dates":["2019-12-31","2020-01-02","2020-03-01"],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartLine"}],"PlotsLeft":[{"Kind":"KindSeries","Y":[10,20,30],"Dates":["2020-01-01","2020-01-02","2020-01-03"],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartLine"}]}],"MinDate":"2019-12-31","MaxDate":"2020-03-01"}]}
+var DATA = {"Groups":[{"Kind":"KindXY","XLogScale":true,"Graphs":[{"Kind":"KindXY","Title":"lines","XLabel":"Value","YLogScale":false,"PlotsRight":[{"Kind":"KindXY","X":[-1.5,1,3.5],"Y":[20,30,10],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartScatter"},{"Kind":"KindXY","X":[-1.5,1,3.5],"Y":[20,30,10],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartBars"}],"PlotsLeft":[{"Kind":"KindXY","X":[1,2,3],"Y":[10,20,30],"YLabel":"p","Legend":"PDF","ChartType":"ChartDashed"}]}],"MinX":-1.5,"MaxX":3.5},{"Kind":"KindSeries","XLogScale":false,"Graphs":null},{"Kind":"KindSeries","XLogScale":false,"Graphs":[{"Kind":"KindSeries","Title":"prices","XLabel":"Value","YLogScale":false,"PlotsRight":[{"Kind":"KindSeries","Y":[20,30,10],"Dates":["2019-12-31","2020-01-02","2020-03-01"],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartLine"}],"PlotsLeft":[{"Kind":"KindSeries","Y":[10,20,30],"Dates":["2020-01-01","2020-01-02","2020-01-03"],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartLine"}]}],"MinDate":"2019-12-31","MaxDate":"2020-03-01"}]}
 ;`)
 			})
 		})
