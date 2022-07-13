@@ -138,22 +138,36 @@ function addGraphXY(elem, graph, minX, maxX, xLogScale) {
 
 function addPlots(graph, conf) {
     if(graph.PlotsLeft != null && graph.PlotsLeft.length > 0) {
+	var labels = {}
+	for(var i=0; i<graph.PlotsLeft.length; i++) {
+	    conf.data.datasets.push(plotDataset(graph.PlotsLeft[i], 'yLeft'));
+	    labels[graph.PlotsLeft[i].YLabel] = true;
+	}
+	var labelStr = '';
+	for(l in labels) {
+	    labelStr += (labelStr == '' ? '' : ', ') + l;
+	}
 	conf.options.scales.yLeft = {
 	    type: graph.YlogScale ? 'logarithmic' : 'linear',
 	    position: 'left',
+	    title: {display: true, text: labelStr},
 	};
-	for(var i=0; i<graph.PlotsLeft.length; i++) {
-	    conf.data.datasets.push(plotDataset(graph.PlotsLeft[i], 'yLeft'));
-	}
     }
     if(graph.PlotsRight != null && graph.PlotsRight.length > 0) {
+	var labels = {}
+	for(var i=0; i<graph.PlotsRight.length; i++) {
+	    conf.data.datasets.push(plotDataset(graph.PlotsRight[i], 'yRight'));
+	    labels[graph.PlotsRight[i].YLabel] = true;
+	}
+	var labelStr = '';
+	for(l in labels) {
+	    labelStr += (labelStr == '' ? '' : ', ') + l;
+	}
 	conf.options.scales.yRight = {
 	    type: graph.YlogScale ? 'logarithmic' : 'linear',
 	    position: 'right',
+	    title: {display: true, text: labelStr},
 	};
-	for(var i=0; i<graph.PlotsRight.length; i++) {
-	    conf.data.datasets.push(plotDataset(graph.PlotsRight[i], 'yRight'));
-	}
     }
 }
 
@@ -208,7 +222,7 @@ function plotDataset(plot, yAxisID) {
 	data: data,
 	type: chartType(plot.ChartType),
 	yAxisID: yAxisID,
-	label: plot.YLabel,
+	label: plot.Legend,
 	backgroundColor: color.bg, // inside points or bars
 	borderColor: color.fg,
 	borderWidth: 2,
