@@ -227,10 +227,26 @@ function plotDataset(plot, yAxisID) {
 	borderColor: color.fg,
 	borderWidth: 2,
     };
+    if(plot.ChartType == 'ChartLine' || plot.ChartType == 'ChartDashed') {
+	ds.elements = {
+	    point: {
+		radius: 0,
+		hitRadius: 10,
+		hoverRadius: 5,
+	    },
+	};
+    }
     if(plot.ChartType == 'ChartDashed') {
 	ds.borderDash = [10, 3];
-    } else if(plot.ChartType == 'ChartScatter') {
+    }
+    if(plot.ChartType == 'ChartScatter') {
 	ds.showLine = false;
+	ds.elements = {
+	    point: {
+		radius: 1,
+		hoverRadius: 5,
+	    },
+	};
     }
     return ds;
 }
