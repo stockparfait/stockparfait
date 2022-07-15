@@ -58,7 +58,7 @@ func (b *BadChoice) InitMessage(js interface{}) error {
 }
 
 type DefaultField struct {
-	Def  int `default:"5"`
+	Five int `default:"5"`
 	Zero int
 }
 
@@ -161,11 +161,11 @@ func TestMessage(t *testing.T) {
 				"value for Choice is not in its choice list: ''")
 		})
 
-		Convey("field by value sets defaults, pointer is nil", func() {
+		Convey("omitted field: default for value, nil for pointer", func() {
 			var m DefaultMsg
 			So(m.InitMessage(testJSON(`{}`)), ShouldBeNil)
 			So(m, ShouldResemble, DefaultMsg{
-				Val: DefaultField{Def: 5, Zero: 0},
+				Val: DefaultField{Five: 5, Zero: 0},
 				Ptr: nil,
 			})
 		})

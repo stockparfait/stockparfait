@@ -245,14 +245,16 @@ func checkSet(f reflect.StructField, fv reflect.Value, v reflect.Value) error {
 	return nil
 }
 
-// Init is a generic method to be used by most Message.Init implementations. It
+// Init is a generic method to be used by most InitMessage implementations. It
 // expects m to be a struct, and js to be a non-nil map[string]interface{}. It
 // uses struct tags to know if a field is required or if it has a simple default
 // value (such as a string, number or bool).
 //
-// If the field type is another Message, it calls the Message's Init()
-// method. Otherwise, it converts whatever value it finds to the appropriate
-// type and assigns it.
+// If the field type is another Message, it calls its InitMessage() method.
+// Otherwise, it converts whatever value it finds to the appropriate type and
+// assigns it. Note, that when js omits a field of Message-type by value,
+// InitMessage() will be called with an empty map[string]interface{}, and a
+// custom InitMessage must handle this case.
 //
 // It then checks the original JSON for any unrecognized fields and returns an
 // error as appropriate.
@@ -335,7 +337,6 @@ func Init(m Message, js interface{}) error {
 		// Not required and no default: set it to default or zero value. Note, that
 		// we still need to check its validity, e.g. in case there is a `choices`
 		// tag.
-		v := reflect.Zero(f.Type)
 		v, err := convertToType(nil, f.Type)
 		if err != nil {
 			return errors.Annotate(err, "error creating default value for %s", f.Name)
