@@ -34,7 +34,8 @@ func TestDB(t *testing.T) {
 	})
 
 	Convey("Data access methods", t, func() {
-		dbPath := filepath.Join(tmpdir, "db")
+		dbName := "testdb"
+		dbPath := filepath.Join(tmpdir, dbName)
 		tickers := map[string]TickerRow{
 			"A": {},
 			"B": {},
@@ -206,6 +207,7 @@ func TestDB(t *testing.T) {
 			var c DataConfig
 			js := fmt.Sprintf(`{
   "DB path": "%s",
+  "DB": "%s",
   "tickers": ["A", "B"],
   "exclude tickers": ["B", "C"],
   "exchanges": ["E1", "E2"],
@@ -215,7 +217,7 @@ func TestDB(t *testing.T) {
   "industries": ["i1", "i2"],
   "start": "2021-01-01",
   "end": "2021-10-02"
-  }`, dbPath)
+  }`, tmpdir, dbName)
 			So(c.InitMessage(testJSON(js)), ShouldBeNil)
 			r := NewReaderFromConfig(&c)
 			So(r.cachePath, ShouldEqual, dbPath)

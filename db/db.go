@@ -409,7 +409,8 @@ func (w *Writer) WriteMetadata() error {
 
 // DataConfig is the configuration of the data source.
 type DataConfig struct {
-	DBPath         string   `json:"DB path"` // default: ~/.stockparfait/sharadar
+	DBPath         string   `json:"DB path"`            // default: ~/.stockparfait
+	DB             string   `json:"DB" required:"true"` // specific DB in path
 	Tickers        []string `json:"tickers"`
 	ExcludeTickers []string `json:"exclude tickers"`
 	Exchanges      []string `json:"exchanges"`
@@ -429,14 +430,14 @@ func (d *DataConfig) InitMessage(js interface{}) error {
 		return err
 	}
 	if d.DBPath == "" {
-		d.DBPath = filepath.Join(os.Getenv("HOME"), ".stockparfait", "sharadar")
+		d.DBPath = filepath.Join(os.Getenv("HOME"), ".stockparfait")
 	}
 	return nil
 }
 
 // NewReaderFromConfig creates a new Reader from the config.
 func NewReaderFromConfig(c *DataConfig) *Reader {
-	r := NewReader(c.DBPath)
+	r := NewReader(filepath.Join(c.DBPath, c.DB))
 	r.Constraints.
 		Ticker(c.Tickers...).
 		ExcludeTicker(c.ExcludeTickers...).
