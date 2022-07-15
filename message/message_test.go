@@ -57,6 +57,24 @@ func (b *BadChoice) InitMessage(js interface{}) error {
 	return Init(b, js)
 }
 
+type DefaultField struct {
+	Five int `default:"5"`
+	Zero int
+}
+
+func (f *DefaultField) InitMessage(js interface{}) error {
+	return Init(f, js)
+}
+
+type DefaultMsg struct {
+	Val DefaultField
+	Ptr *DefaultField
+}
+
+func (m *DefaultMsg) InitMessage(js interface{}) error {
+	return Init(m, js)
+}
+
 func TestMessage(t *testing.T) {
 	t.Parallel()
 	Convey("Init() works", t, func() {
@@ -138,9 +156,18 @@ func TestMessage(t *testing.T) {
 			err := b.InitMessage(testJSON(`{}`))
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldContainSubstring,
-				"error setting Go zero value for Choice")
+				"error setting zero value for Choice")
 			So(err.Error(), ShouldContainSubstring,
 				"value for Choice is not in its choice list: ''")
+		})
+
+		Convey("omitted field: default for value, nil for pointer", func() {
+			var m DefaultMsg
+			So(m.InitMessage(testJSON(`{}`)), ShouldBeNil)
+			So(m, ShouldResemble, DefaultMsg{
+				Val: DefaultField{Five: 5, Zero: 0},
+				Ptr: nil,
+			})
 		})
 	})
 

@@ -82,10 +82,14 @@ func convertToMessage(jv interface{}, t reflect.Type) (reflect.Value, error) {
 
 // convertToType recursively converts raw JSON value to basic types, slices and
 // map[string]* of the target type. Pointer types implementing Message are
-// initialized with their InitMessage() method.
+// initialized with their InitMessage() method. If jv == nil, set to zero or
+// default Message value, as appropriate.
 func convertToType(jv interface{}, t reflect.Type) (reflect.Value, error) {
 	var Nil reflect.Value
 	if t.Implements(rMessage) {
+		if jv == nil {
+			return reflect.Zero(t), nil
+		}
 		ptr, err := convertToMessage(jv, t)
 		if err != nil {
 			return Nil, errors.Annotate(err, "failed to parse Message %s", t.Name())
@@ -93,17 +97,20 @@ func convertToType(jv interface{}, t reflect.Type) (reflect.Value, error) {
 		return ptr, nil
 	}
 	if ptrTp := reflect.PtrTo(t); ptrTp.Implements(rMessage) {
+		if jv == nil {
+			jv = make(map[string]interface{}) // force default values for t
+		}
 		ptr, err := convertToMessage(jv, ptrTp)
 		if err != nil {
 			return Nil, errors.Annotate(err, "failed to parse Message %s", t.Name())
 		}
 		return reflect.Indirect(ptr), nil
 	}
+	if jv == nil {
+		return reflect.Zero(t), nil
+	}
 	switch t.Kind() {
 	case reflect.Ptr:
-		if jv == nil {
-			return reflect.Zero(t), nil
-		}
 		v, err := convertToType(jv, t.Elem())
 		if err != nil {
 			return Nil, err
@@ -238,14 +245,16 @@ func checkSet(f reflect.StructField, fv reflect.Value, v reflect.Value) error {
 	return nil
 }
 
-// Init is a generic method to be used by most Message.Init implementations. It
+// Init is a generic method to be used by most InitMessage implementations. It
 // expects m to be a struct, and js to be a non-nil map[string]interface{}. It
 // uses struct tags to know if a field is required or if it has a simple default
 // value (such as a string, number or bool).
 //
-// If the field type is another Message, it calls the Message's Init()
-// method. Otherwise, it converts whatever value it finds to the appropriate
-// type and assigns it.
+// If the field type is another Message, it calls its InitMessage() method.
+// Otherwise, it converts whatever value it finds to the appropriate type and
+// assigns it. Note, that when js omits a field of Message-type by value,
+// InitMessage() will be called with an empty map[string]interface{}, and a
+// custom InitMessage must handle this case.
 //
 // It then checks the original JSON for any unrecognized fields and returns an
 // error as appropriate.
@@ -325,12 +334,15 @@ func Init(m Message, js interface{}) error {
 			}
 			continue
 		}
-		// Not required and no default: set it to Go zero value. Note, that we still
-		// need to check its validity, e.g. in case there is a `choices` tag.
-		v := reflect.Zero(f.Type)
+		// Not required and no default: set it to default or zero value. Note, that
+		// we still need to check its validity, e.g. in case there is a `choices`
+		// tag.
+		v, err := convertToType(nil, f.Type)
+		if err != nil {
+			return errors.Annotate(err, "error creating default value for %s", f.Name)
+		}
 		if err := checkSet(f, rfv, v); err != nil {
-			return errors.Annotate(
-				err, "error setting Go zero value for %s", f.Name)
+			return errors.Annotate(err, "error setting zero value for %s", f.Name)
 		}
 	}
 	if len(missingRequired) != 0 {
