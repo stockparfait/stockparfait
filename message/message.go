@@ -82,10 +82,14 @@ func convertToMessage(jv interface{}, t reflect.Type) (reflect.Value, error) {
 
 // convertToType recursively converts raw JSON value to basic types, slices and
 // map[string]* of the target type. Pointer types implementing Message are
-// initialized with their InitMessage() method.
+// initialized with their InitMessage() method. If jv == nil, set to zero or
+// default Message value, as appropriate.
 func convertToType(jv interface{}, t reflect.Type) (reflect.Value, error) {
 	var Nil reflect.Value
 	if t.Implements(rMessage) {
+		if jv == nil {
+			return reflect.Zero(t), nil
+		}
 		ptr, err := convertToMessage(jv, t)
 		if err != nil {
 			return Nil, errors.Annotate(err, "failed to parse Message %s", t.Name())
@@ -93,17 +97,20 @@ func convertToType(jv interface{}, t reflect.Type) (reflect.Value, error) {
 		return ptr, nil
 	}
 	if ptrTp := reflect.PtrTo(t); ptrTp.Implements(rMessage) {
+		if jv == nil {
+			jv = make(map[string]interface{}) // force default values for t
+		}
 		ptr, err := convertToMessage(jv, ptrTp)
 		if err != nil {
 			return Nil, errors.Annotate(err, "failed to parse Message %s", t.Name())
 		}
 		return reflect.Indirect(ptr), nil
 	}
+	if jv == nil {
+		return reflect.Zero(t), nil
+	}
 	switch t.Kind() {
 	case reflect.Ptr:
-		if jv == nil {
-			return reflect.Zero(t), nil
-		}
 		v, err := convertToType(jv, t.Elem())
 		if err != nil {
 			return Nil, err
@@ -325,12 +332,16 @@ func Init(m Message, js interface{}) error {
 			}
 			continue
 		}
-		// Not required and no default: set it to Go zero value. Note, that we still
-		// need to check its validity, e.g. in case there is a `choices` tag.
+		// Not required and no default: set it to default or zero value. Note, that
+		// we still need to check its validity, e.g. in case there is a `choices`
+		// tag.
 		v := reflect.Zero(f.Type)
+		v, err := convertToType(nil, f.Type)
+		if err != nil {
+			return errors.Annotate(err, "error creating default value for %s", f.Name)
+		}
 		if err := checkSet(f, rfv, v); err != nil {
-			return errors.Annotate(
-				err, "error setting Go zero value for %s", f.Name)
+			return errors.Annotate(err, "error setting zero value for %s", f.Name)
 		}
 	}
 	if len(missingRequired) != 0 {
