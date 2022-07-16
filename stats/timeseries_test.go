@@ -89,18 +89,6 @@ func TestTimeseries(t *testing.T) {
 			So(r.Data(), ShouldResemble, data()[2:])
 		})
 
-		Convey("LogProfits with zeros", func() {
-			// Relative delta after 0.0 value should be skipped.
-			ts = NewTimeseries().Init(dates(), []float64{1.0, 0.0, 2.0, 4.0, 5.0})
-			dts := ts.LogProfits()
-			So(roundSlice(dts.Data(), 5), ShouldResemble, roundSlice([]float64{
-				math.Inf(-1),
-				math.Inf(1),
-				math.Log(4.0 / 2.0),
-				math.Log(5.0 / 4.0),
-			}, 5))
-		})
-
 		Convey("LogProfits", func() {
 			dts := ts.LogProfits()
 			So(ts.Data(), ShouldResemble, data()) // the original ts is not modified
@@ -108,6 +96,17 @@ func TestTimeseries(t *testing.T) {
 				math.Log(2.0),
 				math.Log(3.0 / 2.0),
 				math.Log(4.0 / 3.0),
+				math.Log(5.0 / 4.0),
+			}, 5))
+		})
+
+		Convey("LogProfits with zeros", func() {
+			ts = NewTimeseries().Init(dates(), []float64{1.0, 0.0, 2.0, 4.0, 5.0})
+			dts := ts.LogProfits()
+			So(roundSlice(dts.Data(), 5), ShouldResemble, roundSlice([]float64{
+				math.Inf(-1),
+				math.Inf(1),
+				math.Log(4.0 / 2.0),
 				math.Log(5.0 / 4.0),
 			}, 5))
 		})
