@@ -42,7 +42,7 @@ func TestSample(t *testing.T) {
 			So(s2.Data(), ShouldResemble, []float64{1.0, 2.0})
 		})
 
-		Convey("Mean works", func() {
+		Convey("Mean", func() {
 			So(s.Mean(), ShouldEqual, 1.5)
 			s.Init([]float64{2.0, 4.0})
 			So(s.Mean(), ShouldEqual, 3.0)
@@ -50,7 +50,7 @@ func TestSample(t *testing.T) {
 			So(s.Mean(), ShouldEqual, 0.0)
 		})
 
-		Convey("MAD works", func() {
+		Convey("MAD", func() {
 			So(s.MAD(), ShouldEqual, 0.75)
 			s.Init([]float64{2.0, 4.0})
 			So(s.MAD(), ShouldEqual, 1.0)
@@ -58,7 +58,7 @@ func TestSample(t *testing.T) {
 			So(s.MAD(), ShouldEqual, 0.0)
 		})
 
-		Convey("Variance works", func() {
+		Convey("Variance", func() {
 			So(s.Variance(), ShouldEqual, 0.875)
 			s.Init([]float64{2.0, 4.0})
 			So(s.Variance(), ShouldEqual, 1.0)
@@ -66,12 +66,25 @@ func TestSample(t *testing.T) {
 			So(s.Variance(), ShouldEqual, 0.0)
 		})
 
-		Convey("Sigma works", func() {
+		Convey("Sigma", func() {
 			So(s.Sigma(), ShouldEqual, math.Sqrt(0.875))
 			s.Init([]float64{2.0, 4.0})
 			So(s.Sigma(), ShouldEqual, 1.0)
 			s.Init([]float64{})
 			So(s.Sigma(), ShouldEqual, 0.0)
+		})
+
+		Convey("Normalize", func() {
+			normalized, err := s.Normalize()
+			So(err, ShouldBeNil)
+			So(normalized.Data(), ShouldResemble, []float64{
+				0.0, // == (1.5 - 1.5) / 0.75
+				(2.0 - 1.5) / 0.75,
+				(2.5 - 1.5) / 0.75,
+				(0.0 - 1.5) / 0.75,
+			})
+			So(normalized.Mean(), ShouldEqual, 0.0)
+			So(normalized.MAD(), ShouldEqual, 1.0)
 		})
 	})
 }

@@ -16,6 +16,8 @@ package stats
 
 import (
 	"math"
+
+	"github.com/stockparfait/errors"
 )
 
 // Sample stores unordered set of numerical data (float64) and computes various
@@ -119,4 +121,19 @@ func (s *Sample) Variance() float64 {
 // Sigma computes the standard deviation of the Sample, cached.
 func (s *Sample) Sigma() float64 {
 	return math.Sqrt(s.Variance())
+}
+
+// Normalize creates a new Sample of {(x - mean) / MAD}, thus its Mean and MAD
+// are 0 and 1, respectively.
+func (s *Sample) Normalize() (*Sample, error) {
+	ns := NewSample().Copy(s.Data())
+	mad := s.MAD()
+	if mad == 0.0 || math.IsInf(mad, 0) {
+		return nil, errors.Reason("MAD=%g must be non-zero and finite", mad)
+	}
+	mean := s.Mean()
+	for i, d := range ns.data {
+		ns.data[i] = (d - mean) / mad
+	}
+	return ns, nil
 }
