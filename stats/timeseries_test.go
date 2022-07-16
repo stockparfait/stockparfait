@@ -89,35 +89,9 @@ func TestTimeseries(t *testing.T) {
 			So(r.Data(), ShouldResemble, data()[2:])
 		})
 
-		Convey("Deltas default", func() {
-			dts, err := ts.Deltas(DeltaParams{})
-			So(err, ShouldBeNil)
-			So(dts.Dates(), ShouldResemble, dates()[1:])
-			So(dts.Data(), ShouldResemble, []float64{1.0, 1.0, 1.0, 1.0})
-		})
-
-		Convey("Deltas relative", func() {
-			dts, err := ts.Deltas(DeltaParams{Relative: true})
-			So(err, ShouldBeNil)
-			So(dts.Dates(), ShouldResemble, dates()[1:])
-			So(dts.Data(), ShouldResemble, []float64{1.0, 0.5, 1.0 / 3.0, 0.25})
-		})
-
-		Convey("Deltas relative with zeros", func() {
-			// Relative delta after 0.0 value should be skipped.
-			ts = NewTimeseries().Init(dates(), []float64{1.0, 0.0, 2.0, 4.0, 5.0})
-			dts, err := ts.Deltas(DeltaParams{Relative: true})
-			So(err, ShouldBeNil)
-			So(dts.Dates(), ShouldResemble, []db.Date{
-				dates()[1], dates()[3], dates()[4]})
-			So(dts.Data(), ShouldResemble, []float64{-1.0, 1.0, 0.25})
-		})
-
-		Convey("Deltas logarithmic", func() {
-			dts, err := ts.Deltas(DeltaParams{Log: true})
-			So(err, ShouldBeNil)
+		Convey("LogProfits", func() {
+			dts := ts.LogProfits()
 			So(ts.Data(), ShouldResemble, data()) // the original ts is not modified
-			So(dts.Dates(), ShouldResemble, dates()[1:])
 			So(roundSlice(dts.Data(), 5), ShouldResemble, roundSlice([]float64{
 				math.Log(2.0),
 				math.Log(3.0 / 2.0),
@@ -126,22 +100,15 @@ func TestTimeseries(t *testing.T) {
 			}, 5))
 		})
 
-		Convey("Deltas normalized", func() {
-			ts = NewTimeseries().Init(dates(), []float64{1.0, 3.0, 2.0, 5.0, 4.0})
-			// Raw deltas: 2, -1, 3, -1; mean = 3/4 = 0.75
-			mad := ((2.0 - 0.75) + (1.0 + 0.75) + (3.0 - 0.75) + (1 + 0.75)) / 4.0
-			dts, err := ts.Deltas(DeltaParams{Normalized: true})
-			So(err, ShouldBeNil)
-			So(dts.Dates(), ShouldResemble, dates()[1:])
-			So(dts.Data(), ShouldResemble, []float64{
-				(2.0 - 0.75) / mad, (-1.0 - 0.75) / mad,
-				(3.0 - 0.75) / mad, (-1.0 - 0.75) / mad})
-		})
-
-		Convey("Deltas normalized with MAD=0", func() {
-			_, err := ts.Deltas(DeltaParams{Normalized: true})
-			So(err, ShouldNotBeNil)
-			So(err.Error(), ShouldContainSubstring, "MAD(deltas)=0")
+		Convey("LogProfits with zeros", func() {
+			ts = NewTimeseries().Init(dates(), []float64{1.0, 0.0, 2.0, 4.0, 5.0})
+			dts := ts.LogProfits()
+			So(roundSlice(dts.Data(), 5), ShouldResemble, roundSlice([]float64{
+				math.Inf(-1),
+				math.Inf(1),
+				math.Log(4.0 / 2.0),
+				math.Log(5.0 / 4.0),
+			}, 5))
 		})
 
 		Convey("FromPrices", func() {

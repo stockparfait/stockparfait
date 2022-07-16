@@ -29,6 +29,9 @@ func roundFixed(x float64, digits int) float64 {
 // round x to the given number of significant decimal digits, for approximate
 // comparisons in tests.
 func round(x float64, places int) float64 {
+	if math.IsInf(x, 0) {
+		return x
+	}
 	order := 0
 	if x != 0.0 {
 		order = int(math.Log10(math.Abs(x)))

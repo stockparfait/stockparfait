@@ -148,43 +148,20 @@ type DeltaParams struct {
 	Normalized bool // normalize deltas so mean=0 and MAD=1
 }
 
-// Deltas computes the deltas from the timeseries.
-func (t *Timeseries) Deltas(params DeltaParams) (*Timeseries, error) {
-	data := t.Data()
-	if params.Log {
-		data = make([]float64, len(t.Data()))
-		for i, d := range t.Data() {
-			data[i] = math.Log(d)
-		}
+// LogProfits computes a Sample of log-profits {log(x[t+1]) - log(x[t])}.
+func (t *Timeseries) LogProfits() *Sample {
+	data := make([]float64, len(t.Data()))
+	for i, d := range t.Data() {
+		data[i] = math.Log(d)
 	}
 	deltas := []float64{}
-	dates := []db.Date{}
 	for i := range data {
 		if i == 0 {
 			continue
 		}
-		d := data[i] - data[i-1]
-		if params.Relative {
-			if data[i-1] == 0.0 {
-				continue
-			}
-			d = d / data[i-1]
-		}
-		deltas = append(deltas, d)
-		dates = append(dates, t.Dates()[i])
+		deltas = append(deltas, data[i]-data[i-1])
 	}
-	if params.Normalized {
-		s := NewSample().Init(deltas)
-		mean := s.Mean()
-		mad := s.MAD()
-		if mad == 0.0 {
-			return nil, errors.Reason("MAD(deltas)=0")
-		}
-		for i, d := range deltas {
-			deltas[i] = (d - mean) / mad
-		}
-	}
-	return NewTimeseries().Init(dates, deltas), nil
+	return NewSample().Init(deltas)
 }
 
 // PriceField is an enum type indicating which PriceRow field to use.
