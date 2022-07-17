@@ -13,10 +13,25 @@
  * limitations under the License.
  */
 
-.chart_block {
-    width: 90%;
-    height: 300px;
+.group_block {
     margin: 10px 20px 30px 20px;
+    border-radius: 20px;
+    border: 2px solid lightGray;
+}
+
+.group_title {
+    margin: 20px 30px 10px 30px;
+    padding: 0px 0px 10px 0px;
+    font-size: xx-large;
+    font-weight: bold;
+    text-align: center;
+    border-color: #e0e0e0;
+    border-style: none none solid none;
+}
+
+.chart_block {
+    height: 300px;
+    margin: 10px 10px 30px 10px;
 }
 
 .chart_title {

@@ -70,13 +70,28 @@ function initPlots(elem, data) {
     }
 }
 
+function addGroupElem(elem, group) {
+    var groupDiv = document.createElement('div');
+    groupDiv.className = 'group_block';
+    elem.appendChild(groupDiv);
+
+    if(group.Title != null) {
+	var groupTitle = document.createElement('div');
+	groupTitle.className = 'group_title';
+	groupTitle.innerHTML = group.Title;
+	groupDiv.appendChild(groupTitle);
+    }
+    return groupDiv;
+}
+
 function addGroupSeries(elem, group) {
     if(group.Graphs == null) {
 	return
     }
+    var groupElem = addGroupElem(elem, group);
     for(var i = 0; i < group.Graphs.length; i++) {
 	var graph = group.Graphs[i];
-	addGraphSeries(elem, graph, group.MinDate, group.MaxDate, group.XLogScale);
+	addGraphSeries(groupElem, graph, group.MinDate, group.MaxDate, group.XLogScale);
     }
 }
 
@@ -84,9 +99,10 @@ function addGroupXY(elem, group) {
     if(group.Graphs == null) {
 	return
     }
+    var groupElem = addGroupElem(elem, group);
     for(var i = 0; i < group.Graphs.length; i++) {
 	var graph = group.Graphs[i];
-	addGraphXY(elem, graph, group.MinX, group.MaxX, group.XLogScale);
+	addGraphXY(groupElem, graph, group.MinX, group.MaxX, group.XLogScale);
     }
 }
 

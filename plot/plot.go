@@ -219,24 +219,24 @@ func (p *Plot) GetXY() ([]float64, []float64) {
 // Y) or (Date, Y) chart where these plots are displayed.
 type Graph struct {
 	Kind       Kind     // each graph can only display one kind of plots
-	Name       string   `json:"-"` // unique internal name of the graph
+	ID         string   `json:"-"` // unique internal identifier of the graph
 	Title      string   // user visible graph title; defaults to Name
 	XLabel     string   // label on the X axis
 	YLogScale  bool     // whether both Y axis are log-scale
 	PlotsRight []*Plot  // plots using the right Y axis
 	PlotsLeft  []*Plot  // plots using the left Y axis
-	GroupName  string   `json:"-"` // for internal caching in Canvas
+	GroupID    string   `json:"-"` // for internal caching in Canvas
 	minX       *float64 // exact bounds for all the plots
 	maxX       *float64
 	minDate    *db.Date
 	maxDate    *db.Date
 }
 
-func NewGraph(kind Kind, name string) *Graph {
+func NewGraph(kind Kind, id string) *Graph {
 	return &Graph{
 		Kind:   kind,
-		Name:   name,
-		Title:  name,
+		ID:     id,
+		Title:  id,
 		XLabel: "Value",
 	}
 }
@@ -322,8 +322,9 @@ func (g *Graph) AddPlotLeft(p *Plot) error {
 // displayed one after another in the given order, having the same width and
 // aligned vertically, to match their X axis positions.
 type Group struct {
-	Kind      Kind              // must match Graph's Kind
-	Name      string            `json:"-"` // internal unique name of the group
+	Kind      Kind   // must match Graph's Kind
+	ID        string `json:"-"` // internal unique identifier
+	Title     string
 	XLogScale bool              // whether to use log-scale for X axis
 	Graphs    []*Graph          // to preserve the order
 	graphMap  map[string]*Graph // for quick access
@@ -333,12 +334,18 @@ type Group struct {
 	MaxDate   *db.Date          `json:"MaxDate,omitempty"`
 }
 
-func NewGroup(kind Kind, name string) *Group {
+func NewGroup(kind Kind, id string) *Group {
 	return &Group{
 		Kind:     kind,
-		Name:     name,
+		ID:       id,
+		Title:    id,
 		graphMap: make(map[string]*Graph),
 	}
+}
+
+func (g *Group) SetTitle(t string) *Group {
+	g.Title = t
+	return g
 }
 
 func (g *Group) SetXLogScale(b bool) *Group {
@@ -389,12 +396,12 @@ func (g *Group) updateBounds(graph *Graph) {
 	}
 }
 
-// addGraph to both the slice and the map, and update graph's GroupName, to keep
+// addGraph to both the slice and the map, and update graph's GroupID, to keep
 // all of them in sync.
 func (g *Group) addGraph(graph *Graph) {
 	g.Graphs = append(g.Graphs, graph)
-	g.graphMap[graph.Name] = graph
-	graph.GroupName = g.Name
+	g.graphMap[graph.ID] = graph
+	graph.GroupID = g.ID
 	g.updateBounds(graph)
 }
 
@@ -405,9 +412,9 @@ func (g *Group) AddGraph(graph *Graph) error {
 		return errors.Reason("group's Kind [%s] != graph's Kind [%s]",
 			g.Kind, graph.Kind)
 	}
-	if _, ok := g.graphMap[graph.Name]; ok {
+	if _, ok := g.graphMap[graph.ID]; ok {
 		return errors.Reason("graph %s already exists in group %s",
-			graph.Name, g.Name)
+			graph.ID, g.ID)
 	}
 	g.addGraph(graph)
 	return nil
@@ -416,7 +423,7 @@ func (g *Group) AddGraph(graph *Graph) error {
 // Canvas is the master collection for all the plot groups
 type Canvas struct {
 	Groups   []*Group          // to preserve the order
-	groupMap map[string]*Group // for quick reference by name
+	groupMap map[string]*Group // for quick reference by ID
 	graphMap map[string]*Graph // direct Graph reference within Groups
 }
 
@@ -430,59 +437,59 @@ func NewCanvas() *Canvas {
 // addGroup to both the slice and the map, to keep them in sync.
 func (c *Canvas) addGroup(group *Group) {
 	c.Groups = append(c.Groups, group)
-	c.groupMap[group.Name] = group
+	c.groupMap[group.ID] = group
 }
 
 func (c *Canvas) AddGroup(group *Group) error {
-	if _, ok := c.groupMap[group.Name]; ok {
-		return errors.Reason("group %s already exists in Canvas", group.Name)
+	if _, ok := c.groupMap[group.ID]; ok {
+		return errors.Reason("group %s already exists in Canvas", group.ID)
 	}
 	// First, just check for graph duplicates, not to modify Canvas in case of an
-	// error. We assume that graphs in the group all have different names.
-	for name := range group.graphMap {
-		if _, ok := c.graphMap[name]; ok {
+	// error. We assume that graphs in the group all have different IDs.
+	for id := range group.graphMap {
+		if _, ok := c.graphMap[id]; ok {
 			return errors.Reason("graph %s in group %s already exists in Canvas",
-				name, group.Name)
+				id, group.ID)
 		}
 	}
 	c.addGroup(group)
-	for name, graph := range group.graphMap {
-		c.graphMap[name] = graph
+	for id, graph := range group.graphMap {
+		c.graphMap[id] = graph
 	}
 	return nil
 }
 
-// GetGroup by name, if it exists, otherwise nil.
-func (c *Canvas) GetGroup(name string) *Group {
-	g, ok := c.groupMap[name]
+// GetGroup by ID, if it exists, otherwise nil.
+func (c *Canvas) GetGroup(id string) *Group {
+	g, ok := c.groupMap[id]
 	if !ok {
 		return nil
 	}
 	return g
 }
 
-// AddGraph to the group by name. If the group doesn't exist, it is created with
+// AddGraph to the group by ID. If the group doesn't exist, it is created with
 // the same Kind as the Graph.
-func (c *Canvas) AddGraph(graph *Graph, groupName string) error {
-	if _, ok := c.graphMap[graph.Name]; ok {
-		return errors.Reason("graph %s already exists in Canvas", graph.Name)
+func (c *Canvas) AddGraph(graph *Graph, groupID string) error {
+	if _, ok := c.graphMap[graph.ID]; ok {
+		return errors.Reason("graph %s already exists in Canvas", graph.ID)
 	}
-	group, ok := c.groupMap[groupName]
+	group, ok := c.groupMap[groupID]
 	if !ok {
-		group = NewGroup(graph.Kind, groupName)
+		group = NewGroup(graph.Kind, groupID)
 		c.addGroup(group)
 	}
 	if err := group.AddGraph(graph); err != nil {
 		return errors.Annotate(err, "failed to add graph %s to group %s",
-			graph.Name, groupName)
+			graph.ID, groupID)
 	}
-	c.graphMap[graph.Name] = graph
+	c.graphMap[graph.ID] = graph
 	return nil
 }
 
-// GetGraph by name, if it exists, otherwise nil.
-func (c *Canvas) GetGraph(name string) *Graph {
-	g, ok := c.graphMap[name]
+// GetGraph by ID, if it exists, otherwise nil.
+func (c *Canvas) GetGraph(id string) *Graph {
+	g, ok := c.graphMap[id]
 	if !ok {
 		return nil
 	}
@@ -490,11 +497,11 @@ func (c *Canvas) GetGraph(name string) *Graph {
 }
 
 func (c *Canvas) updateBounds(graph *Graph) error {
-	group, ok := c.groupMap[graph.GroupName]
+	group, ok := c.groupMap[graph.GroupID]
 	if !ok {
 		return errors.Reason(
 			"graph %s belongs to group %s which doesn't exist in Canvas",
-			graph.Name, graph.GroupName)
+			graph.ID, graph.GroupID)
 	}
 	group.updateBounds(graph)
 	return nil
@@ -504,33 +511,33 @@ func (c *Canvas) updateBounds(graph *Graph) error {
 // sure that the existing graph is indeed in the requested group. If the graph
 // exists but in the wrong group, it's an error. Returns the graph which can be
 // used for further configuration.
-func (c *Canvas) EnsureGraph(kind Kind, graphName, groupName string) (*Graph, error) {
-	if graph, ok := c.graphMap[graphName]; ok {
+func (c *Canvas) EnsureGraph(kind Kind, graphID, groupID string) (*Graph, error) {
+	if graph, ok := c.graphMap[graphID]; ok {
 		if graph.Kind != kind {
 			return nil, errors.Reason("graph %s has kind %s != required kind %s",
-				graphName, graph.Kind, kind)
+				graphID, graph.Kind, kind)
 		}
-		if graph.GroupName != groupName {
+		if graph.GroupID != groupID {
 			return nil, errors.Reason(
 				"cannot ensure graph %s in group %s: it already exists in group %s",
-				graphName, groupName, graph.GroupName)
+				graphID, groupID, graph.GroupID)
 		}
 		return graph, nil
 	}
-	graph := NewGraph(kind, graphName)
-	if err := c.AddGraph(graph, groupName); err != nil {
+	graph := NewGraph(kind, graphID)
+	if err := c.AddGraph(graph, groupID); err != nil {
 		return nil, errors.Annotate(err, "cannot ensure graph %s in group %s",
-			graphName, groupName)
+			graphID, groupID)
 	}
 	return graph, nil
 }
 
-// AddPlotRight to the graph by name to be displayed using the right Y axis. The
+// AddPlotRight to the graph by ID to be displayed using the right Y axis. The
 // graph must exist in Canvas.
-func (c *Canvas) AddPlotRight(p *Plot, graphName string) error {
-	graph, ok := c.graphMap[graphName]
+func (c *Canvas) AddPlotRight(p *Plot, graphID string) error {
+	graph, ok := c.graphMap[graphID]
 	if !ok {
-		return errors.Reason("no such graph in Canvas: %s", graphName)
+		return errors.Reason("no such graph in Canvas: %s", graphID)
 	}
 	if err := graph.AddPlotRight(p); err != nil {
 		return errors.Annotate(err, "failed to add plot %s to Canvas", p.Legend)
@@ -541,12 +548,12 @@ func (c *Canvas) AddPlotRight(p *Plot, graphName string) error {
 	return nil
 }
 
-// AddPlotLeft to the graph by name to be displayed using the left Y axis. The
+// AddPlotLeft to the graph by ID to be displayed using the left Y axis. The
 // graph must exist in Canvas.
-func (c *Canvas) AddPlotLeft(p *Plot, graphName string) error {
-	graph, ok := c.graphMap[graphName]
+func (c *Canvas) AddPlotLeft(p *Plot, graphID string) error {
+	graph, ok := c.graphMap[graphID]
 	if !ok {
-		return errors.Reason("no such graph in Canvas: %s", graphName)
+		return errors.Reason("no such graph in Canvas: %s", graphID)
 	}
 	if err := graph.AddPlotLeft(p); err != nil {
 		return errors.Annotate(err, "failed to add plot %s to Canvas", p.Legend)
@@ -613,32 +620,32 @@ func AddGroup(ctx context.Context, group *Group) error {
 
 // EnsureGraph in the Canvas in context. It's an error if Canvas is not in
 // context.
-func EnsureGraph(ctx context.Context, kind Kind, graphName, groupName string) (*Graph, error) {
+func EnsureGraph(ctx context.Context, kind Kind, graphID, groupID string) (*Graph, error) {
 	c := Get(ctx)
 	if c == nil {
 		return nil, errors.Reason("no Canvas in context")
 	}
-	return c.EnsureGraph(kind, graphName, groupName)
+	return c.EnsureGraph(kind, graphID, groupID)
 }
 
-// AddRight adds a plot to the graph by name for the right Y axis. Canvas must
+// AddRight adds a plot to the graph by ID for the right Y axis. Canvas must
 // exist in the context.
-func AddRight(ctx context.Context, p *Plot, graphName string) error {
+func AddRight(ctx context.Context, p *Plot, graphID string) error {
 	c := Get(ctx)
 	if c == nil {
 		return errors.Reason("no Canvas in context")
 	}
-	return c.AddPlotRight(p, graphName)
+	return c.AddPlotRight(p, graphID)
 }
 
-// AddLeft adds a plot to the graph by name for the left Y axis. Canvas must
+// AddLeft adds a plot to the graph by ID for the left Y axis. Canvas must
 // exist in the context.
-func AddLeft(ctx context.Context, p *Plot, graphName string) error {
+func AddLeft(ctx context.Context, p *Plot, graphID string) error {
 	c := Get(ctx)
 	if c == nil {
 		return errors.Reason("no Canvas in context")
 	}
-	return c.AddPlotLeft(p, graphName)
+	return c.AddPlotLeft(p, graphID)
 }
 
 func WriteJSON(ctx context.Context, w io.Writer) error {

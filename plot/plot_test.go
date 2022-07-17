@@ -52,7 +52,7 @@ func TestPlot(t *testing.T) {
 				So(pdfGraph.Title, ShouldEqual, "Distributions")
 				So(pdfGraph.XLabel, ShouldEqual, "price")
 				So(pdfGraph.YLogScale, ShouldBeTrue)
-				So(pdfGraph.GroupName, ShouldEqual, "xy")
+				So(pdfGraph.GroupID, ShouldEqual, "xy")
 
 				// Correct graph exists.
 				g, err := EnsureGraph(ctx, KindXY, "p.d.f.", "xy")
@@ -65,7 +65,7 @@ func TestPlot(t *testing.T) {
 				_, err = EnsureGraph(ctx, KindXY, "time", "xy")
 				So(err, ShouldNotBeNil)
 
-				// Duplicate graph name in another group.
+				// Duplicate graph ID in another group.
 				_, err = EnsureGraph(ctx, KindSeries, "time", "xy")
 				So(err, ShouldNotBeNil)
 
@@ -104,7 +104,7 @@ func TestPlot(t *testing.T) {
 		Convey("Adding plots", func() {
 			g1, err := EnsureGraph(ctx, KindXY, "lines", "xy")
 			So(err, ShouldBeNil)
-			So(g1.Name, ShouldEqual, "lines")
+			So(g1.ID, ShouldEqual, "lines")
 
 			_, err = EnsureGraph(ctx, KindSeries, "prices", "time")
 			So(err, ShouldBeNil)
@@ -197,7 +197,7 @@ func TestPlot(t *testing.T) {
 				var buf bytes.Buffer
 				So(WriteJS(ctx, &buf), ShouldBeNil)
 				So("\n"+buf.String(), ShouldEqual, `
-var DATA = {"Groups":[{"Kind":"KindXY","XLogScale":true,"Graphs":[{"Kind":"KindXY","Title":"lines","XLabel":"Value","YLogScale":false,"PlotsRight":[{"Kind":"KindXY","X":[-1.5,1,3.5],"Y":[20,30,10],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartScatter"},{"Kind":"KindXY","X":[-1.5,1,3.5],"Y":[20,30,10],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartBars"}],"PlotsLeft":[{"Kind":"KindXY","X":[1,2,3],"Y":[10,20,30],"YLabel":"p","Legend":"PDF","ChartType":"ChartDashed"}]}],"MinX":-1.5,"MaxX":3.5},{"Kind":"KindSeries","XLogScale":false,"Graphs":null},{"Kind":"KindSeries","XLogScale":false,"Graphs":[{"Kind":"KindSeries","Title":"prices","XLabel":"Value","YLogScale":false,"PlotsRight":[{"Kind":"KindSeries","Y":[20,30,10],"Dates":["2019-12-31","2020-01-02","2020-03-01"],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartLine"}],"PlotsLeft":[{"Kind":"KindSeries","Y":[10,20,30],"Dates":["2020-01-01","2020-01-02","2020-01-03"],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartLine"}]}],"MinDate":"2019-12-31","MaxDate":"2020-03-01"}]}
+var DATA = {"Groups":[{"Kind":"KindXY","Title":"xy","XLogScale":true,"Graphs":[{"Kind":"KindXY","Title":"lines","XLabel":"Value","YLogScale":false,"PlotsRight":[{"Kind":"KindXY","X":[-1.5,1,3.5],"Y":[20,30,10],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartScatter"},{"Kind":"KindXY","X":[-1.5,1,3.5],"Y":[20,30,10],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartBars"}],"PlotsLeft":[{"Kind":"KindXY","X":[1,2,3],"Y":[10,20,30],"YLabel":"p","Legend":"PDF","ChartType":"ChartDashed"}]}],"MinX":-1.5,"MaxX":3.5},{"Kind":"KindSeries","Title":"series","XLogScale":false,"Graphs":null},{"Kind":"KindSeries","Title":"time","XLogScale":false,"Graphs":[{"Kind":"KindSeries","Title":"prices","XLabel":"Value","YLogScale":false,"PlotsRight":[{"Kind":"KindSeries","Y":[20,30,10],"Dates":["2019-12-31","2020-01-02","2020-03-01"],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartLine"}],"PlotsLeft":[{"Kind":"KindSeries","Y":[10,20,30],"Dates":["2020-01-01","2020-01-02","2020-01-03"],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartLine"}]}],"MinDate":"2019-12-31","MaxDate":"2020-03-01"}]}
 ;`)
 			})
 		})
