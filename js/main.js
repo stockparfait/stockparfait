@@ -75,10 +75,12 @@ function addGroupElem(elem, group) {
     groupDiv.className = 'group_block';
     elem.appendChild(groupDiv);
 
-    var groupTitle = document.createElement('div');
-    groupTitle.className = 'group_title';
-    groupTitle.innerHTML = group.Title;
-    groupDiv.appendChild(groupTitle);
+    if(group.Title != null) {
+	var groupTitle = document.createElement('div');
+	groupTitle.className = 'group_title';
+	groupTitle.innerHTML = group.Title;
+	groupDiv.appendChild(groupTitle);
+    }
     return groupDiv;
 }
 
