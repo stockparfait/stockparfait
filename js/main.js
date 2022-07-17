@@ -164,7 +164,7 @@ function addPlots(graph, conf) {
 	    labelStr += (labelStr == '' ? '' : ', ') + l;
 	}
 	conf.options.scales.yLeft = {
-	    type: graph.YlogScale ? 'logarithmic' : 'linear',
+	    type: graph.YLogScale ? 'logarithmic' : 'linear',
 	    position: 'left',
 	    title: {display: true, text: labelStr},
 	};
@@ -180,7 +180,7 @@ function addPlots(graph, conf) {
 	    labelStr += (labelStr == '' ? '' : ', ') + l;
 	}
 	conf.options.scales.yRight = {
-	    type: graph.YlogScale ? 'logarithmic' : 'linear',
+	    type: graph.YLogScale ? 'logarithmic' : 'linear',
 	    position: 'right',
 	    title: {display: true, text: labelStr},
 	};
