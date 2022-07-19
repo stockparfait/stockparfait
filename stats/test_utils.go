@@ -15,6 +15,7 @@
 package stats
 
 import (
+	"encoding/json"
 	"math"
 )
 
@@ -49,6 +50,14 @@ func roundSlice(s []float64, places int) []float64 {
 	res := make([]float64, len(s))
 	for i := range s {
 		res[i] = round(s[i], places)
+	}
+	return res
+}
+
+func testJSON(js string) interface{} {
+	var res interface{}
+	if err := json.Unmarshal([]byte(js), &res); err != nil {
+		panic(err)
 	}
 	return res
 }

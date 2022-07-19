@@ -20,6 +20,34 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
+func TestSpacingType(t *testing.T) {
+	t.Parallel()
+
+	Convey("SpacingType.InitMessage works", t, func() {
+		var s SpacingType
+
+		Convey("Default value", func() {
+			So(s.InitMessage(testJSON(`{}`)), ShouldBeNil)
+			So(s, ShouldEqual, LinearSpacing)
+		})
+
+		Convey("linear", func() {
+			So(s.InitMessage(testJSON(`"linear"`)), ShouldBeNil)
+			So(s, ShouldEqual, LinearSpacing)
+		})
+
+		Convey("exponential", func() {
+			So(s.InitMessage(testJSON(`"exponential"`)), ShouldBeNil)
+			So(s, ShouldEqual, ExponentialSpacing)
+		})
+
+		Convey("symmetric exponential", func() {
+			So(s.InitMessage(testJSON(`"symmetric exponential"`)), ShouldBeNil)
+			So(s, ShouldEqual, SymmetricExponentialSpacing)
+		})
+	})
+}
+
 func TestBuckets(t *testing.T) {
 	t.Parallel()
 
@@ -86,6 +114,13 @@ func TestBuckets(t *testing.T) {
 			So(rs(b.Xs(0.0)), ShouldResemble, []float64{
 				-100.0, -10.0, -1.0, -0.1, -0.01, 0.01, 0.1, 1.0, 10.0})
 		})
+
+		Convey("defaults with InitMessage", func() {
+			var b Buckets
+			So(b.InitMessage(testJSON(`{}`)), ShouldBeNil)
+			So(len(b.Bounds), ShouldEqual, 102)
+			So(round(1.0+b.X(50, 0.5), 5), ShouldEqual, 1.0) // approx. zero
+		})
 	})
 }
 
@@ -101,7 +136,7 @@ func TestHistogram(t *testing.T) {
 				h.Add(float64(i))
 			}
 			So(h.Size(), ShouldEqual, 1000)
-			So(h.Buckets().NumBuckets, ShouldEqual, 10)
+			So(h.Buckets().N, ShouldEqual, 10)
 			So(h.Counts(), ShouldResemble, []uint{
 				100, 100, 100, 100, 100, 100, 100, 100, 100, 100})
 			So(h.Count(5), ShouldEqual, 100)
@@ -137,7 +172,7 @@ func TestHistogram(t *testing.T) {
 				h.Add(float64(i))
 			}
 			So(h.Size(), ShouldEqual, 1000)
-			So(h.Buckets().NumBuckets, ShouldEqual, 100)
+			So(h.Buckets().N, ShouldEqual, 100)
 			So(len(h.Counts()), ShouldEqual, 100)
 			So(round(h.Mean(), 5), ShouldEqual, 499.25)
 			So(round(h.Quantile(0.0), 5), ShouldEqual, 1.0)
@@ -171,7 +206,7 @@ func TestHistogram(t *testing.T) {
 				h.Add(float64(i))
 			}
 			So(h.Size(), ShouldEqual, 200)
-			So(h.Buckets().NumBuckets, ShouldEqual, 9)
+			So(h.Buckets().N, ShouldEqual, 9)
 			So(h.Buckets().Bounds, ShouldResemble, []float64{
 				-100.0, -10.0, -1.0, -0.1, -0.01, 0.01, 0.1, 1.0, 10.0, 100.0})
 			So(h.Counts(), ShouldResemble, []uint{

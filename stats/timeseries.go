@@ -140,14 +140,6 @@ func (t *Timeseries) Shift(shift int) *Timeseries {
 	return NewTimeseries().Init(t.dates[:l+shift], t.data[-shift:])
 }
 
-// DeltaParams are configuration parameters for computing delta time series. By
-// default, d[t] = x[t] - x[t-1].
-type DeltaParams struct {
-	Relative   bool // d[t] = (x[t] - x[t-1]) / x[t-1]
-	Log        bool // use log(x[t]) instead of x[t]
-	Normalized bool // normalize deltas so mean=0 and MAD=1
-}
-
 // LogProfits computes a Sample of log-profits {log(x[t+1]) - log(x[t])}.
 func (t *Timeseries) LogProfits() *Sample {
 	data := make([]float64, len(t.Data()))
