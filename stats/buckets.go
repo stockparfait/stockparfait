@@ -18,10 +18,13 @@ import (
 	"math"
 
 	"github.com/stockparfait/errors"
+	"github.com/stockparfait/stockparfait/message"
 )
 
 // SpacingType is enum for different ways buckets are spaced out.
 type SpacingType uint8
+
+var _ message.Message = func() *SpacingType { var s SpacingType; return &s }()
 
 // Values of SpacingType:
 // - LinearSpacing divides the interval into n equal parts.
@@ -40,39 +43,81 @@ const (
 	SymmetricExponentialSpacing
 )
 
-// Buckets configures the properties of histogram buckets.
+func (s *SpacingType) InitMessage(js interface{}) error {
+	switch v := js.(type) {
+	case map[string]interface{}: // default value
+		*s = LinearSpacing
+	case string:
+		switch v {
+		case "linear":
+			*s = LinearSpacing
+		case "exponential":
+			*s = ExponentialSpacing
+		case "symmetric exponential":
+			*s = SymmetricExponentialSpacing
+		default:
+			return errors.Reason("unsupported spacing '%s'", v)
+		}
+	default:
+		return errors.Reason("unexpected JSON type: %T", js)
+	}
+	return nil
+}
+
+// Buckets configures the properties of histogram buckets. It implements
+// message.Message, thus can be directly used in configs.
 type Buckets struct {
-	NumBuckets int
-	Spacing    SpacingType
-	MinVal     float64
-	MaxVal     float64
-	Bounds     []float64 // n+1 bucket boundaries
+	N       int         `json:"n" default:"101"`
+	Spacing SpacingType `json:"spacing"` // choices:"linear,exponential,symmetric exponential"
+	MinVal  float64     `json:"minval" default:"-50"`
+	MaxVal  float64     `json:"maxval" default:"50"`
+	Bounds  []float64   // n+1 bucket boundaries
+}
+
+var _ message.Message = &Buckets{}
+
+func (b *Buckets) InitMessage(js interface{}) error {
+	if err := message.Init(b, js); err != nil {
+		return errors.Annotate(err, "failed to init Buckets")
+	}
+	if err := b.checkValues(); err != nil {
+		return errors.Annotate(err, "invalid Buckets values")
+	}
+	b.setBounds()
+	return nil
+}
+
+func (b *Buckets) checkValues() error {
+	if b.Spacing > SymmetricExponentialSpacing {
+		return errors.Reason("invalid spacing value: %d", b.Spacing)
+	}
+	if b.MinVal >= b.MaxVal {
+		return errors.Reason("invalid interval: minval=%f >= maxval=%f",
+			b.MinVal, b.MaxVal)
+	}
+	if b.N <= 0 {
+		return errors.Reason("n=%d must be > 0", b.N)
+	}
+	if b.Spacing != LinearSpacing && b.MinVal <= 0.0 {
+		return errors.Reason("minval=%f <= 0 for non-linear spacing", b.MinVal)
+	}
+	if b.Spacing == SymmetricExponentialSpacing && !(b.N >= 3 && b.N%2 == 1) {
+		return errors.Reason(
+			"symmetric exponential spacing requires n=%d to be odd and >= 3", b.N)
+	}
+	return nil
 }
 
 // NewBuckets creates and initializes a new buckets object.
 func NewBuckets(n int, minval, maxval float64, spacing SpacingType) (*Buckets, error) {
-	if spacing > SymmetricExponentialSpacing {
-		return nil, errors.Reason("invalid spacing value: %d", spacing)
-	}
-	if minval >= maxval {
-		return nil, errors.Reason("invalid interval: minval=%f >= maxval=%f",
-			minval, maxval)
-	}
-	if n <= 0 {
-		return nil, errors.Reason("n=%d must be > 0", n)
-	}
-	if spacing != LinearSpacing && minval <= 0.0 {
-		return nil, errors.Reason("minval=%f <= 0 for non-linear spacing", minval)
-	}
-	if spacing == SymmetricExponentialSpacing && !(n >= 3 && n%2 == 1) {
-		return nil, errors.Reason(
-			"symmetric exponential spacing requires n=%d to be odd and >= 3", n)
-	}
 	b := &Buckets{}
-	b.NumBuckets = n
+	b.N = n
 	b.MinVal = minval
 	b.MaxVal = maxval
 	b.Spacing = spacing
+	if err := b.checkValues(); err != nil {
+		return nil, errors.Annotate(err, "invalid Buckets values")
+	}
 	b.setBounds()
 	return b, nil
 }
@@ -120,14 +165,14 @@ func (b *Buckets) X(i int, shift float64) float64 {
 	case SymmetricExponentialSpacing:
 		fn = symmExpVal
 	}
-	return fn(b.NumBuckets, i, shift, b.MinVal, b.MaxVal)
+	return fn(b.N, i, shift, b.MinVal, b.MaxVal)
 }
 
 // Xs returns the list of representative values for all buckets, optionally
 // adjusted by the relative shift amount. It always returns a newly allocated
 // slice, so it is safe to modify it.
 func (b *Buckets) Xs(shift float64) []float64 {
-	res := make([]float64, b.NumBuckets)
+	res := make([]float64, b.N)
 	for i := range res {
 		res[i] = b.X(i, shift)
 	}
@@ -136,7 +181,7 @@ func (b *Buckets) Xs(shift float64) []float64 {
 
 // setBounds caches the n+1 bucket bounds, including the MaxVal.
 func (b *Buckets) setBounds() {
-	b.Bounds = make([]float64, b.NumBuckets+1)
+	b.Bounds = make([]float64, b.N+1)
 	for i := range b.Bounds {
 		b.Bounds[i] = b.X(i, 0.0)
 	}
@@ -145,14 +190,14 @@ func (b *Buckets) setBounds() {
 // Bucket computes the bucket index for a sample.
 func (b *Buckets) Bucket(x float64) int {
 	l := 0
-	u := b.NumBuckets - 1
+	u := b.N - 1
 	if x < b.Bounds[l] {
 		return 0
 	}
 	if x >= b.Bounds[u] {
 		return u
 	}
-	for i := 0; i < b.NumBuckets && l+1 < u; i++ {
+	for i := 0; i < b.N && l+1 < u; i++ {
 		m := int((l + u) / 2)
 		if x < b.Bounds[m] {
 			u = m
@@ -168,7 +213,7 @@ func (b *Buckets) Bucket(x float64) int {
 
 // Size of the i'th bucket.
 func (b *Buckets) Size(i int) float64 {
-	if i < 0 || i >= b.NumBuckets {
+	if i < 0 || i >= b.N {
 		return 0.0
 	}
 	return b.Bounds[i+1] - b.Bounds[i]
@@ -177,7 +222,7 @@ func (b *Buckets) Size(i int) float64 {
 // Histogram stores sample counts for each bucket.
 type Histogram struct {
 	buckets *Buckets
-	counts  []uint // expected to be of length Buckets.NumBuckets
+	counts  []uint // expected to be of length Buckets.N
 	size    uint   // total counts
 }
 
@@ -189,7 +234,7 @@ func NewHistogram(buckets *Buckets) *Histogram {
 	}
 	return &Histogram{
 		buckets: buckets,
-		counts:  make([]uint, buckets.NumBuckets),
+		counts:  make([]uint, buckets.N),
 	}
 }
 
@@ -306,7 +351,7 @@ func (h *Histogram) PDF(i int) float64 {
 }
 
 // PDFs lists all the values of PDF for all the buckets. This is suitable
-// for plotting agaist Xs(0.5).
+// for plotting against Xs(0.5).
 func (h *Histogram) PDFs() []float64 {
 	res := make([]float64, len(h.counts))
 	for i := range h.counts {
