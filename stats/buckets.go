@@ -24,7 +24,7 @@ import (
 // SpacingType is enum for different ways buckets are spaced out.
 type SpacingType uint8
 
-var _ message.Message = func() *SpacingType { var s SpacingType; return &s }()
+var _ message.Message = (*SpacingType)(nil)
 
 // Values of SpacingType:
 // - LinearSpacing divides the interval into n equal parts.
@@ -99,7 +99,7 @@ func (b *Buckets) checkValues() error {
 		return errors.Reason("n=%d must be > 0", b.N)
 	}
 	if b.Spacing != LinearSpacing && b.MinVal <= 0.0 {
-		return errors.Reason("minval=%f <= 0 for non-linear spacing", b.MinVal)
+		return errors.Reason("minval=%f must be > 0 for non-linear spacing", b.MinVal)
 	}
 	if b.Spacing == SymmetricExponentialSpacing && !(b.N >= 3 && b.N%2 == 1) {
 		return errors.Reason(

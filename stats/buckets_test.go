@@ -15,19 +15,10 @@
 package stats
 
 import (
-	"encoding/json"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
-
-func testJSON(js string) interface{} {
-	var res interface{}
-	if err := json.Unmarshal([]byte(js), &res); err != nil {
-		panic(err)
-	}
-	return res
-}
 
 func TestSpacingType(t *testing.T) {
 	t.Parallel()
@@ -45,7 +36,7 @@ func TestSpacingType(t *testing.T) {
 			So(s, ShouldEqual, LinearSpacing)
 		})
 
-		Convey("exporential", func() {
+		Convey("exponential", func() {
 			So(s.InitMessage(testJSON(`"exponential"`)), ShouldBeNil)
 			So(s, ShouldEqual, ExponentialSpacing)
 		})
