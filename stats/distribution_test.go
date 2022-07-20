@@ -19,6 +19,8 @@ import (
 	"math"
 	"testing"
 
+	"github.com/stockparfait/testutil"
+
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -76,13 +78,13 @@ func TestDistribution(t *testing.T) {
 		Convey("ExpectationMC is accurate on full range", func() {
 			one := func(x float64) float64 { return 1.0 }
 			e := ExpectationMC(ctx, one, d, math.Inf(-1), math.Inf(1), 1000, 0.01)
-			So(round(e, 2), ShouldEqual, 1.0)
+			So(testutil.Round(e, 2), ShouldEqual, 1.0)
 		})
 
 		Convey("ExpectationMC is accurate on a subrange", func() {
 			one := func(x float64) float64 { return 1.0 }
 			e := ExpectationMC(ctx, one, d, -3.0, 3.0, 1000, 0.01)
-			So(round(e, 2), ShouldEqual, 0.7)
+			So(testutil.Round(e, 2), ShouldEqual, 0.7)
 		})
 
 		Convey("From Rand", func() {
@@ -90,16 +92,16 @@ func TestDistribution(t *testing.T) {
 			d.Seed(seed)
 			d2 := NewSampleDistributionFromRand(ctx, d, 1000, buckets)
 			d2.Seed(seed)
-			So(round(d2.Mean(), 1), ShouldEqual, d.Mean())
-			So(round(d2.MAD(), 1), ShouldEqual, d.MAD())
+			So(testutil.Round(d2.Mean(), 1), ShouldEqual, d.Mean())
+			So(testutil.Round(d2.MAD(), 1), ShouldEqual, d.MAD())
 
 			Convey("Compounded", func() {
 				d.Seed(seed)
 				samples := 4000 // less than that is not precise enough
 				d2 := CompoundSampleDistribution(ctx, d, 16, samples, buckets)
 				d2.Seed(seed)
-				So(round(d2.Mean(), 2), ShouldEqual, d.Mean()*16.0)
-				So(round(d2.MAD(), 2), ShouldEqual, d.MAD()*4.0)
+				So(testutil.Round(d2.Mean(), 2), ShouldEqual, d.Mean()*16.0)
+				So(testutil.Round(d2.MAD(), 2), ShouldEqual, d.MAD()*4.0)
 			})
 		})
 	})
@@ -115,25 +117,25 @@ func TestDistribution(t *testing.T) {
 		d.Seed(seed)
 
 		Convey("Quantile", func() {
-			// Round 1+quantile, to keep only 1 decimal place. Due to the wide [0..1)
-			// bucket, the 50th quantile is in its middle, which is 0.5.
-			So(round(1.0+d.Quantile(0.5), 2), ShouldEqual, 1.5)
+			// Due to the wide [0..1) bucket, the 50th quantile is in its middle,
+			// which is 0.5.
+			So(testutil.RoundFixed(d.Quantile(0.5), 1), ShouldEqual, 0.5)
 		})
 
 		Convey("Prob", func() {
-			So(round(d.Prob(0.0), 2), ShouldEqual, 0.5)
+			So(testutil.Round(d.Prob(0.0), 2), ShouldEqual, 0.5)
 		})
 
 		Convey("Mean", func() {
-			So(round(1.0+d.Mean(), 2), ShouldEqual, 1.0)
+			So(testutil.Round(1.0+d.Mean(), 2), ShouldEqual, 1.0)
 		})
 
 		Convey("MAD", func() {
-			So(round(d.MAD(), 2), ShouldEqual, 1.0)
+			So(testutil.Round(d.MAD(), 2), ShouldEqual, 1.0)
 		})
 
 		Convey("CDF", func() {
-			So(round(d.CDF(0.5), 2), ShouldEqual, 0.5) // inverse of Quantile(0.5)
+			So(testutil.Round(d.CDF(0.5), 2), ShouldEqual, 0.5) // inverse of Quantile(0.5)
 		})
 
 		Convey("Compounded", func() {
@@ -141,9 +143,9 @@ func TestDistribution(t *testing.T) {
 			d.Seed(seed)
 			d2 := CompoundRandDistribution(ctx, d, 16, 2000, buckets)
 			d2.Seed(seed)
-			So(round(d2.Mean(), 2), ShouldEqual, d.Mean()*16.0)
+			So(testutil.Round(d2.Mean(), 2), ShouldEqual, d.Mean()*16.0)
 			// Test MAD with up to 10% precision, hence the ratio.
-			So(round(d.MAD()*4.0/d2.MAD(), 2), ShouldEqual, 1.0)
+			So(testutil.Round(d.MAD()*4.0/d2.MAD(), 2), ShouldEqual, 1.0)
 		})
 	})
 }

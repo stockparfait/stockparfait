@@ -15,19 +15,12 @@
 package message
 
 import (
-	"encoding/json"
 	"testing"
+
+	"github.com/stockparfait/testutil"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
-
-func testJSON(js string) interface{} {
-	var res interface{}
-	if err := json.Unmarshal([]byte(js), &res); err != nil {
-		return nil
-	}
-	return res
-}
 
 type Dog struct {
 	Name       string  `json:"name" required:"true"`
@@ -80,7 +73,7 @@ func TestMessage(t *testing.T) {
 	Convey("Init() works", t, func() {
 		Convey("with required fields only", func() {
 			var d Dog
-			So(d.InitMessage(testJSON(`{"name": "Doggy"}`)), ShouldBeNil)
+			So(d.InitMessage(testutil.JSON(`{"name": "Doggy"}`)), ShouldBeNil)
 			So(d.Name, ShouldEqual, "Doggy")
 			So(d.Sex, ShouldEqual, "female")
 			So(d.Breed, ShouldEqual, "village dog")
@@ -93,7 +86,7 @@ func TestMessage(t *testing.T) {
 
 		Convey("with recursive Message entries", func() {
 			var d Dog
-			So(d.InitMessage(testJSON(`{
+			So(d.InitMessage(testutil.JSON(`{
         "name": "Mommy", "Legs": null, "HasBone": false, "Age": 5.2, "Dead": true,
         "parent": {"name": "Oldie"},
         "tags": {"tag1": "foo", "tag2": "bar"},
@@ -126,26 +119,26 @@ func TestMessage(t *testing.T) {
 		Convey("with missing fields in recursive Init() call", func() {
 			var d Dog
 			// A pup is missing its name.
-			So(d.InitMessage(testJSON(`{"name": "Mommy", "pups": [{"Age": 0.1}]}`)), ShouldNotBeNil)
+			So(d.InitMessage(testutil.JSON(`{"name": "Mommy", "pups": [{"Age": 0.1}]}`)), ShouldNotBeNil)
 		})
 
 		Convey("with ignored fields", func() {
 			var d Dog
-			err := d.InitMessage(testJSON(`{"name": "D", "Ignored": 5}`))
+			err := d.InitMessage(testutil.JSON(`{"name": "D", "Ignored": 5}`))
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldContainSubstring, "unsupported fields for Dog: Ignored")
 		})
 
 		Convey("with unexported fields", func() {
 			var d Dog
-			err := d.InitMessage(testJSON(`{"name": "D", "unexported": 5}`))
+			err := d.InitMessage(testutil.JSON(`{"name": "D", "unexported": 5}`))
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldContainSubstring, "unsupported fields for Dog: unexported")
 		})
 
 		Convey("with incorrect sex", func() {
 			var d Dog
-			err := d.InitMessage(testJSON(`{"name": "D", "Sex": "neutered"}`))
+			err := d.InitMessage(testutil.JSON(`{"name": "D", "Sex": "neutered"}`))
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldContainSubstring,
 				"value for Sex is not in its choice list: 'neutered'")
@@ -153,7 +146,7 @@ func TestMessage(t *testing.T) {
 
 		Convey("with incorrect default choice", func() {
 			var b BadChoice
-			err := b.InitMessage(testJSON(`{}`))
+			err := b.InitMessage(testutil.JSON(`{}`))
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldContainSubstring,
 				"error setting zero value for Choice")
@@ -163,7 +156,7 @@ func TestMessage(t *testing.T) {
 
 		Convey("omitted field: default for value, nil for pointer", func() {
 			var m DefaultMsg
-			So(m.InitMessage(testJSON(`{}`)), ShouldBeNil)
+			So(m.InitMessage(testutil.JSON(`{}`)), ShouldBeNil)
 			So(m, ShouldResemble, DefaultMsg{
 				Val: DefaultField{Five: 5, Zero: 0},
 				Ptr: nil,

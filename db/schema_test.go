@@ -15,23 +15,15 @@
 package db
 
 import (
-	"encoding/json"
 	"testing"
 	"time"
 	"unsafe"
 
 	"github.com/stockparfait/stockparfait/message"
+	"github.com/stockparfait/testutil"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
-
-func testJSON(js string) interface{} {
-	var res interface{}
-	if err := json.Unmarshal([]byte(js), &res); err != nil {
-		panic(err)
-	}
-	return res
-}
 
 type TestDateMessage struct {
 	Value Date
@@ -186,7 +178,7 @@ func TestSchema(t *testing.T) {
 		Convey("Message with Date works correctly", func() {
 			Convey("with regular values", func() {
 				var m TestDateMessage
-				So(m.InitMessage(testJSON(`
+				So(m.InitMessage(testutil.JSON(`
 {
   "Value": "2020-02-02",
   "Ptr": "2021-03-05",
@@ -202,7 +194,7 @@ func TestSchema(t *testing.T) {
 
 			Convey("with zero values", func() {
 				var m TestDateMessage
-				So(m.InitMessage(testJSON(`{}`)), ShouldBeNil)
+				So(m.InitMessage(testutil.JSON(`{}`)), ShouldBeNil)
 				So(m.Value.IsZero(), ShouldBeTrue)
 				So(m.Ptr, ShouldBeNil)
 				So(m.Slice, ShouldBeNil)

@@ -17,6 +17,8 @@ package stats
 import (
 	"testing"
 
+	"github.com/stockparfait/testutil"
+
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -27,22 +29,22 @@ func TestSpacingType(t *testing.T) {
 		var s SpacingType
 
 		Convey("Default value", func() {
-			So(s.InitMessage(testJSON(`{}`)), ShouldBeNil)
+			So(s.InitMessage(testutil.JSON(`{}`)), ShouldBeNil)
 			So(s, ShouldEqual, LinearSpacing)
 		})
 
 		Convey("linear", func() {
-			So(s.InitMessage(testJSON(`"linear"`)), ShouldBeNil)
+			So(s.InitMessage(testutil.JSON(`"linear"`)), ShouldBeNil)
 			So(s, ShouldEqual, LinearSpacing)
 		})
 
 		Convey("exponential", func() {
-			So(s.InitMessage(testJSON(`"exponential"`)), ShouldBeNil)
+			So(s.InitMessage(testutil.JSON(`"exponential"`)), ShouldBeNil)
 			So(s, ShouldEqual, ExponentialSpacing)
 		})
 
 		Convey("symmetric exponential", func() {
-			So(s.InitMessage(testJSON(`"symmetric exponential"`)), ShouldBeNil)
+			So(s.InitMessage(testutil.JSON(`"symmetric exponential"`)), ShouldBeNil)
 			So(s, ShouldEqual, SymmetricExponentialSpacing)
 		})
 	})
@@ -51,7 +53,7 @@ func TestSpacingType(t *testing.T) {
 func TestBuckets(t *testing.T) {
 	t.Parallel()
 
-	rs := func(x []float64) []float64 { return roundSlice(x, 5) }
+	rs := func(x []float64) []float64 { return testutil.RoundSlice(x, 5) }
 
 	Convey("Buckets work", t, func() {
 		Convey("linear spacing", func() {
@@ -80,8 +82,8 @@ func TestBuckets(t *testing.T) {
 			So(b.Bucket(0.0011), ShouldEqual, 0)
 			So(b.Bucket(0.11), ShouldEqual, 2)
 			So(b.Bucket(399.0), ShouldEqual, 5)
-			So(round(b.Size(0), 5), ShouldEqual, 0.009)
-			So(round(b.Size(5), 3), ShouldEqual, 900.0)
+			So(testutil.Round(b.Size(0), 5), ShouldEqual, 0.009)
+			So(testutil.Round(b.Size(5), 3), ShouldEqual, 900.0)
 			So(rs(b.Xs(0.5)), ShouldResemble, []float64{
 				0.0031623, 0.031623, 0.3162, 3.1623, 31.623, 316.23})
 			So(rs(b.Xs(0.0)), ShouldResemble, []float64{
@@ -117,9 +119,9 @@ func TestBuckets(t *testing.T) {
 
 		Convey("defaults with InitMessage", func() {
 			var b Buckets
-			So(b.InitMessage(testJSON(`{}`)), ShouldBeNil)
+			So(b.InitMessage(testutil.JSON(`{}`)), ShouldBeNil)
 			So(len(b.Bounds), ShouldEqual, 102)
-			So(round(1.0+b.X(50, 0.5), 5), ShouldEqual, 1.0) // approx. zero
+			So(testutil.Round(1.0+b.X(50, 0.5), 5), ShouldEqual, 1.0) // approx. zero
 		})
 	})
 }
@@ -144,11 +146,11 @@ func TestHistogram(t *testing.T) {
 			So(h.PDFs(), ShouldResemble, []float64{
 				0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001})
 			So(h.Mean(), ShouldEqual, 500.0)
-			So(round(h.Quantile(0.0), 5), ShouldEqual, 0.0)
-			So(round(h.Quantile(0.25), 5), ShouldEqual, 250.0)
-			So(round(h.Quantile(0.5), 5), ShouldEqual, 500.0)
-			So(round(h.Quantile(0.88), 5), ShouldEqual, 880.0)
-			So(round(h.Quantile(1.0), 5), ShouldEqual, 1000.0)
+			So(testutil.Round(h.Quantile(0.0), 5), ShouldEqual, 0.0)
+			So(testutil.Round(h.Quantile(0.25), 5), ShouldEqual, 250.0)
+			So(testutil.Round(h.Quantile(0.5), 5), ShouldEqual, 500.0)
+			So(testutil.Round(h.Quantile(0.88), 5), ShouldEqual, 880.0)
+			So(testutil.Round(h.Quantile(1.0), 5), ShouldEqual, 1000.0)
 			So(h.CDF(-1.0), ShouldEqual, 0.0)
 			So(h.CDF(0.0), ShouldEqual, 0.0)
 			So(h.CDF(500.0), ShouldEqual, 0.5)
@@ -174,18 +176,18 @@ func TestHistogram(t *testing.T) {
 			So(h.Size(), ShouldEqual, 1000)
 			So(h.Buckets().N, ShouldEqual, 100)
 			So(len(h.Counts()), ShouldEqual, 100)
-			So(round(h.Mean(), 5), ShouldEqual, 499.25)
-			So(round(h.Quantile(0.0), 5), ShouldEqual, 1.0)
-			So(round(h.Quantile(0.25), 5), ShouldEqual, 249.16)
-			So(round(h.Quantile(0.5), 5), ShouldEqual, 499.15)
-			So(round(h.Quantile(0.88), 5), ShouldEqual, 879.6)
-			So(round(h.Quantile(1.0), 5), ShouldEqual, 1000.0)
+			So(testutil.Round(h.Mean(), 5), ShouldEqual, 499.25)
+			So(testutil.Round(h.Quantile(0.0), 5), ShouldEqual, 1.0)
+			So(testutil.Round(h.Quantile(0.25), 5), ShouldEqual, 249.16)
+			So(testutil.Round(h.Quantile(0.5), 5), ShouldEqual, 499.15)
+			So(testutil.Round(h.Quantile(0.88), 5), ShouldEqual, 879.6)
+			So(testutil.Round(h.Quantile(1.0), 5), ShouldEqual, 1000.0)
 
 			So(h.CDF(0.0), ShouldEqual, 0.0)
 			So(h.CDF(1.0), ShouldEqual, 0.0)
-			So(round(h.CDF(500.0), 4), ShouldEqual, 0.501)
-			So(round(h.CDF(550.0), 4), ShouldEqual, 0.551)
-			So(round(h.CDF(950.0), 4), ShouldEqual, 0.951)
+			So(testutil.Round(h.CDF(500.0), 4), ShouldEqual, 0.501)
+			So(testutil.Round(h.CDF(550.0), 4), ShouldEqual, 0.551)
+			So(testutil.Round(h.CDF(950.0), 4), ShouldEqual, 0.951)
 			So(h.CDF(1000.0), ShouldEqual, 1.0)
 			So(h.CDF(1001.0), ShouldEqual, 1.0)
 
@@ -194,7 +196,7 @@ func TestHistogram(t *testing.T) {
 				for i, f := range h.PDFs() {
 					sum += f * b.Size(i)
 				}
-				So(round(sum, 5), ShouldEqual, 1.0)
+				So(testutil.Round(sum, 5), ShouldEqual, 1.0)
 			})
 		})
 
@@ -211,17 +213,17 @@ func TestHistogram(t *testing.T) {
 				-100.0, -10.0, -1.0, -0.1, -0.01, 0.01, 0.1, 1.0, 10.0, 100.0})
 			So(h.Counts(), ShouldResemble, []uint{
 				90, 9, 1, 0, 1, 0, 0, 9, 90})
-			So(roundFixed(h.Mean(), 2), ShouldEqual, 0.0)
-			So(round(h.Quantile(0.0), 5), ShouldEqual, -100.0)   // actual: -100.0
-			So(round(h.Quantile(0.25), 5), ShouldEqual, -27.826) // actual: -50.0
-			So(round(h.Quantile(0.5), 5), ShouldEqual, -0.1)     // actual: 0.0
-			So(round(h.Quantile(0.88), 5), ShouldEqual, 54.117)  // actual: 76.0
-			So(round(h.Quantile(1.0), 5), ShouldEqual, 100.0)    // actual: 100.0
+			So(testutil.RoundFixed(h.Mean(), 2), ShouldEqual, 0.0)
+			So(testutil.Round(h.Quantile(0.0), 5), ShouldEqual, -100.0)   // actual: -100.0
+			So(testutil.Round(h.Quantile(0.25), 5), ShouldEqual, -27.826) // actual: -50.0
+			So(testutil.Round(h.Quantile(0.5), 5), ShouldEqual, -0.1)     // actual: 0.0
+			So(testutil.Round(h.Quantile(0.88), 5), ShouldEqual, 54.117)  // actual: 76.0
+			So(testutil.Round(h.Quantile(1.0), 5), ShouldEqual, 100.0)    // actual: 100.0
 
 			So(h.CDF(-501.0), ShouldEqual, 0.0)
 			So(h.CDF(-500.0), ShouldEqual, 0.0)
-			So(round(h.CDF(0.0), 3), ShouldEqual, 0.5)
-			So(round(h.CDF(80), 4), ShouldEqual, 0.9)
+			So(testutil.Round(h.CDF(0.0), 3), ShouldEqual, 0.5)
+			So(testutil.Round(h.CDF(80), 4), ShouldEqual, 0.9)
 			So(h.CDF(100.0), ShouldEqual, 1.0)
 			So(h.CDF(101.0), ShouldEqual, 1.0)
 		})

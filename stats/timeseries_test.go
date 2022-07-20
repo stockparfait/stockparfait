@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/stockparfait/stockparfait/db"
+	"github.com/stockparfait/testutil"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -92,23 +93,25 @@ func TestTimeseries(t *testing.T) {
 		Convey("LogProfits", func() {
 			dts := ts.LogProfits()
 			So(ts.Data(), ShouldResemble, data()) // the original ts is not modified
-			So(roundSlice(dts.Data(), 5), ShouldResemble, roundSlice([]float64{
-				math.Log(2.0),
-				math.Log(3.0 / 2.0),
-				math.Log(4.0 / 3.0),
-				math.Log(5.0 / 4.0),
-			}, 5))
+			So(testutil.RoundSlice(dts.Data(), 5), ShouldResemble,
+				testutil.RoundSlice([]float64{
+					math.Log(2.0),
+					math.Log(3.0 / 2.0),
+					math.Log(4.0 / 3.0),
+					math.Log(5.0 / 4.0),
+				}, 5))
 		})
 
 		Convey("LogProfits with zeros", func() {
 			ts = NewTimeseries().Init(dates(), []float64{1.0, 0.0, 2.0, 4.0, 5.0})
 			dts := ts.LogProfits()
-			So(roundSlice(dts.Data(), 5), ShouldResemble, roundSlice([]float64{
-				math.Inf(-1),
-				math.Inf(1),
-				math.Log(4.0 / 2.0),
-				math.Log(5.0 / 4.0),
-			}, 5))
+			So(testutil.RoundSlice(dts.Data(), 5), ShouldResemble,
+				testutil.RoundSlice([]float64{
+					math.Inf(-1),
+					math.Inf(1),
+					math.Log(4.0 / 2.0),
+					math.Log(5.0 / 4.0),
+				}, 5))
 		})
 
 		Convey("FromPrices", func() {

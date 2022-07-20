@@ -28,6 +28,7 @@ import (
 	"github.com/stockparfait/fetch"
 	"github.com/stockparfait/logging"
 	"github.com/stockparfait/stockparfait/db"
+	"github.com/stockparfait/testutil"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -124,7 +125,7 @@ func TestNDL(t *testing.T) {
 	})
 
 	Convey("API calls work correctly", t, func() {
-		server := fetch.NewTestServer()
+		server := testutil.NewTestServer()
 		defer server.Close()
 		server.ResponseBody = []string{"{}"}
 
