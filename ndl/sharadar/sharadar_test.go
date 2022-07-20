@@ -26,13 +26,14 @@ import (
 	"github.com/stockparfait/fetch"
 	"github.com/stockparfait/stockparfait/db"
 	"github.com/stockparfait/stockparfait/ndl"
+	"github.com/stockparfait/testutil"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestSharadar(t *testing.T) {
 	Convey("Dataset API calls work correctly", t, func() {
-		server := fetch.NewTestServer()
+		server := testutil.NewTestServer()
 		defer server.Close()
 		server.ResponseBody = []string{"{}"}
 

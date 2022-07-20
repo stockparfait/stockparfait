@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stockparfait/testutil"
+
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -218,7 +220,7 @@ func TestDB(t *testing.T) {
   "start": "2021-01-01",
   "end": "2021-10-02"
   }`, tmpdir, dbName)
-			So(c.InitMessage(testJSON(js)), ShouldBeNil)
+			So(c.InitMessage(testutil.JSON(js)), ShouldBeNil)
 			r := NewReaderFromConfig(&c)
 			So(r.cachePath, ShouldEqual, dbPath)
 			So(r.Constraints, ShouldResemble, &Constraints{

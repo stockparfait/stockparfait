@@ -49,12 +49,14 @@ github.com/smartystreets/goconvey v1.7.2 h1:9RBaZCeXEQ3UselpuwUQHltGVXvdwm6cv1hg
 github.com/smartystreets/goconvey v1.7.2/go.mod h1:Vw0tHAZW6lzCRk3xgdin6fKYcG+G3Pg9vgXWeJpQFMM=
 github.com/stockparfait/errors v0.0.4 h1:+AkdLE7oa9Kll5AiszDi7hv1cVp33G2ROttF2etzB0Y=
 github.com/stockparfait/errors v0.0.4/go.mod h1:CTvOA0qstSlgAfkHbeCc9DGx3+q++dkXKX3RTsa0S1E=
-github.com/stockparfait/fetch v0.0.4 h1:CvUQxSTHgCkl2GMOtQZJ7SRnNlDZnOvMdJbpl6Zv89c=
-github.com/stockparfait/fetch v0.0.4/go.mod h1:/S1bOJSDKl6WuKEn+HQlrJpiJjkHQWV3uDf588mQnqY=
+github.com/stockparfait/fetch v0.0.5 h1:tFOA8b3MZ6DC0tsNJ/iRH/hgubD4Htep9FulNXblVcQ=
+github.com/stockparfait/fetch v0.0.5/go.mod h1:bGE3nHwY31B1o/0CcgTfMwBvRBcO0tVbheFQkP0vqPA=
 github.com/stockparfait/logging v0.0.4 h1:ds+sVkyJP5mE0PjEeHBN9+gMHx67XduL0Xg/ykkAgPI=
 github.com/stockparfait/logging v0.0.4/go.mod h1:wLrsscPazhCAjC/sGmqSA+GghnWUwiSDT/kDwxC0XEI=
 github.com/stockparfait/parallel v0.0.2 h1:EjACOojMU6UZ2yxJNRPhQRFByoFICiobNThKo4CX6l8=
 github.com/stockparfait/parallel v0.0.2/go.mod h1:tbZ3EkWvXo9qbqC2UHr6FynuIaRL9vSBARqFHug7hxA=
+github.com/stockparfait/testutil v0.0.1 h1:Qq4RzSl+pA0y+3Jr1fF9CbjTJBwHOWZy8c4RLomHVpc=
+github.com/stockparfait/testutil v0.0.1/go.mod h1:Tr0oAxbuEQ+XjD0BlQLG2wkKDhE2EotCuPAchxH6zew=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
 github.com/stretchr/testify v1.7.1 h1:5TQK59W5E3v0r2duFAb7P95B6hEeOyEnHRa8MjYSMTY=
