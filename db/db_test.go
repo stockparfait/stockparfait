@@ -73,7 +73,7 @@ func TestDB(t *testing.T) {
 		}
 
 		Convey("write methods work", func() {
-			w := NewWriter(dbPath)
+			w := NewWriter(tmpdir, dbName)
 			So(w.WriteTickers(tickers), ShouldBeNil)
 			So(w.WriteActions(actions), ShouldBeNil)
 			So(w.WritePrices("A", pricesA), ShouldBeNil)
@@ -133,7 +133,7 @@ func TestDB(t *testing.T) {
 		})
 
 		Convey("ticker access methods work", func() {
-			db := NewReader(dbPath)
+			db := NewReader(tmpdir, dbName)
 			r, err := db.TickerRow("A")
 			So(err, ShouldBeNil)
 			So(r, ShouldResemble, tickers["A"])
@@ -153,7 +153,7 @@ func TestDB(t *testing.T) {
 		})
 
 		Convey("action access methods work", func() {
-			db := NewReader(dbPath)
+			db := NewReader(tmpdir, dbName)
 			a, err := db.Actions("A")
 			So(err, ShouldBeNil)
 			So(a, ShouldResemble, actions["A"])
@@ -166,7 +166,7 @@ func TestDB(t *testing.T) {
 		})
 
 		Convey("price access methods work", func() {
-			db := NewReader(dbPath)
+			db := NewReader(tmpdir, dbName)
 			p, err := db.Prices("A")
 			So(err, ShouldBeNil)
 			So(p, ShouldResemble, pricesA)
@@ -179,7 +179,7 @@ func TestDB(t *testing.T) {
 		})
 
 		Convey("monthly access methods work", func() {
-			db := NewReader(dbPath)
+			db := NewReader(tmpdir, dbName)
 			a, err := db.Monthly("A")
 			So(err, ShouldBeNil)
 			So(a, ShouldResemble, monthly["A"])
@@ -192,7 +192,7 @@ func TestDB(t *testing.T) {
 		})
 
 		Convey("metadata access methods work", func() {
-			db := NewReader(dbPath)
+			db := NewReader(tmpdir, dbName)
 			m, err := db.Metadata()
 			So(err, ShouldBeNil)
 			So(m, ShouldResemble, Metadata{
@@ -205,8 +205,8 @@ func TestDB(t *testing.T) {
 			})
 		})
 
-		Convey("NewReaderFromConfig", func() {
-			var c DataConfig
+		Convey("Reader from config", func() {
+			var r Reader
 			js := fmt.Sprintf(`{
   "DB path": "%s",
   "DB": "%s",
@@ -220,9 +220,8 @@ func TestDB(t *testing.T) {
   "start": "2021-01-01",
   "end": "2021-10-02"
   }`, tmpdir, dbName)
-			So(c.InitMessage(testutil.JSON(js)), ShouldBeNil)
-			r := NewReaderFromConfig(&c)
-			So(r.cachePath, ShouldEqual, dbPath)
+			So(r.InitMessage(testutil.JSON(js)), ShouldBeNil)
+			So(r.cachePath(), ShouldEqual, dbPath)
 			So(r.Constraints, ShouldResemble, &Constraints{
 				Tickers:        map[string]struct{}{"A": {}, "B": {}},
 				ExcludeTickers: map[string]struct{}{"B": {}, "C": {}},

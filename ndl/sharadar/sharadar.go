@@ -377,7 +377,7 @@ func (d *Dataset) ComputeActions(ctx context.Context) {
 }
 
 // DownloadAll - tickers, actions and prices for the requested tables.
-func (d *Dataset) DownloadAll(ctx context.Context, cachePath string, tables ...TableName) error {
+func (d *Dataset) DownloadAll(ctx context.Context, dbPath, dbName string, tables ...TableName) error {
 	if len(tables) == 0 {
 		tables = []TableName{EquitiesTable, FundsTable}
 	}
@@ -405,7 +405,7 @@ func (d *Dataset) DownloadAll(ctx context.Context, cachePath string, tables ...T
 	d.ComputeActions(ctx)
 	logging.Infof(ctx, "created %d DB actions", d.NumActions)
 	logging.Infof(ctx, "writing tickers...")
-	w := db.NewWriter(cachePath)
+	w := db.NewWriter(dbPath, dbName)
 	if err := w.WriteTickers(d.Tickers); err != nil {
 		return errors.Annotate(err, "failed to write tickers")
 	}
