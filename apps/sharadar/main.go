@@ -29,7 +29,8 @@ import (
 )
 
 type Flags struct {
-	DBDir    string // default: ~/.stockparfait/sharadar
+	DBDir    string // default: ~/.stockparfait
+	DBName   string // default: sharadar
 	LogLevel logging.Level
 }
 
@@ -37,8 +38,9 @@ func parseFlags(args []string) (*Flags, error) {
 	var flags Flags
 	fs := flag.NewFlagSet("sharadar", flag.ExitOnError)
 	fs.StringVar(&flags.DBDir, "cache",
-		filepath.Join(os.Getenv("HOME"), ".stockparfait", "sharadar"),
-		"configuration path")
+		filepath.Join(os.Getenv("HOME"), ".stockparfait"),
+		"path to databases")
+	fs.StringVar(&flags.DBName, "db", "sharadar", "database name")
 	flags.LogLevel = logging.Info
 	fs.Var(&flags.LogLevel, "log-level", "Log level: debug, info, warning, error")
 
@@ -82,14 +84,14 @@ tables = ["SEP", "SPF"]
 }
 
 func download(ctx context.Context, flags *Flags) error {
-	config, err := parseConfig(flags.DBDir)
+	config, err := parseConfig(filepath.Join(flags.DBDir, flags.DBName))
 	if err != nil {
 		return errors.Annotate(err, "failed to parse config")
 	}
 
 	ctx = ndl.UseClient(ctx, config.Key)
 	ds := sharadar.NewDataset()
-	if err := ds.DownloadAll(ctx, flags.DBDir, config.Tables...); err != nil {
+	if err := ds.DownloadAll(ctx, flags.DBDir, flags.DBName, config.Tables...); err != nil {
 		return errors.Annotate(err, "failed to download data")
 	}
 	return nil

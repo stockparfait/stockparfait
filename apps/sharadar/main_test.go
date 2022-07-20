@@ -37,9 +37,10 @@ func TestMain(t *testing.T) {
 
 	Convey("parseFlags", t, func() {
 		flags, err := parseFlags([]string{
-			"-cache", "path/to/cache", "-log-level", "warning"})
+			"-cache", "path/to/cache", "-db", "name", "-log-level", "warning"})
 		So(err, ShouldBeNil)
 		So(flags.DBDir, ShouldEqual, "path/to/cache")
+		So(flags.DBName, ShouldEqual, "name")
 		So(flags.LogLevel, ShouldEqual, logging.Warning)
 	})
 

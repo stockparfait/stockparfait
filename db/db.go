@@ -51,31 +51,71 @@ func readGob(fileName string, v interface{}) error {
 	return nil
 }
 
+// Reader of the database, which also implements message.Message and can be used
+// directly in a config.
 type Reader struct {
-	Constraints   *Constraints
-	cachePath     string
-	tickers       map[string]TickerRow
-	actions       map[string][]ActionRow
-	monthly       map[string][]ResampledRow
-	metadata      Metadata
-	tickersOnce   sync.Once
-	tickersError  error
-	actionsOnce   sync.Once
-	actionsError  error
-	monthlyOnce   sync.Once
-	monthlyError  error
-	metadataOnce  sync.Once
-	metadataError error
+	DBPath         string   `json:"DB path"`            // default: ~/.stockparfait
+	DB             string   `json:"DB" required:"true"` // specific DB in path
+	UseTickers     []string `json:"tickers"`
+	ExcludeTickers []string `json:"exclude tickers"`
+	Exchanges      []string `json:"exchanges"`
+	Names          []string `json:"names"`
+	Categories     []string `json:"categories"`
+	Sectors        []string `json:"sectors"`
+	Industries     []string `json:"industries"`
+	Start          Date     `json:"start"`
+	End            Date     `json:"end"`
+	Constraints    *Constraints
+	tickers        map[string]TickerRow
+	actions        map[string][]ActionRow
+	monthly        map[string][]ResampledRow
+	metadata       Metadata
+	tickersOnce    sync.Once
+	tickersError   error
+	actionsOnce    sync.Once
+	actionsError   error
+	monthlyOnce    sync.Once
+	monthlyError   error
+	metadataOnce   sync.Once
+	metadataError  error
 }
 
-func NewReader(cachePath string) *Reader {
+var _ message.Message = &Reader{}
+
+func NewReader(dbPath, db string) *Reader {
 	return &Reader{
 		Constraints: NewConstraints(),
-		cachePath:   cachePath,
+		DBPath:      dbPath,
+		DB:          db,
 		tickers:     make(map[string]TickerRow),
 		actions:     make(map[string][]ActionRow),
 		monthly:     make(map[string][]ResampledRow),
 	}
+}
+
+// InitMessage implements message.Message.
+func (r *Reader) InitMessage(js interface{}) error {
+	if err := message.Init(r, js); err != nil {
+		return errors.Annotate(err, "failed to init from JSON")
+	}
+	if r.DBPath == "" {
+		r.DBPath = filepath.Join(os.Getenv("HOME"), ".stockparfait")
+	}
+	r.tickers = make(map[string]TickerRow)
+	r.actions = make(map[string][]ActionRow)
+	r.monthly = make(map[string][]ResampledRow)
+	r.Constraints = NewConstraints().
+		Ticker(r.UseTickers...).
+		ExcludeTicker(r.ExcludeTickers...).
+		Exchange(r.Exchanges...).
+		Name(r.Names...).
+		Category(r.Categories...).
+		Sector(r.Sectors...).
+		Industry(r.Industries...).
+		StartAt(r.Start).
+		EndAt(r.End)
+
+	return nil
 }
 
 func tickersFile(cachePath string) string {
@@ -102,9 +142,13 @@ func metadataFile(cachePath string) string {
 	return filepath.Join(cachePath, "metadata.json")
 }
 
+func (r *Reader) cachePath() string {
+	return filepath.Join(r.DBPath, r.DB)
+}
+
 func (r *Reader) cacheMetadata() error {
 	r.metadataOnce.Do(func() {
-		fileName := metadataFile(r.cachePath)
+		fileName := metadataFile(r.cachePath())
 		f, err := os.Open(fileName)
 		if err != nil {
 			r.metadataError = errors.Annotate(err,
@@ -122,9 +166,9 @@ func (r *Reader) cacheMetadata() error {
 
 func (r *Reader) cacheTickers() error {
 	r.tickersOnce.Do(func() {
-		if err := readGob(tickersFile(r.cachePath), &r.tickers); err != nil {
+		if err := readGob(tickersFile(r.cachePath()), &r.tickers); err != nil {
 			r.tickersError = errors.Annotate(
-				err, "failed to load %s", tickersFile(r.cachePath))
+				err, "failed to load %s", tickersFile(r.cachePath()))
 		}
 	})
 	return r.tickersError
@@ -132,9 +176,9 @@ func (r *Reader) cacheTickers() error {
 
 func (r *Reader) cacheActions() error {
 	r.actionsOnce.Do(func() {
-		if err := readGob(actionsFile(r.cachePath), &r.actions); err != nil {
+		if err := readGob(actionsFile(r.cachePath()), &r.actions); err != nil {
 			r.actionsError = errors.Annotate(
-				err, "failed to load %s", actionsFile(r.cachePath))
+				err, "failed to load %s", actionsFile(r.cachePath()))
 		}
 	})
 	return r.actionsError
@@ -142,9 +186,9 @@ func (r *Reader) cacheActions() error {
 
 func (r *Reader) cacheMonthly() error {
 	r.monthlyOnce.Do(func() {
-		if err := readGob(monthlyFile(r.cachePath), &r.monthly); err != nil {
+		if err := readGob(monthlyFile(r.cachePath()), &r.monthly); err != nil {
 			r.monthlyError = errors.Annotate(
-				err, "failed to load %s", monthlyFile(r.cachePath))
+				err, "failed to load %s", monthlyFile(r.cachePath()))
 		}
 	})
 	return r.monthlyError
@@ -216,7 +260,7 @@ func (r *Reader) Actions(ticker string) ([]ActionRow, error) {
 // safe in parallel, assuming consraints are not modified.
 func (r *Reader) Prices(ticker string) ([]PriceRow, error) {
 	prices := []PriceRow{}
-	if err := readGob(pricesFile(r.cachePath, ticker), &prices); err != nil {
+	if err := readGob(pricesFile(r.cachePath(), ticker), &prices); err != nil {
 		return nil, errors.Annotate(err, "failed to read prices for %s", ticker)
 	}
 	res := []PriceRow{}
@@ -249,21 +293,26 @@ func (r *Reader) Monthly(ticker string) ([]ResampledRow, error) {
 }
 
 type Writer struct {
-	cachePath  string
+	dbPath     string
+	db         string
 	metadata   Metadata
 	mkdirOnce  sync.Once
 	mkdirError error
 }
 
-func NewWriter(cachePath string) *Writer {
-	return &Writer{cachePath: cachePath}
+func NewWriter(dbPath, db string) *Writer {
+	return &Writer{dbPath: dbPath, db: db}
+}
+
+func (w *Writer) cachePath() string {
+	return filepath.Join(w.dbPath, w.db)
 }
 
 func (w *Writer) createDirs() error {
 	w.mkdirOnce.Do(func() {
-		if err := os.MkdirAll(pricesDir(w.cachePath), os.ModeDir|0755); err != nil {
+		if err := os.MkdirAll(pricesDir(w.cachePath()), os.ModeDir|0755); err != nil {
 			w.mkdirError = errors.Annotate(
-				err, "failed to create %s", pricesDir(w.cachePath))
+				err, "failed to create %s", pricesDir(w.cachePath()))
 		}
 	})
 	return w.mkdirError
@@ -275,8 +324,8 @@ func (w *Writer) WriteTickers(tickers map[string]TickerRow) error {
 	if err := w.createDirs(); err != nil {
 		return errors.Annotate(err, "failed to create DB directories")
 	}
-	if err := writeGob(tickersFile(w.cachePath), tickers); err != nil {
-		return errors.Annotate(err, "failed to write '%s'", tickersFile(w.cachePath))
+	if err := writeGob(tickersFile(w.cachePath()), tickers); err != nil {
+		return errors.Annotate(err, "failed to write '%s'", tickersFile(w.cachePath()))
 	}
 	w.metadata.NumTickers = len(tickers)
 	return nil
@@ -289,9 +338,9 @@ func (w *Writer) WriteActions(actions map[string][]ActionRow) error {
 	if err := w.createDirs(); err != nil {
 		return errors.Annotate(err, "failed to create DB directories")
 	}
-	if err := writeGob(actionsFile(w.cachePath), actions); err != nil {
+	if err := writeGob(actionsFile(w.cachePath()), actions); err != nil {
 		return errors.Annotate(err, "failed to write '%s'",
-			actionsFile(w.cachePath))
+			actionsFile(w.cachePath()))
 	}
 	w.metadata.NumActions = 0
 	for _, as := range actions {
@@ -306,9 +355,9 @@ func (w *Writer) WritePrices(ticker string, prices []PriceRow) error {
 	if err := w.createDirs(); err != nil {
 		return errors.Annotate(err, "failed to create DB directories")
 	}
-	if err := writeGob(pricesFile(w.cachePath, ticker), prices); err != nil {
+	if err := writeGob(pricesFile(w.cachePath(), ticker), prices); err != nil {
 		return errors.Annotate(err, "failed to write '%s'",
-			pricesFile(w.cachePath, ticker))
+			pricesFile(w.cachePath(), ticker))
 	}
 	w.metadata.NumPrices += len(prices)
 	for _, p := range prices {
@@ -378,9 +427,9 @@ func (w *Writer) WriteMonthly(monthly map[string][]ResampledRow) error {
 	if err := w.createDirs(); err != nil {
 		return errors.Annotate(err, "failed to create DB directories")
 	}
-	if err := writeGob(monthlyFile(w.cachePath), monthly); err != nil {
+	if err := writeGob(monthlyFile(w.cachePath()), monthly); err != nil {
 		return errors.Annotate(err, "failed to write '%s'",
-			monthlyFile(w.cachePath))
+			monthlyFile(w.cachePath()))
 	}
 	w.metadata.NumMonthly = 0
 	for _, ms := range monthly {
@@ -392,7 +441,7 @@ func (w *Writer) WriteMonthly(monthly map[string][]ResampledRow) error {
 // WriteMetadata saves the metadata accumulated by the Write* methods. It is
 // stored in JSON format to be human-readable.
 func (w *Writer) WriteMetadata() error {
-	fileName := metadataFile(w.cachePath)
+	fileName := metadataFile(w.cachePath())
 	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return errors.Annotate(err, "failed to open file for writing: '%s'", fileName)
@@ -405,49 +454,4 @@ func (w *Writer) WriteMetadata() error {
 		return errors.Annotate(err, "failed to write to '%s'", fileName)
 	}
 	return nil
-}
-
-// DataConfig is the configuration of the data source.
-type DataConfig struct {
-	DBPath         string   `json:"DB path"`            // default: ~/.stockparfait
-	DB             string   `json:"DB" required:"true"` // specific DB in path
-	Tickers        []string `json:"tickers"`
-	ExcludeTickers []string `json:"exclude tickers"`
-	Exchanges      []string `json:"exchanges"`
-	Names          []string `json:"names"`
-	Categories     []string `json:"categories"`
-	Sectors        []string `json:"sectors"`
-	Industries     []string `json:"industries"`
-	Start          Date     `json:"start"`
-	End            Date     `json:"end"`
-}
-
-var _ message.Message = &DataConfig{}
-
-// InitMessage implements message.Message.
-func (d *DataConfig) InitMessage(js interface{}) error {
-	if err := message.Init(d, js); err != nil {
-		return err
-	}
-	if d.DBPath == "" {
-		d.DBPath = filepath.Join(os.Getenv("HOME"), ".stockparfait")
-	}
-	return nil
-}
-
-// NewReaderFromConfig creates a new Reader from the config.
-func NewReaderFromConfig(c *DataConfig) *Reader {
-	r := NewReader(filepath.Join(c.DBPath, c.DB))
-	r.Constraints.
-		Ticker(c.Tickers...).
-		ExcludeTicker(c.ExcludeTickers...).
-		Exchange(c.Exchanges...).
-		Name(c.Names...).
-		Category(c.Categories...).
-		Sector(c.Sectors...).
-		Industry(c.Industries...).
-		StartAt(c.Start).
-		EndAt(c.End)
-
-	return r
 }
