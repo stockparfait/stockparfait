@@ -145,7 +145,9 @@ func TestHistogram(t *testing.T) {
 			So(h.Count(11), ShouldEqual, 0)
 			So(h.PDFs(), ShouldResemble, []float64{
 				0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001})
-			So(h.Mean(), ShouldEqual, 500.0)
+			So(h.Mean(), ShouldEqual, 500.0)                     // actual: 499.5
+			So(h.MAD(), ShouldEqual, 250.0)                      // actual: 250.0
+			So(testutil.Round(h.Sigma(), 3), ShouldEqual, 287.0) // actual: ~288.7
 			So(testutil.Round(h.Quantile(0.0), 5), ShouldEqual, 0.0)
 			So(testutil.Round(h.Quantile(0.25), 5), ShouldEqual, 250.0)
 			So(testutil.Round(h.Quantile(0.5), 5), ShouldEqual, 500.0)
@@ -176,7 +178,9 @@ func TestHistogram(t *testing.T) {
 			So(h.Size(), ShouldEqual, 1000)
 			So(h.Buckets().N, ShouldEqual, 100)
 			So(len(h.Counts()), ShouldEqual, 100)
-			So(testutil.Round(h.Mean(), 5), ShouldEqual, 499.25)
+			So(testutil.Round(h.Mean(), 3), ShouldEqual, 499.0)  // actual: 499.25
+			So(testutil.Round(h.MAD(), 3), ShouldEqual, 250.0)   // acutal: 250.0
+			So(testutil.Round(h.Sigma(), 3), ShouldEqual, 288.0) // actual: ~288.7
 			So(testutil.Round(h.Quantile(0.0), 5), ShouldEqual, 1.0)
 			So(testutil.Round(h.Quantile(0.25), 5), ShouldEqual, 249.16)
 			So(testutil.Round(h.Quantile(0.5), 5), ShouldEqual, 499.15)
@@ -213,7 +217,9 @@ func TestHistogram(t *testing.T) {
 				-100.0, -10.0, -1.0, -0.1, -0.01, 0.01, 0.1, 1.0, 10.0, 100.0})
 			So(h.Counts(), ShouldResemble, []uint{
 				90, 9, 1, 0, 1, 0, 0, 9, 90})
-			So(testutil.RoundFixed(h.Mean(), 2), ShouldEqual, 0.0)
+			So(testutil.RoundFixed(h.Mean(), 2), ShouldEqual, 0.0)        // actual: -0.5
+			So(testutil.Round(h.MAD(), 2), ShouldEqual, 29.0)             // actual: 50.0
+			So(testutil.Round(h.Sigma(), 2), ShouldEqual, 30.0)           // actual: 57.7
 			So(testutil.Round(h.Quantile(0.0), 5), ShouldEqual, -100.0)   // actual: -100.0
 			So(testutil.Round(h.Quantile(0.25), 5), ShouldEqual, -27.826) // actual: -50.0
 			So(testutil.Round(h.Quantile(0.5), 5), ShouldEqual, -0.1)     // actual: 0.0
