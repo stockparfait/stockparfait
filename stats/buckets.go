@@ -288,6 +288,42 @@ func (h *Histogram) Mean() float64 {
 	return sum / float64(h.size)
 }
 
+// MAD esmimates mean absolute deviation.
+func (h *Histogram) MAD() float64 {
+	if h.size == 0 {
+		return 0.0
+	}
+	mean := h.Mean()
+	sum := 0.0
+	for i, x := range h.buckets.Xs(0.5) {
+		dev := x - mean
+		if dev < 0.0 {
+			dev = -dev
+		}
+		sum += dev * float64(h.counts[i])
+	}
+	return sum / float64(h.size)
+}
+
+// Variance esmimation.
+func (h *Histogram) Variance() float64 {
+	if h.size == 0 {
+		return 0.0
+	}
+	mean := h.Mean()
+	sum := 0.0
+	for i, x := range h.buckets.Xs(0.5) {
+		dev := x - mean
+		sum += dev * dev * float64(h.counts[i])
+	}
+	return sum / float64(h.size)
+}
+
+// Sigma is the estimated standard deviation.
+func (h *Histogram) Sigma() float64 {
+	return math.Sqrt(h.Variance())
+}
+
 // Quantile computes the approximation of the q'th quantile, where e.g. q=0.5 is
 // the 50th percentile. Panics if q is not within [0..1].
 func (h *Histogram) Quantile(q float64) float64 {
