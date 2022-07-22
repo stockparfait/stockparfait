@@ -15,6 +15,7 @@
 package stats
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/stockparfait/errors"
@@ -64,6 +65,18 @@ func (s *SpacingType) InitMessage(js interface{}) error {
 	return nil
 }
 
+func (s SpacingType) String() string {
+	switch s {
+	case LinearSpacing:
+		return "linear"
+	case ExponentialSpacing:
+		return "exponential"
+	case SymmetricExponentialSpacing:
+		return "symmetric exponential"
+	}
+	return "invalid"
+}
+
 // Buckets configures the properties of histogram buckets. It implements
 // message.Message, thus can be directly used in configs.
 type Buckets struct {
@@ -75,6 +88,11 @@ type Buckets struct {
 }
 
 var _ message.Message = &Buckets{}
+
+func (b *Buckets) String() string {
+	return fmt.Sprintf("Buckets{N: %d, Spacing: %s, MinVal: %g, MaxVal: %g}",
+		b.N, b.Spacing, b.MinVal, b.MaxVal)
+}
 
 func (b *Buckets) InitMessage(js interface{}) error {
 	if err := message.Init(b, js); err != nil {
@@ -120,6 +138,12 @@ func NewBuckets(n int, minval, maxval float64, spacing SpacingType) (*Buckets, e
 	}
 	b.setBounds()
 	return b, nil
+}
+
+// SameAs checks if b defines the same buckets as b2.
+func (b *Buckets) SameAs(b2 *Buckets) bool {
+	return b.N == b2.N && b.Spacing == b2.Spacing && b.MinVal == b2.MinVal &&
+		b.MaxVal == b2.MaxVal
 }
 
 // linearVal computes the value in the i'th linearly spaced bucket.
@@ -221,9 +245,11 @@ func (b *Buckets) Size(i int) float64 {
 
 // Histogram stores sample counts for each bucket.
 type Histogram struct {
-	buckets *Buckets
-	counts  []uint // expected to be of length Buckets.N
-	size    uint   // total counts
+	buckets  *Buckets
+	counts   []uint    // expected to be of length Buckets.N
+	sums     []float64 // sum of samples for each bucket
+	size     uint      // total counts
+	sumTotal float64   // total sum of samples
 }
 
 // NewHistogram creates and initializes a Histogram. It panics if buckets is
@@ -235,6 +261,7 @@ func NewHistogram(buckets *Buckets) *Histogram {
 	return &Histogram{
 		buckets: buckets,
 		counts:  make([]uint, buckets.N),
+		sums:    make([]float64, buckets.N),
 	}
 }
 
@@ -252,28 +279,67 @@ func (h *Histogram) Count(i int) uint {
 	return h.counts[i]
 }
 
+// Sums of samples per bucket.
+func (h *Histogram) Sums() []float64 { return h.sums }
+
+// Sum of samples for the i'th bucket. Returns 0 if i is out of range.
+func (h *Histogram) Sum(i int) float64 {
+	if i < 0 || i >= len(h.sums) {
+		return 0.0
+	}
+	return h.sums[i]
+}
+
 // Size is the sum total of all counts.
 func (h *Histogram) Size() uint { return h.size }
+
+// SumTotal of all samples.
+func (h *Histogram) SumTotal() float64 { return h.sumTotal }
 
 // Add samples to the Histogram.
 func (h *Histogram) Add(xs ...float64) {
 	for _, x := range xs {
-		h.counts[h.buckets.Bucket(x)]++
+		i := h.buckets.Bucket(x)
+		h.counts[i]++
+		h.sums[i] += x
+		h.sumTotal += x
 	}
 	h.size += uint(len(xs))
 }
 
-// AddCounts adds a compatible slice of counts to the Histogram.
-func (h *Histogram) AddCounts(counts []uint) error {
-	if len(counts) != len(h.counts) {
-		return errors.Reason("len(counts)=%d != len(h.counts)=%d",
-			len(counts), len(h.counts))
+// AddHistogram adds h2 samples into the Histogram. h2 must have the same
+// buckets as self.
+func (h *Histogram) AddHistogram(h2 *Histogram) error {
+	if !h.buckets.SameAs(h2.buckets) {
+		return errors.Reason("h.buckets is not the same as h2.buckets: %s != %s",
+			h.buckets, h2.buckets)
 	}
-	for i, c := range counts {
-		h.counts[i] += c
-		h.size += c
+	for i := range h2.counts {
+		h.counts[i] += h2.counts[i]
+		h.sums[i] += h2.sums[i]
 	}
+	h.size += h2.size
+	h.sumTotal += h2.sumTotal
 	return nil
+}
+
+// X returns the mean x value of the i'th bucket, or the logical middle of the
+// bucket if it has no samples.
+func (h *Histogram) X(i int) float64 {
+	if h.counts[i] == 0 {
+		return h.buckets.X(i, 0.5)
+	}
+	return h.sums[i] / float64(h.counts[i])
+}
+
+// Xs returns the list of mean values for all buckets. The slice is always newly
+// allocated.
+func (h *Histogram) Xs() []float64 {
+	res := make([]float64, h.buckets.N)
+	for i := range res {
+		res[i] = h.X(i)
+	}
+	return res
 }
 
 // Mean computes the approximate mean of the distribution.
@@ -281,11 +347,7 @@ func (h *Histogram) Mean() float64 {
 	if h.size == 0 {
 		return 0.0
 	}
-	sum := 0.0
-	for i, x := range h.buckets.Xs(0.5) {
-		sum += x * float64(h.counts[i])
-	}
-	return sum / float64(h.size)
+	return h.sumTotal / float64(h.size)
 }
 
 // MAD esmimates mean absolute deviation.
@@ -295,7 +357,8 @@ func (h *Histogram) MAD() float64 {
 	}
 	mean := h.Mean()
 	sum := 0.0
-	for i, x := range h.buckets.Xs(0.5) {
+	for i := 0; i < h.buckets.N; i++ {
+		x := h.X(i)
 		dev := x - mean
 		if dev < 0.0 {
 			dev = -dev
@@ -312,7 +375,8 @@ func (h *Histogram) Variance() float64 {
 	}
 	mean := h.Mean()
 	sum := 0.0
-	for i, x := range h.buckets.Xs(0.5) {
+	for i := 0; i < h.buckets.N; i++ {
+		x := h.X(i)
 		dev := x - mean
 		sum += dev * dev * float64(h.counts[i])
 	}
@@ -387,7 +451,7 @@ func (h *Histogram) PDF(i int) float64 {
 }
 
 // PDFs lists all the values of PDF for all the buckets. This is suitable
-// for plotting against Xs(0.5).
+// for plotting against Xs().
 func (h *Histogram) PDFs() []float64 {
 	res := make([]float64, len(h.counts))
 	for i := range h.counts {
