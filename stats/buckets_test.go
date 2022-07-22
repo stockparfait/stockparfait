@@ -36,16 +36,19 @@ func TestSpacingType(t *testing.T) {
 		Convey("linear", func() {
 			So(s.InitMessage(testutil.JSON(`"linear"`)), ShouldBeNil)
 			So(s, ShouldEqual, LinearSpacing)
+			So(s.String(), ShouldEqual, "linear")
 		})
 
 		Convey("exponential", func() {
 			So(s.InitMessage(testutil.JSON(`"exponential"`)), ShouldBeNil)
 			So(s, ShouldEqual, ExponentialSpacing)
+			So(s.String(), ShouldEqual, "exponential")
 		})
 
 		Convey("symmetric exponential", func() {
 			So(s.InitMessage(testutil.JSON(`"symmetric exponential"`)), ShouldBeNil)
 			So(s, ShouldEqual, SymmetricExponentialSpacing)
+			So(s.String(), ShouldEqual, "symmetric exponential")
 		})
 	})
 }
@@ -72,6 +75,7 @@ func TestBuckets(t *testing.T) {
 			So(b.Xs(0.5), ShouldResemble, []float64{
 				0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5})
 			So(b.Xs(0.0), ShouldResemble, []float64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
+			So(b.String(), ShouldEqual, "Buckets{N: 10, Spacing: linear, MinVal: 0, MaxVal: 10}")
 		})
 
 		Convey("exponential spacing", func() {
@@ -143,9 +147,15 @@ func TestHistogram(t *testing.T) {
 				100, 100, 100, 100, 100, 100, 100, 100, 100, 100})
 			So(h.Count(5), ShouldEqual, 100)
 			So(h.Count(11), ShouldEqual, 0)
+			So(h.Sums(), ShouldResemble, []float64{
+				4950, 14950, 24950, 34950, 44950, 54950, 64950, 74950, 84950, 94950})
+			So(h.Sum(5), ShouldEqual, 54950.0)
+			So(h.Sum(11), ShouldEqual, 0.0)
+			So(h.Xs(), ShouldResemble, []float64{
+				49.5, 149.5, 249.5, 349.5, 449.5, 549.5, 649.5, 749.5, 849.5, 949.5})
 			So(h.PDFs(), ShouldResemble, []float64{
 				0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001})
-			So(h.Mean(), ShouldEqual, 500.0)                     // actual: 499.5
+			So(h.Mean(), ShouldEqual, 499.5)                     // actual: 499.5
 			So(h.MAD(), ShouldEqual, 250.0)                      // actual: 250.0
 			So(testutil.Round(h.Sigma(), 3), ShouldEqual, 287.0) // actual: ~288.7
 			So(testutil.Round(h.Quantile(0.0), 5), ShouldEqual, 0.0)
@@ -163,8 +173,11 @@ func TestHistogram(t *testing.T) {
 
 			Convey("from another histogram", func() {
 				h2 := NewHistogram(b)
-				So(h2.AddCounts(h.Counts()), ShouldBeNil)
+				So(h2.AddHistogram(h), ShouldBeNil)
 				So(h2.Counts(), ShouldResemble, h.Counts())
+				So(h2.Sums(), ShouldResemble, h.Sums())
+				So(h2.Size(), ShouldEqual, h.Size())
+				So(h2.SumTotal(), ShouldEqual, h.SumTotal())
 			})
 		})
 
@@ -178,7 +191,7 @@ func TestHistogram(t *testing.T) {
 			So(h.Size(), ShouldEqual, 1000)
 			So(h.Buckets().N, ShouldEqual, 100)
 			So(len(h.Counts()), ShouldEqual, 100)
-			So(testutil.Round(h.Mean(), 3), ShouldEqual, 499.0)  // actual: 499.25
+			So(testutil.Round(h.Mean(), 5), ShouldEqual, 499.5)  // actual: 499.5
 			So(testutil.Round(h.MAD(), 3), ShouldEqual, 250.0)   // acutal: 250.0
 			So(testutil.Round(h.Sigma(), 3), ShouldEqual, 288.0) // actual: ~288.7
 			So(testutil.Round(h.Quantile(0.0), 5), ShouldEqual, 1.0)
@@ -217,9 +230,9 @@ func TestHistogram(t *testing.T) {
 				-100.0, -10.0, -1.0, -0.1, -0.01, 0.01, 0.1, 1.0, 10.0, 100.0})
 			So(h.Counts(), ShouldResemble, []uint{
 				90, 9, 1, 0, 1, 0, 0, 9, 90})
-			So(testutil.RoundFixed(h.Mean(), 2), ShouldEqual, 0.0)        // actual: -0.5
-			So(testutil.Round(h.MAD(), 2), ShouldEqual, 29.0)             // actual: 50.0
-			So(testutil.Round(h.Sigma(), 2), ShouldEqual, 30.0)           // actual: 57.7
+			So(testutil.RoundFixed(h.Mean(), 3), ShouldEqual, -0.5)       // actual: -0.5
+			So(testutil.Round(h.MAD(), 4), ShouldEqual, 50.0)             // actual: 50.0
+			So(testutil.Round(h.Sigma(), 4), ShouldEqual, 52.2)           // actual: 57.7
 			So(testutil.Round(h.Quantile(0.0), 5), ShouldEqual, -100.0)   // actual: -100.0
 			So(testutil.Round(h.Quantile(0.25), 5), ShouldEqual, -27.826) // actual: -50.0
 			So(testutil.Round(h.Quantile(0.5), 5), ShouldEqual, -0.1)     // actual: 0.0
