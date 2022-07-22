@@ -65,6 +65,8 @@ func (s *SpacingType) InitMessage(js interface{}) error {
 	return nil
 }
 
+// String prints SpacingType. It's a value method, so it prints correctly in
+// fmt.Printf.
 func (s SpacingType) String() string {
 	switch s {
 	case LinearSpacing:
@@ -89,7 +91,9 @@ type Buckets struct {
 
 var _ message.Message = &Buckets{}
 
-func (b *Buckets) String() string {
+// String prints Buckets. It is a value method, so non-pointer Buckets will
+// print correctly in fmt.Printf.
+func (b Buckets) String() string {
 	return fmt.Sprintf("Buckets{N: %d, Spacing: %s, MinVal: %g, MaxVal: %g}",
 		b.N, b.Spacing, b.MinVal, b.MaxVal)
 }
