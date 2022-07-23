@@ -604,7 +604,7 @@ func EnsureGraph(ctx context.Context, kind Kind, graphID, groupID string) (*Grap
 	return c.EnsureGraph(kind, graphID, groupID)
 }
 
-// Add adds a plot to the graph by ID. Canvas must exist in the context.
+// Add a plot to the graph by ID. Canvas must exist in the context.
 func Add(ctx context.Context, p *Plot, graphID string) error {
 	c := Get(ctx)
 	if c == nil {
