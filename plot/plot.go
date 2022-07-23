@@ -106,6 +106,7 @@ type Plot struct {
 	YLabel    string    // value label on the Y axis
 	Legend    string    // name in the legend
 	ChartType ChartType
+	LeftAxis  bool // plot against left or right (default) Y axis
 }
 
 // NewSeriesPlot creates an instance of a time series plot.
@@ -199,6 +200,11 @@ func (p *Plot) SetChartType(t ChartType) *Plot {
 	return p
 }
 
+func (p *Plot) SetLeftAxis(left bool) *Plot {
+	p.LeftAxis = left
+	return p
+}
+
 // GetTimeseries from a series Plot. Panics if Kind != KindSeries.
 func (p *Plot) GetTimeseries() *stats.Timeseries {
 	if p.Kind != KindSeries {
@@ -218,18 +224,17 @@ func (p *Plot) GetXY() ([]float64, []float64) {
 // Graph is a container for Plots, and visually it corresponds to a single (X,
 // Y) or (Date, Y) chart where these plots are displayed.
 type Graph struct {
-	Kind       Kind     // each graph can only display one kind of plots
-	ID         string   `json:"-"` // unique internal identifier of the graph
-	Title      string   // user visible graph title; defaults to Name
-	XLabel     string   // label on the X axis
-	YLogScale  bool     // whether both Y axis are log-scale
-	PlotsRight []*Plot  // plots using the right Y axis
-	PlotsLeft  []*Plot  // plots using the left Y axis
-	GroupID    string   `json:"-"` // for internal caching in Canvas
-	minX       *float64 // exact bounds for all the plots
-	maxX       *float64
-	minDate    *db.Date
-	maxDate    *db.Date
+	Kind      Kind   // each graph can only display one kind of plots
+	ID        string `json:"-"` // unique internal identifier of the graph
+	Title     string // user visible graph title; defaults to Name
+	XLabel    string // label on the X axis
+	YLogScale bool   // whether both Y axis are log-scale
+	Plots     []*Plot
+	GroupID   string   `json:"-"` // for internal caching in Canvas
+	minX      *float64 // exact bounds for all the plots
+	maxX      *float64
+	minDate   *db.Date
+	maxDate   *db.Date
 }
 
 func NewGraph(kind Kind, id string) *Graph {
@@ -294,27 +299,15 @@ func (g *Graph) updateBounds(p *Plot) {
 	}
 }
 
-// AddPlotRight adds a plot to be displayed using the right Y axis. It's an
-// error if the plot and the Graph have different Kinds.
-func (g *Graph) AddPlotRight(p *Plot) error {
+// AddPlot adds a plot to be displayed. It's an error if the plot and the Graph
+// have different Kinds.
+func (g *Graph) AddPlot(p *Plot) error {
 	if p.Kind != g.Kind {
 		return errors.Reason("plot's kind [%s] != graph's kind [%s]",
 			p.Kind, g.Kind)
 	}
 	g.updateBounds(p)
-	g.PlotsRight = append(g.PlotsRight, p)
-	return nil
-}
-
-// AddPlotLeft adds a plot to be displayed using the left Y axis. It's an error
-// if the plot and the Graph have different Kinds.
-func (g *Graph) AddPlotLeft(p *Plot) error {
-	if p.Kind != g.Kind {
-		return errors.Reason("plot's kind [%s] != graph's kind [%s]",
-			p.Kind, g.Kind)
-	}
-	g.updateBounds(p)
-	g.PlotsLeft = append(g.PlotsLeft, p)
+	g.Plots = append(g.Plots, p)
 	return nil
 }
 
@@ -532,30 +525,13 @@ func (c *Canvas) EnsureGraph(kind Kind, graphID, groupID string) (*Graph, error)
 	return graph, nil
 }
 
-// AddPlotRight to the graph by ID to be displayed using the right Y axis. The
-// graph must exist in Canvas.
-func (c *Canvas) AddPlotRight(p *Plot, graphID string) error {
+// AddPlot to the graph by ID. The graph must exist in Canvas.
+func (c *Canvas) AddPlot(p *Plot, graphID string) error {
 	graph, ok := c.graphMap[graphID]
 	if !ok {
 		return errors.Reason("no such graph in Canvas: %s", graphID)
 	}
-	if err := graph.AddPlotRight(p); err != nil {
-		return errors.Annotate(err, "failed to add plot %s to Canvas", p.Legend)
-	}
-	if err := c.updateBounds(graph); err != nil {
-		return errors.Annotate(err, "failed to update bounds")
-	}
-	return nil
-}
-
-// AddPlotLeft to the graph by ID to be displayed using the left Y axis. The
-// graph must exist in Canvas.
-func (c *Canvas) AddPlotLeft(p *Plot, graphID string) error {
-	graph, ok := c.graphMap[graphID]
-	if !ok {
-		return errors.Reason("no such graph in Canvas: %s", graphID)
-	}
-	if err := graph.AddPlotLeft(p); err != nil {
+	if err := graph.AddPlot(p); err != nil {
 		return errors.Annotate(err, "failed to add plot %s to Canvas", p.Legend)
 	}
 	if err := c.updateBounds(graph); err != nil {
@@ -628,24 +604,13 @@ func EnsureGraph(ctx context.Context, kind Kind, graphID, groupID string) (*Grap
 	return c.EnsureGraph(kind, graphID, groupID)
 }
 
-// AddRight adds a plot to the graph by ID for the right Y axis. Canvas must
-// exist in the context.
-func AddRight(ctx context.Context, p *Plot, graphID string) error {
+// Add adds a plot to the graph by ID. Canvas must exist in the context.
+func Add(ctx context.Context, p *Plot, graphID string) error {
 	c := Get(ctx)
 	if c == nil {
 		return errors.Reason("no Canvas in context")
 	}
-	return c.AddPlotRight(p, graphID)
-}
-
-// AddLeft adds a plot to the graph by ID for the left Y axis. Canvas must
-// exist in the context.
-func AddLeft(ctx context.Context, p *Plot, graphID string) error {
-	c := Get(ctx)
-	if c == nil {
-		return errors.Reason("no Canvas in context")
-	}
-	return c.AddPlotLeft(p, graphID)
+	return c.AddPlot(p, graphID)
 }
 
 func WriteJSON(ctx context.Context, w io.Writer) error {

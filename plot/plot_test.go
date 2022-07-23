@@ -128,14 +128,17 @@ func TestPlot(t *testing.T) {
 			ts2 := stats.NewTimeseries().Init(dates2, y2)
 
 			xyPlot1 := NewXYPlot(x1, y1).
-				SetYLabel("p").
-				SetLegend("PDF").
-				SetChartType(ChartDashed)
+				SetYLabel("p1").
+				SetLegend("XY1").
+				SetChartType(ChartDashed).
+				SetLeftAxis(true)
 
-			timePlot1 := NewSeriesPlot(ts1)
+			timePlot1 := NewSeriesPlot(ts1).SetLegend("TS1").SetYLabel("t1").
+				SetLeftAxis(true)
 
-			xyPlot2 := NewXYPlot(x2, y2).SetChartType(ChartScatter)
-			timePlot2 := NewSeriesPlot(ts2)
+			xyPlot2 := NewXYPlot(x2, y2).SetLegend("XY2").SetYLabel("p2").
+				SetChartType(ChartScatter)
+			timePlot2 := NewSeriesPlot(ts2).SetLegend("TS2").SetYLabel("t2")
 
 			Convey("access methods work", func() {
 				xx, yy := xyPlot1.GetXY()
@@ -144,6 +147,8 @@ func TestPlot(t *testing.T) {
 				So(func() { xyPlot1.GetTimeseries() }, ShouldPanic)
 				So(xyPlot1.MinX(), ShouldEqual, 1.0)
 				So(xyPlot1.MaxX(), ShouldEqual, 3.0)
+				So(xyPlot1.LeftAxis, ShouldBeTrue)
+				So(xyPlot2.LeftAxis, ShouldBeFalse)
 
 				So(func() { timePlot1.GetXY() }, ShouldPanic)
 				So(timePlot1.GetTimeseries(), ShouldResemble, ts1)
@@ -151,22 +156,22 @@ func TestPlot(t *testing.T) {
 				So(timePlot1.MaxDate(), ShouldResemble, db.NewDate(2020, 1, 3))
 			})
 
-			Convey("add to the right Y axis", func() {
-				So(AddRight(ctx, xyPlot1, "lines"), ShouldBeNil)
-				So(AddRight(ctx, timePlot1, "prices"), ShouldBeNil)
-				So(AddRight(ctx, timePlot1, "lines"), ShouldNotBeNil)
-				So(AddRight(ctx, xyPlot1, "nonexistent"), ShouldNotBeNil)
+			Convey("add plots", func() {
+				So(Add(ctx, xyPlot1, "lines"), ShouldBeNil)
+				So(Add(ctx, timePlot1, "prices"), ShouldBeNil)
+				So(Add(ctx, timePlot1, "lines"), ShouldNotBeNil)
+				So(Add(ctx, xyPlot1, "nonexistent"), ShouldNotBeNil)
 
-				So(AddRight(ctx, xyPlot2, "lines"), ShouldBeNil)
-				So(AddRight(ctx, timePlot2, "prices"), ShouldBeNil)
+				So(Add(ctx, xyPlot2, "lines"), ShouldBeNil)
+				So(Add(ctx, timePlot2, "prices"), ShouldBeNil)
 
-				So(c.graphMap["lines"].PlotsRight, ShouldResemble, []*Plot{
+				So(c.graphMap["lines"].Plots, ShouldResemble, []*Plot{
 					xyPlot1, xyPlot2})
 				So(c.graphMap["lines"].Kind, ShouldEqual, KindXY)
 				So(*c.graphMap["lines"].minX, ShouldEqual, -1.5)
 				So(*c.graphMap["lines"].maxX, ShouldEqual, 3.5)
 
-				So(c.graphMap["prices"].PlotsRight, ShouldResemble, []*Plot{
+				So(c.graphMap["prices"].Plots, ShouldResemble, []*Plot{
 					timePlot1, timePlot2})
 				So(c.graphMap["prices"].Kind, ShouldEqual, KindSeries)
 				So(*c.graphMap["prices"].minDate, ShouldResemble, db.NewDate(2019, 12, 31))
@@ -176,28 +181,18 @@ func TestPlot(t *testing.T) {
 				So(*c.groupMap["xy"].MaxX, ShouldEqual, 3.5)
 			})
 
-			Convey("add to the left Y axis", func() {
-				So(AddLeft(ctx, xyPlot1, "lines"), ShouldBeNil)
-				So(AddLeft(ctx, timePlot1, "prices"), ShouldBeNil)
-				So(AddLeft(ctx, timePlot1, "lines"), ShouldNotBeNil)
-				So(AddLeft(ctx, xyPlot1, "nonexistent"), ShouldNotBeNil)
-
-				So(c.graphMap["lines"].PlotsLeft, ShouldResemble, []*Plot{xyPlot1})
-				So(c.graphMap["prices"].PlotsLeft, ShouldResemble, []*Plot{timePlot1})
-			})
-
 			Convey("JSON conversion works", func() {
 				xyPlotBars := NewXYPlot(x2, y2).SetChartType(ChartBars)
 
-				So(AddLeft(ctx, xyPlot1, "lines"), ShouldBeNil)
-				So(AddLeft(ctx, timePlot1, "prices"), ShouldBeNil)
-				So(AddRight(ctx, xyPlot2, "lines"), ShouldBeNil)
-				So(AddRight(ctx, xyPlotBars, "lines"), ShouldBeNil)
-				So(AddRight(ctx, timePlot2, "prices"), ShouldBeNil)
+				So(Add(ctx, xyPlot1, "lines"), ShouldBeNil)
+				So(Add(ctx, timePlot1, "prices"), ShouldBeNil)
+				So(Add(ctx, xyPlot2, "lines"), ShouldBeNil)
+				So(Add(ctx, xyPlotBars, "lines"), ShouldBeNil)
+				So(Add(ctx, timePlot2, "prices"), ShouldBeNil)
 				var buf bytes.Buffer
 				So(WriteJS(ctx, &buf), ShouldBeNil)
 				So("\n"+buf.String(), ShouldEqual, `
-var DATA = {"Groups":[{"Kind":"KindXY","Title":"xy","XLogScale":true,"Graphs":[{"Kind":"KindXY","Title":"lines","XLabel":"Value","YLogScale":false,"PlotsRight":[{"Kind":"KindXY","X":[-1.5,1,3.5],"Y":[20,30,10],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartScatter"},{"Kind":"KindXY","X":[-1.5,1,3.5],"Y":[20,30,10],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartBars"}],"PlotsLeft":[{"Kind":"KindXY","X":[1,2,3],"Y":[10,20,30],"YLabel":"p","Legend":"PDF","ChartType":"ChartDashed"}]}],"MinX":-1.5,"MaxX":3.5},{"Kind":"KindSeries","Title":"series","XLogScale":false,"Graphs":null},{"Kind":"KindSeries","Title":"time","XLogScale":false,"Graphs":[{"Kind":"KindSeries","Title":"prices","XLabel":"Value","YLogScale":false,"PlotsRight":[{"Kind":"KindSeries","Y":[20,30,10],"Dates":["2019-12-31","2020-01-02","2020-03-01"],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartLine"}],"PlotsLeft":[{"Kind":"KindSeries","Y":[10,20,30],"Dates":["2020-01-01","2020-01-02","2020-01-03"],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartLine"}]}],"MinDate":"2019-12-31","MaxDate":"2020-03-01"}]}
+var DATA = {"Groups":[{"Kind":"KindXY","Title":"xy","XLogScale":true,"Graphs":[{"Kind":"KindXY","Title":"lines","XLabel":"Value","YLogScale":false,"Plots":[{"Kind":"KindXY","X":[1,2,3],"Y":[10,20,30],"YLabel":"p1","Legend":"XY1","ChartType":"ChartDashed","LeftAxis":true},{"Kind":"KindXY","X":[-1.5,1,3.5],"Y":[20,30,10],"YLabel":"p2","Legend":"XY2","ChartType":"ChartScatter","LeftAxis":false},{"Kind":"KindXY","X":[-1.5,1,3.5],"Y":[20,30,10],"YLabel":"values","Legend":"Unnamed","ChartType":"ChartBars","LeftAxis":false}]}],"MinX":-1.5,"MaxX":3.5},{"Kind":"KindSeries","Title":"series","XLogScale":false,"Graphs":null},{"Kind":"KindSeries","Title":"time","XLogScale":false,"Graphs":[{"Kind":"KindSeries","Title":"prices","XLabel":"Value","YLogScale":false,"Plots":[{"Kind":"KindSeries","Y":[10,20,30],"Dates":["2020-01-01","2020-01-02","2020-01-03"],"YLabel":"t1","Legend":"TS1","ChartType":"ChartLine","LeftAxis":true},{"Kind":"KindSeries","Y":[20,30,10],"Dates":["2019-12-31","2020-01-02","2020-03-01"],"YLabel":"t2","Legend":"TS2","ChartType":"ChartLine","LeftAxis":false}]}],"MinDate":"2019-12-31","MaxDate":"2020-03-01"}]}
 ;`)
 			})
 		})
