@@ -153,14 +153,24 @@ function addGraphXY(elem, graph, minX, maxX, xLogScale) {
 }
 
 function addPlots(graph, conf) {
-    if(graph.PlotsLeft != null && graph.PlotsLeft.length > 0) {
-	var labels = {}
-	for(var i=0; i<graph.PlotsLeft.length; i++) {
-	    conf.data.datasets.push(plotDataset(graph.PlotsLeft[i], 'yLeft'));
-	    labels[graph.PlotsLeft[i].YLabel] = true;
+    if(graph.Plots == null) {
+	return;
+    }
+    var labelsLeft = {};
+    var labelsRight = {};
+    for(var i=0; i<graph.Plots.length; i++) {
+	var plot = graph.Plots[i];
+	conf.data.datasets.push(plotDataset(plot));
+	if(plot.LeftAxis) {
+	    labelsLeft[plot.YLabel] = true;
+	} else {
+	    labelsRight[plot.YLabel] = true;
 	}
+    }
+
+    if(Object.keys(labelsLeft).length > 0) {
 	var labelStr = '';
-	for(l in labels) {
+	for(l in labelsLeft) {
 	    labelStr += (labelStr == '' ? '' : ', ') + l;
 	}
 	conf.options.scales.yLeft = {
@@ -169,14 +179,9 @@ function addPlots(graph, conf) {
 	    title: {display: true, text: labelStr},
 	};
     }
-    if(graph.PlotsRight != null && graph.PlotsRight.length > 0) {
-	var labels = {}
-	for(var i=0; i<graph.PlotsRight.length; i++) {
-	    conf.data.datasets.push(plotDataset(graph.PlotsRight[i], 'yRight'));
-	    labels[graph.PlotsRight[i].YLabel] = true;
-	}
+    if(Object.keys(labelsRight).length > 0) {
 	var labelStr = '';
-	for(l in labels) {
+	for(l in labelsRight) {
 	    labelStr += (labelStr == '' ? '' : ', ') + l;
 	}
 	conf.options.scales.yRight = {
@@ -219,14 +224,14 @@ function plotDataXY(plot) {
 }
 
 function chartType(tp) {
-    if(tp == 'ChartBar') {
+    if(tp == 'ChartBars') {
 	return 'bar';
     }
     return 'line';
 }
 
 // plotDataset generates a Chart compatible dataset object from plot.
-function plotDataset(plot, yAxisID) {
+function plotDataset(plot) {
     var data = [];
     if(plot.Kind == 'KindSeries') {
 	data = plotDataSeries(plot);
@@ -237,7 +242,7 @@ function plotDataset(plot, yAxisID) {
     var ds = {
 	data: data,
 	type: chartType(plot.ChartType),
-	yAxisID: yAxisID,
+	yAxisID: plot.LeftAxis ? "yLeft" : "yRight",
 	label: plot.Legend,
 	backgroundColor: color.bg, // inside points or bars
 	borderColor: color.fg,
