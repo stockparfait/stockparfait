@@ -24,8 +24,6 @@ type Constraints struct {
 	Categories     map[string]struct{}
 	Sectors        map[string]struct{}
 	Industries     map[string]struct{}
-	Start          Date
-	End            Date
 }
 
 // NewConstraints creates a new Constraints with no constraints.
@@ -97,18 +95,6 @@ func (c *Constraints) Industry(inds ...string) *Constraints {
 	return c
 }
 
-// StartAt adds start date to the Constraints.
-func (c *Constraints) StartAt(dt Date) *Constraints {
-	c.Start = dt
-	return c
-}
-
-// EndAt adds end date to the Constraints.
-func (c *Constraints) EndAt(dt Date) *Constraints {
-	c.End = dt
-	return c
-}
-
 // CheckTicker whether it satisfies the constraints.
 func (c *Constraints) CheckTicker(ticker string) bool {
 	if len(c.ExcludeTickers) > 0 {
@@ -152,31 +138,4 @@ func (c *Constraints) CheckTickerRow(r TickerRow) bool {
 		}
 	}
 	return true
-}
-
-// CheckDates checks that the date range is entirely within the constrained
-// range. Both ends are inclusive.
-func (c *Constraints) CheckDates(start, end Date) bool {
-	if !c.Start.IsZero() && start.Before(c.Start) {
-		return false
-	}
-	if !c.End.IsZero() && end.After(c.End) {
-		return false
-	}
-	return true
-}
-
-// CheckAction whether it satisfies the constraints.
-func (c *Constraints) CheckAction(r ActionRow) bool {
-	return c.CheckDates(r.Date, r.Date)
-}
-
-// CheckPrice whether it satisfies the constraints.
-func (c *Constraints) CheckPrice(r PriceRow) bool {
-	return c.CheckDates(r.Date, r.Date)
-}
-
-// CheckResampled whether it satisfies the constraints.
-func (c *Constraints) CheckResampled(r ResampledRow) bool {
-	return c.CheckDates(r.DateOpen, r.DateClose)
 }

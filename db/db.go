@@ -65,7 +65,7 @@ type Reader struct {
 	Industries     []string `json:"industries"`
 	Start          Date     `json:"start"`
 	End            Date     `json:"end"`
-	Constraints    *Constraints
+	constraints    *Constraints
 	tickers        map[string]TickerRow
 	actions        map[string][]ActionRow
 	monthly        map[string][]ResampledRow
@@ -84,13 +84,23 @@ var _ message.Message = &Reader{}
 
 func NewReader(dbPath, db string) *Reader {
 	return &Reader{
-		Constraints: NewConstraints(),
-		DBPath:      dbPath,
-		DB:          db,
-		tickers:     make(map[string]TickerRow),
-		actions:     make(map[string][]ActionRow),
-		monthly:     make(map[string][]ResampledRow),
+		DBPath:  dbPath,
+		DB:      db,
+		tickers: make(map[string]TickerRow),
+		actions: make(map[string][]ActionRow),
+		monthly: make(map[string][]ResampledRow),
 	}
+}
+
+func (r *Reader) initConstraints() {
+	r.constraints = NewConstraints().
+		Ticker(r.UseTickers...).
+		ExcludeTicker(r.ExcludeTickers...).
+		Exchange(r.Exchanges...).
+		Name(r.Names...).
+		Category(r.Categories...).
+		Sector(r.Sectors...).
+		Industry(r.Industries...)
 }
 
 // InitMessage implements message.Message.
@@ -104,17 +114,6 @@ func (r *Reader) InitMessage(js interface{}) error {
 	r.tickers = make(map[string]TickerRow)
 	r.actions = make(map[string][]ActionRow)
 	r.monthly = make(map[string][]ResampledRow)
-	r.Constraints = NewConstraints().
-		Ticker(r.UseTickers...).
-		ExcludeTicker(r.ExcludeTickers...).
-		Exchange(r.Exchanges...).
-		Name(r.Names...).
-		Category(r.Categories...).
-		Sector(r.Sectors...).
-		Industry(r.Industries...).
-		StartAt(r.Start).
-		EndAt(r.End)
-
 	return nil
 }
 
@@ -194,6 +193,18 @@ func (r *Reader) cacheMonthly() error {
 	return r.monthlyError
 }
 
+// checkDates checks that the date range is entirely within the constrained
+// range. Both ends are inclusive.
+func (r *Reader) checkDates(start, end Date) bool {
+	if !r.Start.IsZero() && start.Before(r.Start) {
+		return false
+	}
+	if !r.End.IsZero() && end.After(r.End) {
+		return false
+	}
+	return true
+}
+
 // Metadata for the database. It is cached in memory upon the first call.
 func (r *Reader) Metadata() (Metadata, error) {
 	if err := r.cacheMetadata(); err != nil {
@@ -224,9 +235,10 @@ func (r *Reader) Tickers() ([]string, error) {
 	if err := r.cacheTickers(); err != nil {
 		return nil, errors.Annotate(err, "failed to load tickers")
 	}
+	r.initConstraints()
 	tickers := []string{}
 	for t, row := range r.tickers {
-		if r.Constraints.CheckTicker(t) && r.Constraints.CheckTickerRow(row) {
+		if r.constraints.CheckTicker(t) && r.constraints.CheckTickerRow(row) {
 			tickers = append(tickers, t)
 		}
 	}
@@ -246,7 +258,7 @@ func (r *Reader) Actions(ticker string) ([]ActionRow, error) {
 	}
 	res := []ActionRow{}
 	for _, a := range actions {
-		if r.Constraints.CheckAction(a) {
+		if r.checkDates(a.Date, a.Date) {
 			res = append(res, a)
 		}
 	}
@@ -265,7 +277,7 @@ func (r *Reader) Prices(ticker string) ([]PriceRow, error) {
 	}
 	res := []PriceRow{}
 	for _, p := range prices {
-		if r.Constraints.CheckPrice(p) {
+		if r.checkDates(p.Date, p.Date) {
 			res = append(res, p)
 		}
 	}
@@ -285,7 +297,7 @@ func (r *Reader) Monthly(ticker string) ([]ResampledRow, error) {
 	}
 	res := []ResampledRow{}
 	for _, row := range monthly {
-		if r.Constraints.CheckResampled(row) {
+		if r.checkDates(row.DateOpen, row.DateClose) {
 			res = append(res, row)
 		}
 	}

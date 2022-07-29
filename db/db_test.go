@@ -132,6 +132,20 @@ func TestDB(t *testing.T) {
 			})
 		})
 
+		Convey("checkDates works", func() {
+			r := NewReader(tmpdir, dbName)
+			r.Start = NewDate(2020, 2, 1)
+			r.End = NewDate(2020, 11, 31)
+
+			beforeStart := NewDate(2020, 1, 1)
+			inRange := NewDate(2020, 6, 1)
+			afterEnd := NewDate(2021, 1, 1)
+			So(r.checkDates(beforeStart, inRange), ShouldBeFalse)
+			So(r.checkDates(r.Start, inRange), ShouldBeTrue)
+			So(r.checkDates(inRange, r.End), ShouldBeTrue)
+			So(r.checkDates(inRange, afterEnd), ShouldBeFalse)
+		})
+
 		Convey("ticker access methods work", func() {
 			db := NewReader(tmpdir, dbName)
 			r, err := db.TickerRow("A")
@@ -145,7 +159,7 @@ func TestDB(t *testing.T) {
 			r, err = db.TickerRow("UNKNOWN")
 			So(err, ShouldNotBeNil)
 
-			db.Constraints.Ticker("A", "OTHER")
+			db.UseTickers = []string{"A", "OTHER"}
 
 			ts, err := db.Tickers()
 			So(err, ShouldBeNil)
@@ -158,7 +172,7 @@ func TestDB(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(a, ShouldResemble, actions["A"])
 
-			db.Constraints.EndAt(NewDate(2019, 6, 1))
+			db.End = NewDate(2019, 6, 1)
 
 			a, err = db.Actions("B")
 			So(err, ShouldBeNil)
@@ -171,7 +185,7 @@ func TestDB(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(p, ShouldResemble, pricesA)
 
-			db.Constraints.StartAt(NewDate(2019, 1, 2))
+			db.Start = NewDate(2019, 1, 2)
 
 			p, err = db.Prices("B")
 			So(err, ShouldBeNil)
@@ -184,7 +198,7 @@ func TestDB(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(a, ShouldResemble, monthly["A"])
 
-			db.Constraints.EndAt(NewDate(2019, 2, 15))
+			db.End = NewDate(2019, 2, 15)
 
 			a, err = db.Monthly("B")
 			So(err, ShouldBeNil)
@@ -222,7 +236,8 @@ func TestDB(t *testing.T) {
   }`, tmpdir, dbName)
 			So(r.InitMessage(testutil.JSON(js)), ShouldBeNil)
 			So(r.cachePath(), ShouldEqual, dbPath)
-			So(r.Constraints, ShouldResemble, &Constraints{
+			r.initConstraints()
+			So(r.constraints, ShouldResemble, &Constraints{
 				Tickers:        map[string]struct{}{"A": {}, "B": {}},
 				ExcludeTickers: map[string]struct{}{"B": {}, "C": {}},
 				Exchanges:      map[string]struct{}{"E1": {}, "E2": {}},
@@ -230,8 +245,6 @@ func TestDB(t *testing.T) {
 				Categories:     map[string]struct{}{"c1": {}, "c2": {}},
 				Sectors:        map[string]struct{}{"s1": {}, "s2": {}},
 				Industries:     map[string]struct{}{"i1": {}, "i2": {}},
-				Start:          NewDate(2021, 1, 1),
-				End:            NewDate(2021, 10, 2),
 			})
 		})
 	})

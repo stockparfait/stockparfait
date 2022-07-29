@@ -24,17 +24,12 @@ func TestConstraints(t *testing.T) {
 	t.Parallel()
 
 	Convey("Constraints work correctly", t, func() {
-		beforeStart := NewDate(2020, 1, 1)
-		start := NewDate(2020, 2, 1)
-		end := NewDate(2020, 11, 31)
-		afterEnd := NewDate(2021, 1, 1)
 		tc := NewConstraints().ExcludeTicker("E").Ticker("A", "B", "E")
 		tc = tc.Exchange("NASDAQ", "NYSE")
 		tc = tc.Name("Fat Ducks", "Plumb & Plumber")
 		tc = tc.Category("Do", "Break")
 		tc = tc.Sector("Domestic", "Foreign")
 		tc = tc.Industry("Food", "Waste")
-		tc = tc.StartAt(start).EndAt(end)
 
 		Convey("CheckTicker", func() {
 			So(tc.CheckTicker("A"), ShouldBeTrue)
@@ -72,24 +67,6 @@ func TestConstraints(t *testing.T) {
 			So(tc.CheckTickerRow(ticker), ShouldBeFalse)
 			ticker.Industry = "Waste"
 			So(tc.CheckTickerRow(ticker), ShouldBeTrue)
-		})
-
-		Convey("CheckAction", func() {
-			So(tc.CheckAction(TestAction(start, 1.0, 1.0, true)), ShouldBeTrue)
-			So(tc.CheckAction(TestAction(end, 1.0, 1.0, true)), ShouldBeTrue)
-			So(tc.CheckAction(TestAction(beforeStart, 1.0, 1.0, true)), ShouldBeFalse)
-			So(tc.CheckAction(TestAction(afterEnd, 1.0, 1.0, true)), ShouldBeFalse)
-		})
-
-		Convey("CheckPrice", func() {
-			So(tc.CheckPrice(TestPrice(start, 10.0, 10.0, 100.0, true)), ShouldBeTrue)
-			So(tc.CheckPrice(TestPrice(afterEnd, 10.0, 10.0, 100.0, true)), ShouldBeFalse)
-		})
-
-		Convey("CheckResampled", func() {
-			So(tc.CheckResampled(ResampledRow{DateOpen: start, DateClose: end}), ShouldBeTrue)
-			So(tc.CheckResampled(ResampledRow{DateOpen: beforeStart, DateClose: end}), ShouldBeFalse)
-			So(tc.CheckResampled(ResampledRow{DateOpen: start, DateClose: afterEnd}), ShouldBeFalse)
 		})
 	})
 }
