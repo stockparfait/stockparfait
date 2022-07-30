@@ -193,15 +193,86 @@ func (d Date) IsZero() bool {
 	return d.Year() == 0 && d.Month() == 0 && d.Day() == 0
 }
 
-// MaxDate returns the latest date from the list, or nil if the list is empty.
+// MinDate returns the earliest date from the list, or zero value.
+func MinDate(dates ...Date) Date {
+	var min Date
+	for _, d := range dates {
+		if min.IsZero() || (!d.IsZero() && min.After(d)) {
+			min = d
+		}
+	}
+	return min
+}
+
+// MaxDate returns the latest date from the list, or zero value.
 func MaxDate(dates ...Date) Date {
 	var max Date
 	for _, d := range dates {
-		if max.IsZero() || max.Before(d) {
+		if max.IsZero() || (!d.IsZero() && max.Before(d)) {
 			max = d
 		}
 	}
 	return max
+}
+
+func (d Date) IsLeapYear() bool {
+	if d.Year()%400 == 0 {
+		return true
+	}
+	if d.Year()%100 == 0 {
+		return false
+	}
+	if d.Year()%4 == 0 {
+		return true
+	}
+	return false
+}
+
+// DaysInMonth is the numder of days in the current month, which for February
+// depends on the year.
+func (d Date) DaysInMonth() uint8 {
+	if d.IsZero() {
+		return 0
+	}
+	switch d.Month() {
+	case 1, 3, 5, 7, 8, 10, 12:
+		return 31
+	case 4, 6, 9, 11:
+		return 30
+	case 2:
+		if d.IsLeapYear() {
+			return 29
+		} else {
+			return 28
+		}
+	}
+	return 0
+}
+
+// YearsTill returns possibly fractional number of years between the two dates.
+func (d Date) YearsTill(d2 Date) float64 {
+	if d.IsZero() || d2.IsZero() {
+		return 0.0
+	}
+	years := float64(d2.Year()) - float64(d.Year())
+	years += (float64(d2.Month()) - float64(d.Month())) / 12.0
+	years += (float64(d2.Day())/float64(d2.DaysInMonth()) - float64(d.Day())/float64(d.DaysInMonth())) / 12.0
+	return years
+}
+
+// InRange checks if d is in the inclusive date range. Any of the bounds may be
+// zero value, in which case it's ignored.
+func (d Date) InRange(start, end Date) bool {
+	if d.IsZero() {
+		return false
+	}
+	if !start.IsZero() && start.After(d) {
+		return false
+	}
+	if !end.IsZero() && end.Before(d) {
+		return false
+	}
+	return true
 }
 
 // TickerRow is a row in the tickers table.
@@ -314,8 +385,8 @@ func TestResampled(dateOpen, dateClose Date, open, close, adj, dv float32, activ
 		CashVolume:         dv,
 		DateOpen:           dateOpen,
 		DateClose:          dateClose,
-		SumRelativeMove:    10.0,
-		NumSamples:         1000.0,
+		SumRelativeMove:    0.2,
+		NumSamples:         20,
 		Active:             active,
 	}
 }
