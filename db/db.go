@@ -15,13 +15,16 @@
 package db
 
 import (
+	"context"
 	"encoding/gob"
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"sync"
 
 	"github.com/stockparfait/errors"
+	"github.com/stockparfait/logging"
 	"github.com/stockparfait/stockparfait/message"
 )
 
@@ -51,20 +54,54 @@ func readGob(fileName string, v interface{}) error {
 	return nil
 }
 
+// Interval configures a set of constraints for a value over an optional time
+// range. All interval ranges are inclusive, both value and time.
+type Interval struct {
+	Min   *float64 `json:"min"`
+	Max   *float64 `json:"max"`
+	Start Date     `json:"start"`
+	End   Date     `json:"end"`
+}
+
+var _ message.Message = &Interval{}
+
+func (i *Interval) InitMessage(js interface{}) error {
+	return errors.Annotate(message.Init(i, js), "failed to init from JSON")
+}
+
+// ValueInRange checks if it belongs to the interval.
+func (i Interval) ValueInRange(x float64) bool {
+	if i.Min != nil && x < *i.Min {
+		return false
+	}
+	if i.Max != nil && *i.Max < x {
+		return false
+	}
+	return true
+}
+
+// DateInRange checks if it belongs to the date range of the interval.
+func (i Interval) DateInRange(d Date) bool {
+	return d.InRange(i.Start, i.End)
+}
+
 // Reader of the database, which also implements message.Message and can be used
 // directly in a config.
 type Reader struct {
-	DBPath         string   `json:"DB path"`            // default: ~/.stockparfait
-	DB             string   `json:"DB" required:"true"` // specific DB in path
-	UseTickers     []string `json:"tickers"`
-	ExcludeTickers []string `json:"exclude tickers"`
-	Exchanges      []string `json:"exchanges"`
-	Names          []string `json:"names"`
-	Categories     []string `json:"categories"`
-	Sectors        []string `json:"sectors"`
-	Industries     []string `json:"industries"`
-	Start          Date     `json:"start"`
-	End            Date     `json:"end"`
+	DBPath         string    `json:"DB path"`            // default: ~/.stockparfait
+	DB             string    `json:"DB" required:"true"` // specific DB in path
+	UseTickers     []string  `json:"tickers"`
+	ExcludeTickers []string  `json:"exclude tickers"`
+	Exchanges      []string  `json:"exchanges"`
+	Names          []string  `json:"names"`
+	Categories     []string  `json:"categories"`
+	Sectors        []string  `json:"sectors"`
+	Industries     []string  `json:"industries"`
+	Start          Date      `json:"start"`
+	End            Date      `json:"end"`
+	YearlyGrowth   *Interval `json:"yearly growth"`
+	CashVolume     *Interval `json:"cash volume"`
+	Volatility     *Interval `json:"volatility"`
 	constraints    *Constraints
 	tickers        map[string]TickerRow
 	actions        map[string][]ActionRow
@@ -193,18 +230,6 @@ func (r *Reader) cacheMonthly() error {
 	return r.monthlyError
 }
 
-// checkDates checks that the date range is entirely within the constrained
-// range. Both ends are inclusive.
-func (r *Reader) checkDates(start, end Date) bool {
-	if !r.Start.IsZero() && start.Before(r.Start) {
-		return false
-	}
-	if !r.End.IsZero() && end.After(r.End) {
-		return false
-	}
-	return true
-}
-
 // Metadata for the database. It is cached in memory upon the first call.
 func (r *Reader) Metadata() (Metadata, error) {
 	if err := r.cacheMetadata(); err != nil {
@@ -226,19 +251,112 @@ func (r *Reader) TickerRow(ticker string) (TickerRow, error) {
 	return row, nil
 }
 
+func (r *Reader) growthInRange(ctx context.Context, ticker string) bool {
+	if r.YearlyGrowth == nil {
+		return true
+	}
+	monthly, err := r.Monthly(ticker, r.YearlyGrowth.Start, r.YearlyGrowth.End)
+	if err != nil {
+		logging.Warningf(ctx, "failed to load monthly data for %s:\n%s",
+			ticker, err.Error())
+		return false
+	}
+	if len(monthly) == 0 {
+		return false
+	}
+	start := monthly[0].DateOpen
+	end := monthly[len(monthly)-1].DateClose
+	if start == end { // not enough data
+		return false
+	}
+	first := monthly[0]
+	last := monthly[len(monthly)-1]
+	// Recompute open for full adjustment.
+	open := float64(first.OpenSplitAdjusted) * float64(first.CloseFullyAdjusted) /
+		float64(first.CloseSplitAdjusted)
+	close := float64(last.CloseFullyAdjusted)
+	years := start.YearsTill(end)
+	growth := math.Exp((math.Log(close) - math.Log(open)) / years)
+	return r.YearlyGrowth.ValueInRange(growth)
+}
+
+func (r *Reader) cashVolumeInRange(ctx context.Context, ticker string) bool {
+	if r.CashVolume == nil {
+		return true
+	}
+	monthly, err := r.Monthly(ticker, r.CashVolume.Start, r.CashVolume.End)
+	if err != nil {
+		logging.Warningf(ctx, "failed to load monthly data for %s:\n%s",
+			ticker, err.Error())
+		return false
+	}
+	if len(monthly) == 0 {
+		return false
+	}
+	var total float32
+	var samples uint16
+	for _, m := range monthly {
+		total += m.CashVolume
+		samples += m.NumSamples
+	}
+	if samples == 0 {
+		return false
+	}
+	avgVolume := float64(total) / float64(samples)
+	return r.CashVolume.ValueInRange(avgVolume)
+}
+
+func (r *Reader) volatilityInRange(ctx context.Context, ticker string) bool {
+	if r.Volatility == nil {
+		return true
+	}
+	monthly, err := r.Monthly(ticker, r.Volatility.Start, r.Volatility.End)
+	if err != nil {
+		logging.Warningf(ctx, "failed to load monthly data for %s\n%s",
+			ticker, err.Error())
+		return false
+	}
+	if len(monthly) == 0 {
+		return false
+	}
+	var total float32
+	var samples uint16
+	for _, m := range monthly {
+		total += m.SumRelativeMove
+		samples += m.NumSamples
+	}
+	if samples == 0 {
+		return false
+	}
+	avgVolume := float64(total) / float64(samples)
+	return r.Volatility.ValueInRange(avgVolume)
+}
+
+// checkTicker and its row if it satisfies all the constraints.
+func (r *Reader) checkTicker(ctx context.Context, ticker string, row TickerRow) bool {
+	if !r.constraints.CheckTicker(ticker) {
+		return false
+	}
+	if !r.constraints.CheckTickerRow(row) {
+		return false
+	}
+	return r.growthInRange(ctx, ticker) &&
+		r.cashVolumeInRange(ctx, ticker) && r.volatilityInRange(ctx, ticker)
+}
+
 // Tickers returns the list of tickers satisfying current Reader's constraints.
 // All tickers are cached in memory, and tickers are filtered for each call.
 // Therefore, modifying Reader's constraints takes effect at the next call
 // without re-reading the tickers.  Go-routine safe assuming constraints are not
 // modified.
-func (r *Reader) Tickers() ([]string, error) {
+func (r *Reader) Tickers(ctx context.Context) ([]string, error) {
 	if err := r.cacheTickers(); err != nil {
 		return nil, errors.Annotate(err, "failed to load tickers")
 	}
 	r.initConstraints()
 	tickers := []string{}
 	for t, row := range r.tickers {
-		if r.constraints.CheckTicker(t) && r.constraints.CheckTickerRow(row) {
+		if r.checkTicker(ctx, t, row) {
 			tickers = append(tickers, t)
 		}
 	}
@@ -258,7 +376,7 @@ func (r *Reader) Actions(ticker string) ([]ActionRow, error) {
 	}
 	res := []ActionRow{}
 	for _, a := range actions {
-		if r.checkDates(a.Date, a.Date) {
+		if a.Date.InRange(r.Start, r.End) {
 			res = append(res, a)
 		}
 	}
@@ -277,17 +395,18 @@ func (r *Reader) Prices(ticker string) ([]PriceRow, error) {
 	}
 	res := []PriceRow{}
 	for _, p := range prices {
-		if r.checkDates(p.Date, p.Date) {
+		if p.Date.InRange(r.Start, r.End) {
 			res = append(res, p)
 		}
 	}
 	return res, nil
 }
 
-// Monthly price data for ticker satisfying Reader's constraints, sorted by
-// date.  Data for all tickers are cached in memory upon the first call. Go
-// routine safe assuming constraints are not modified.
-func (r *Reader) Monthly(ticker string) ([]ResampledRow, error) {
+// Monthly price data for ticker within the inclusive date range, sorted by
+// date.  If any of start or end is zero value, the corresponding Reader
+// constraint is used.  Data for all tickers are cached in memory upon the first
+// call. Go routine safe assuming constraints are not modified.
+func (r *Reader) Monthly(ticker string, start, end Date) ([]ResampledRow, error) {
 	if err := r.cacheMonthly(); err != nil {
 		return nil, errors.Annotate(err, "failed to load monthly data")
 	}
@@ -295,9 +414,15 @@ func (r *Reader) Monthly(ticker string) ([]ResampledRow, error) {
 	if !ok {
 		return nil, errors.Reason("no monthly data found for ticker %s", ticker)
 	}
+	if start.IsZero() {
+		start = r.Start
+	}
+	if end.IsZero() {
+		end = r.End
+	}
 	res := []ResampledRow{}
 	for _, row := range monthly {
-		if r.checkDates(row.DateOpen, row.DateClose) {
+		if row.DateOpen.InRange(start, end) && row.DateClose.InRange(start, end) {
 			res = append(res, row)
 		}
 	}

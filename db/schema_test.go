@@ -85,12 +85,43 @@ func TestSchema(t *testing.T) {
 			So(NewDate(2019, 10, 15).After(NewDate(2019, 10, 5)), ShouldBeTrue)
 		})
 
-		Convey("MaxDate works correctly", func() {
+		Convey("MinDate, MaxDate work correctly", func() {
+			So(MinDate().IsZero(), ShouldBeTrue)
 			So(MaxDate().IsZero(), ShouldBeTrue)
 			d1 := NewDate(2018, 10, 15)
 			d2 := NewDate(2019, 12, 1)
 			d3 := NewDate(2019, 11, 30)
-			So(MaxDate(d1, d2, d3), ShouldResemble, d2)
+			// Zero value in the list shouldn't affect the result.
+			So(MinDate(d1, d2, Date{}, d3), ShouldResemble, d1)
+			So(MaxDate(d1, d2, Date{}, d3), ShouldResemble, d2)
+		})
+
+		Convey("DaysInMonth", func() {
+			So(Date{}.DaysInMonth(), ShouldEqual, 0)
+			So(NewDate(2021, 1, 1).DaysInMonth(), ShouldEqual, 31)
+			So(NewDate(2021, 4, 1).DaysInMonth(), ShouldEqual, 30)
+			So(NewDate(2021, 2, 1).DaysInMonth(), ShouldEqual, 28)
+			So(NewDate(2020, 2, 1).DaysInMonth(), ShouldEqual, 29)
+			So(NewDate(2000, 2, 1).DaysInMonth(), ShouldEqual, 29)
+			So(NewDate(1900, 2, 1).DaysInMonth(), ShouldEqual, 28)
+		})
+
+		Convey("YearsTill", func() {
+			So(Date{}.YearsTill(Date{}), ShouldEqual, 0.0)
+			So(NewDate(2020, 4, 15).YearsTill(NewDate(2021, 4, 15)), ShouldEqual, 1.0)
+			So(NewDate(2020, 1, 10).YearsTill(NewDate(2020, 7, 10)), ShouldEqual, 0.5)
+			So(NewDate(2020, 4, 1).YearsTill(NewDate(2020, 4, 16)), ShouldEqual, 1.0/24.0)
+		})
+
+		Convey("InRange", func() {
+			So(Date{}.InRange(Date{}, Date{}), ShouldBeFalse)
+			d := NewDate(2010, 4, 1)
+			So(d.InRange(Date{}, Date{}), ShouldBeTrue)
+			So(d.InRange(d, NewDate(2011, 1, 1)), ShouldBeTrue)
+			So(d.InRange(Date{}, d), ShouldBeTrue)
+			So(d.InRange(d, Date{}), ShouldBeTrue)
+			So(d.InRange(NewDate(2010, 4, 2), Date{}), ShouldBeFalse)
+			So(d.InRange(Date{}, NewDate(2010, 3, 31)), ShouldBeFalse)
 		})
 
 		Convey("Monday works correctly", func() {

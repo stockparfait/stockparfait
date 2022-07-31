@@ -15,16 +15,54 @@
 package db
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 
 	"github.com/stockparfait/testutil"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
+
+func TestInterval(t *testing.T) {
+	t.Parallel()
+
+	Convey("Interval works", t, func() {
+		Convey("from config", func() {
+			var i Interval
+			So(i.InitMessage(testutil.JSON(`
+{
+  "min": -1.5,
+  "max": 100,
+  "start": "2020-02-02",
+  "end": "2021-04-21"
+}`)), ShouldBeNil)
+			min := -1.5
+			max := 100.0
+			So(i, ShouldResemble, Interval{
+				Min:   &min,
+				Max:   &max,
+				Start: NewDate(2020, 2, 2),
+				End:   NewDate(2021, 4, 21),
+			})
+			So(i.ValueInRange(50.0), ShouldBeTrue)
+			So(i.ValueInRange(-50.0), ShouldBeFalse)
+			So(i.ValueInRange(150.0), ShouldBeFalse)
+			So(i.DateInRange(NewDate(2020, 5, 1)), ShouldBeTrue)
+			So(i.DateInRange(NewDate(2020, 2, 1)), ShouldBeFalse)
+		})
+
+		Convey("optional bounds", func() {
+			i := Interval{}
+			So(i.ValueInRange(0.0), ShouldBeTrue)
+			So(i.DateInRange(NewDate(2020, 1, 1)), ShouldBeTrue)
+		})
+	})
+}
 
 func TestDB(t *testing.T) {
 	t.Parallel()
@@ -67,8 +105,8 @@ func TestDB(t *testing.T) {
 				TestResampled(NewDate(2019, 2, 1), NewDate(2019, 2, 28), 10.0, 10.0, 10.0, 1000.0, true),
 			},
 			"B": {
-				TestResampled(NewDate(2019, 1, 1), NewDate(2019, 1, 31), 100.0, 100.0, 100.0, 1000.0, true),
-				TestResampled(NewDate(2019, 2, 1), NewDate(2019, 2, 28), 100.0, 100.0, 100.0, 1000.0, true),
+				TestResampled(NewDate(2019, 1, 1), NewDate(2019, 1, 31), 100.0, 150.0, 120.0, 1000.0, true),
+				TestResampled(NewDate(2019, 2, 1), NewDate(2019, 2, 28), 150.0, 200.0, 200.0, 2000.0, true),
 			},
 		}
 
@@ -132,22 +170,10 @@ func TestDB(t *testing.T) {
 			})
 		})
 
-		Convey("checkDates works", func() {
-			r := NewReader(tmpdir, dbName)
-			r.Start = NewDate(2020, 2, 1)
-			r.End = NewDate(2020, 11, 31)
-
-			beforeStart := NewDate(2020, 1, 1)
-			inRange := NewDate(2020, 6, 1)
-			afterEnd := NewDate(2021, 1, 1)
-			So(r.checkDates(beforeStart, inRange), ShouldBeFalse)
-			So(r.checkDates(r.Start, inRange), ShouldBeTrue)
-			So(r.checkDates(inRange, r.End), ShouldBeTrue)
-			So(r.checkDates(inRange, afterEnd), ShouldBeFalse)
-		})
-
 		Convey("ticker access methods work", func() {
 			db := NewReader(tmpdir, dbName)
+			ctx := context.Background()
+
 			r, err := db.TickerRow("A")
 			So(err, ShouldBeNil)
 			So(r, ShouldResemble, tickers["A"])
@@ -161,9 +187,39 @@ func TestDB(t *testing.T) {
 
 			db.UseTickers = []string{"A", "OTHER"}
 
-			ts, err := db.Tickers()
+			ts, err := db.Tickers(ctx)
 			So(err, ShouldBeNil)
 			So(ts, ShouldResemble, []string{"A"})
+		})
+
+		Convey("filtering tickers with monthly data", func() {
+			db := NewReader(tmpdir, dbName)
+			ctx := context.Background()
+
+			tickers, err := db.Tickers(ctx)
+			So(err, ShouldBeNil)
+			sort.Slice(tickers, func(i, j int) bool { return tickers[i] < tickers[j] })
+			So(tickers, ShouldResemble, []string{"A", "B"})
+
+			max := 1.5
+			db.YearlyGrowth = &Interval{Max: &max}
+			tickers, err = db.Tickers(ctx)
+			So(err, ShouldBeNil)
+			So(tickers, ShouldResemble, []string{"A"})
+
+			db.YearlyGrowth = nil
+			min := 60.0
+			db.CashVolume = &Interval{Min: &min}
+			tickers, err = db.Tickers(ctx)
+			So(err, ShouldBeNil)
+			So(tickers, ShouldResemble, []string{"B"})
+
+			db.CashVolume = nil
+			min = 0.02
+			db.Volatility = &Interval{Min: &min}
+			tickers, err = db.Tickers(ctx)
+			So(err, ShouldBeNil)
+			So(len(tickers), ShouldEqual, 0)
 		})
 
 		Convey("action access methods work", func() {
@@ -194,13 +250,17 @@ func TestDB(t *testing.T) {
 
 		Convey("monthly access methods work", func() {
 			db := NewReader(tmpdir, dbName)
-			a, err := db.Monthly("A")
+			a, err := db.Monthly("A", Date{}, Date{})
 			So(err, ShouldBeNil)
 			So(a, ShouldResemble, monthly["A"])
 
+			a, err = db.Monthly("B", NewDate(2019, 1, 15), Date{})
+			So(err, ShouldBeNil)
+			So(a, ShouldResemble, monthly["B"][1:])
+
 			db.End = NewDate(2019, 2, 15)
 
-			a, err = db.Monthly("B")
+			a, err = db.Monthly("B", Date{}, Date{})
 			So(err, ShouldBeNil)
 			So(a, ShouldResemble, monthly["B"][:1])
 		})
