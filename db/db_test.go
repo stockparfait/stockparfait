@@ -202,12 +202,12 @@ func TestDB(t *testing.T) {
 			So(tickers, ShouldResemble, []string{"A", "B"})
 
 			max := 1.5
-			db.Growth = &Interval{Max: &max}
+			db.YearlyGrowth = &Interval{Max: &max}
 			tickers, err = db.Tickers(ctx)
 			So(err, ShouldBeNil)
 			So(tickers, ShouldResemble, []string{"A"})
 
-			db.Growth = nil
+			db.YearlyGrowth = nil
 			min := 60.0
 			db.CashVolume = &Interval{Min: &min}
 			tickers, err = db.Tickers(ctx)

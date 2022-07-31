@@ -99,7 +99,7 @@ type Reader struct {
 	Industries     []string  `json:"industries"`
 	Start          Date      `json:"start"`
 	End            Date      `json:"end"`
-	Growth         *Interval `json:"growth"`
+	YearlyGrowth   *Interval `json:"yearly growth"`
 	CashVolume     *Interval `json:"cash volume"`
 	Volatility     *Interval `json:"volatility"`
 	constraints    *Constraints
@@ -252,12 +252,13 @@ func (r *Reader) TickerRow(ticker string) (TickerRow, error) {
 }
 
 func (r *Reader) growthInRange(ctx context.Context, ticker string) bool {
-	if r.Growth == nil {
+	if r.YearlyGrowth == nil {
 		return true
 	}
-	monthly, err := r.Monthly(ticker, r.Growth.Start, r.Growth.End)
+	monthly, err := r.Monthly(ticker, r.YearlyGrowth.Start, r.YearlyGrowth.End)
 	if err != nil {
-		logging.Warningf(ctx, "failed to load monthly data for %s", ticker)
+		logging.Warningf(ctx, "failed to load monthly data for %s:\n%s",
+			ticker, err.Error())
 		return false
 	}
 	if len(monthly) == 0 {
@@ -268,11 +269,15 @@ func (r *Reader) growthInRange(ctx context.Context, ticker string) bool {
 	if start == end { // not enough data
 		return false
 	}
-	open := float64(monthly[0].OpenSplitAdjusted)
-	close := float64(monthly[len(monthly)-1].CloseSplitAdjusted)
+	first := monthly[0]
+	last := monthly[len(monthly)-1]
+	// Recompute open for full adjustment.
+	open := float64(first.OpenSplitAdjusted) * float64(first.CloseFullyAdjusted) /
+		float64(first.CloseSplitAdjusted)
+	close := float64(last.CloseFullyAdjusted)
 	years := start.YearsTill(end)
 	growth := math.Exp((math.Log(close) - math.Log(open)) / years)
-	return r.Growth.ValueInRange(growth)
+	return r.YearlyGrowth.ValueInRange(growth)
 }
 
 func (r *Reader) cashVolumeInRange(ctx context.Context, ticker string) bool {
@@ -281,7 +286,8 @@ func (r *Reader) cashVolumeInRange(ctx context.Context, ticker string) bool {
 	}
 	monthly, err := r.Monthly(ticker, r.CashVolume.Start, r.CashVolume.End)
 	if err != nil {
-		logging.Warningf(ctx, "failed to load monthly data for %s", ticker)
+		logging.Warningf(ctx, "failed to load monthly data for %s:\n%s",
+			ticker, err.Error())
 		return false
 	}
 	if len(monthly) == 0 {
@@ -306,7 +312,8 @@ func (r *Reader) volatilityInRange(ctx context.Context, ticker string) bool {
 	}
 	monthly, err := r.Monthly(ticker, r.Volatility.Start, r.Volatility.End)
 	if err != nil {
-		logging.Warningf(ctx, "failed to load monthly data for %s", ticker)
+		logging.Warningf(ctx, "failed to load monthly data for %s\n%s",
+			ticker, err.Error())
 		return false
 	}
 	if len(monthly) == 0 {
