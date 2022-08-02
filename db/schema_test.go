@@ -178,7 +178,7 @@ func TestSchema(t *testing.T) {
 
 	Convey("ResampledRow", t, func() {
 		Convey("has correct size", func() {
-			So(unsafe.Sizeof(ResampledRow{}), ShouldEqual, 36)
+			So(unsafe.Sizeof(ResampledRow{}), ShouldEqual, 44)
 		})
 
 		Convey("TestResampled works", func() {
@@ -186,6 +186,28 @@ func TestSchema(t *testing.T) {
 			dc := NewDate(2019, 4, 1)
 			r := TestResampled(do, dc, 10.0, 11.0, 5.0, 1000.0, true)
 			So(r.Close, ShouldEqual, 11.0)
+		})
+
+		Convey("DailyVolatility", func() {
+			Convey("regular case", func() {
+				rows := []ResampledRow{
+					TestResampled(NewDate(2020, 1, 1), NewDate(2020, 1, 31),
+						100.0, 110.0, 110.0, 1000.0, true),
+					TestResampled(NewDate(2020, 2, 1), NewDate(2020, 2, 29),
+						112.0, 120.0, 120.0, 1000.0, true),
+					TestResampled(NewDate(2020, 3, 1), NewDate(2020, 3, 31),
+						118.8, 130.0, 130.0, 1000.0, true),
+				}
+				v, samples := DailyVolatility(rows)
+				So(samples, ShouldEqual, 59)
+				So(testutil.RoundFixed(v, 2), ShouldEqual, 0.01)
+			})
+
+			Convey("empty rows", func() {
+				v, samples := DailyVolatility(nil)
+				So(samples, ShouldEqual, 0)
+				So(v, ShouldEqual, 0.0)
+			})
 		})
 	})
 

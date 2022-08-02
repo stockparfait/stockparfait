@@ -17,6 +17,7 @@ package db
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/stockparfait/errors"
@@ -358,37 +359,71 @@ func TestPrice(date Date, close, adj, dv float32, active bool) PriceRow {
 }
 
 // ResampledRow is a multi-day bar with some additional daily statistics.  Size:
-// 36 bytes.
+// 44 bytes.
 type ResampledRow struct {
+	Open               float32
 	OpenSplitAdjusted  float32
+	OpenFullyAdjusted  float32
 	Close              float32 // unadjusted
 	CloseSplitAdjusted float32 // adjusted only for splits
 	CloseFullyAdjusted float32 // adjusted for splits, dividends, spinoffs
 	CashVolume         float32
 	DateOpen           Date
 	DateClose          Date
-	// Sum of relative daily movements within the bar: sum(|p(t+1)-p(t)|/p(t)).
-	// Note, that it always has NumSamples-1 samples. When summing over multiple
-	// resampled bars, recover the missing sample as (open(t)-close(t-1))/open(t).
-	SumRelativeMove float32
-	NumSamples      uint16
-	Active          bool // if ticker is active at bar's close
+	// Sum of absolute values of daily log-profits within the bar:
+	// sum(abs(log(p(t+1))-log(p(t)))).  Note, that it always has NumSamples-1
+	// samples. When summing over multiple resampled bars, recover the missing
+	// sample as abs(log(open(t))-log(close(t-1))).
+	SumAbsLogProfits float32
+	NumSamples       uint16
+	Active           bool // if ticker is active at bar's close
 }
 
 // TestResampled creates a new ResampledRow for use in tests.
 func TestResampled(dateOpen, dateClose Date, open, close, adj, dv float32, active bool) ResampledRow {
 	return ResampledRow{
+		Open:               open,
 		OpenSplitAdjusted:  open,
+		OpenFullyAdjusted:  open,
 		Close:              close,
 		CloseSplitAdjusted: adj,
 		CloseFullyAdjusted: adj,
 		CashVolume:         dv,
 		DateOpen:           dateOpen,
 		DateClose:          dateClose,
-		SumRelativeMove:    0.2,
+		SumAbsLogProfits:   0.2,
 		NumSamples:         20,
 		Active:             active,
 	}
+}
+
+// DailyVolatility computes the average daily absolute log-profit from the list
+// of consecutive monthly bars.
+func DailyVolatility(rows []ResampledRow) (volatility float64, samples uint16) {
+	absLogProfit := func(x, y float32) float64 {
+		diff := math.Log(float64(x)) - math.Log(float64(y))
+		if diff < 0.0 {
+			return -diff
+		}
+		return diff
+	}
+
+	var total float64
+	var prevRow ResampledRow
+	for i, r := range rows {
+		if i > 0 && r.OpenFullyAdjusted > 0.0 && prevRow.CloseFullyAdjusted > 0.0 {
+			total += absLogProfit(r.OpenFullyAdjusted, prevRow.CloseFullyAdjusted)
+			samples++
+		}
+		total += float64(r.SumAbsLogProfits)
+		samples += r.NumSamples - 1
+		prevRow = r
+	}
+	if samples == 0 {
+		return 0.0, 0
+	}
+	volatility = total / float64(samples)
+	return
 }
 
 // Metadata is the schema for the metadata.json file.
