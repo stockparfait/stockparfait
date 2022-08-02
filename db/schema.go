@@ -401,9 +401,6 @@ func TestResampled(dateOpen, dateClose Date, open, close, adj, dv float32, activ
 // of consecutive monthly bars.
 func DailyVolatility(rows []ResampledRow) (volatility float64, samples uint16) {
 	absLogProfit := func(x, y float32) float64 {
-		if y <= 0.0 {
-			return 0.0
-		}
 		diff := math.Log(float64(x)) - math.Log(float64(y))
 		if diff < 0.0 {
 			return -diff

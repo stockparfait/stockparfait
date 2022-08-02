@@ -202,12 +202,12 @@ func TestSchema(t *testing.T) {
 				So(samples, ShouldEqual, 59)
 				So(testutil.RoundFixed(v, 2), ShouldEqual, 0.01)
 			})
-		})
 
-		Convey("empty rows", func() {
-			v, samples := DailyVolatility(nil)
-			So(samples, ShouldEqual, 0)
-			So(v, ShouldEqual, 0.0)
+			Convey("empty rows", func() {
+				v, samples := DailyVolatility(nil)
+				So(samples, ShouldEqual, 0)
+				So(v, ShouldEqual, 0.0)
+			})
 		})
 	})
 
