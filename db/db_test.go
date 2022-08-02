@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -134,36 +135,42 @@ func TestDB(t *testing.T) {
 				{
 					DateOpen:           NewDate(2020, 1, 3),
 					DateClose:          NewDate(2020, 1, 15),
+					Open:               100.0,
 					OpenSplitAdjusted:  50.0,
+					OpenFullyAdjusted:  50.0,
 					Close:              102.0,
 					CloseSplitAdjusted: 51.0,
 					CloseFullyAdjusted: 51.0,
 					CashVolume:         4000.0,
-					SumRelativeMove:    5.0/50.0 + 4.0/55.0,
+					SumAbsLogProfits:   float32(math.Log(55.0)-math.Log(50.0)) + float32(math.Log(55.0)-math.Log(51.0)),
 					NumSamples:         3,
 					Active:             true,
 				},
 				{
 					DateOpen:           NewDate(2020, 2, 5),
 					DateClose:          NewDate(2020, 2, 7),
+					Open:               130.0,
 					OpenSplitAdjusted:  65.0,
+					OpenFullyAdjusted:  65.0,
 					Close:              150.0,
 					CloseSplitAdjusted: 75.0,
 					CloseFullyAdjusted: 75.0,
 					CashVolume:         3000.0,
-					SumRelativeMove:    5.0/65.0 + 5.0/70.0,
+					SumAbsLogProfits:   float32(math.Log(75.0) - math.Log(65.0)),
 					NumSamples:         3,
 					Active:             false,
 				},
 				{
 					DateOpen:           NewDate(2020, 3, 1),
 					DateClose:          NewDate(2020, 3, 1),
+					Open:               160.0,
 					OpenSplitAdjusted:  80.0,
+					OpenFullyAdjusted:  80.0,
 					Close:              160.0,
 					CloseSplitAdjusted: 80.0,
 					CloseFullyAdjusted: 80.0,
 					CashVolume:         500.0,
-					SumRelativeMove:    0.0,
+					SumAbsLogProfits:   0.0,
 					NumSamples:         1,
 					Active:             true,
 				},

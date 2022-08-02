@@ -319,17 +319,11 @@ func (r *Reader) volatilityInRange(ctx context.Context, ticker string) bool {
 	if len(monthly) == 0 {
 		return false
 	}
-	var total float32
-	var samples uint16
-	for _, m := range monthly {
-		total += m.SumRelativeMove
-		samples += m.NumSamples
-	}
+	volatility, samples := DailyVolatility(monthly)
 	if samples == 0 {
 		return false
 	}
-	avgVolume := float64(total) / float64(samples)
-	return r.Volatility.ValueInRange(avgVolume)
+	return r.Volatility.ValueInRange(volatility)
 }
 
 // checkTicker and its row if it satisfies all the constraints.
@@ -514,11 +508,16 @@ func ComputeMonthly(prices []PriceRow) []ResampledRow {
 	if len(prices) == 0 {
 		return nil
 	}
-	abs32 := func(x float32) float32 {
-		if x < 0.0 {
-			return -x
+
+	absLogProfit := func(x, y float32) float32 {
+		if y <= 0.0 {
+			return 0.0
 		}
-		return x
+		diff := math.Log(float64(x)) - math.Log(float64(y))
+		if diff < 0.0 {
+			return -float32(diff)
+		}
+		return float32(diff)
 	}
 
 	res := []ResampledRow{}
@@ -532,26 +531,22 @@ func ComputeMonthly(prices []PriceRow) []ResampledRow {
 			}
 			prevClose = 0.0 // do not add cross-month volatility
 			currRes = ResampledRow{
+				Open:              p.Close,
 				OpenSplitAdjusted: p.CloseSplitAdjusted,
+				OpenFullyAdjusted: p.CloseFullyAdjusted,
 				DateOpen:          p.Date,
 			}
 		}
 		currMonth = p.Date.MonthStart()
-		relMove := abs32(p.CloseSplitAdjusted - prevClose)
-		if prevClose > 0.0 {
-			relMove = relMove / prevClose
-		} else {
-			relMove = 0.0
-		}
-		prevClose = p.CloseSplitAdjusted
 		currRes.Close = p.CloseUnadjusted()
 		currRes.CloseSplitAdjusted = p.CloseSplitAdjusted
 		currRes.CloseFullyAdjusted = p.CloseFullyAdjusted
 		currRes.CashVolume += p.CashVolume
 		currRes.DateClose = p.Date
-		currRes.SumRelativeMove += relMove
+		currRes.SumAbsLogProfits += absLogProfit(p.CloseFullyAdjusted, prevClose)
 		currRes.NumSamples++
 		currRes.Active = p.Active()
+		prevClose = p.CloseFullyAdjusted
 	}
 	res = append(res, currRes)
 	return res
