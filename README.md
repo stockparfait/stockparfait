@@ -3,12 +3,12 @@
 The command line public version of the core engine of Stock Parfait, a stock
 screener and an upcoming Monte Carlo simulator for stock prices.
 
-This repo is primarily a collection of libraries for acquiring data and building
-custom analyses.
+This repository is primarily a collection of libraries for acquiring data and
+building custom analyses.
 
 The main purpose of this project is to provide libraries and tools for those
-interested in analyzing stocks, and being able to answer common investor
-questions for yourself with numbers and sound statistics.
+interested in analyzing stocks, and being able to research common investor
+questions themselves with numbers and sound statistics.
 
 ## Installation
 
@@ -36,19 +36,28 @@ GOPATH` to find out where your `GOPATH` is). The apps currently include:
 - Create `~/.stockparfait/sharadar/config.toml` file containing:
 
 ```toml
-key = "<<your key>>"
+key = "<<your subscription key>>"
 tables = ["SEP", "SFP"]  # keep only the tables you need / subscribed to
 ```
 
 - Install the `sharadar` app (see Installation above) and run it; it should
   download all the data locally (about 1.5GB for both tables).
-- Follow instructions in the
-  [stockparfait/experiments](https://github.com/stockparfait/experiments) repo
-  to run some prebuilt experiments, or write your own. Use the `experiments`
-  repo as a template for your implementation.
+- Follow instructions in the [experiments] repository to run some prebuilt
+  experiments, or write your own. Use the [experiments] repository as a template
+  for your implementation.
 
 ## Related Projects
 
-- [stockparfait/experiments](https://github.com/stockparfait/experiments) hosts
-  various mostly one-off statistical studies and experiments with daily stock
-  prices.
+- [experiments] hosts various mostly one-off statistical studies and experiments
+  with daily stock prices. Some experiments may serve as prototypes for the
+  production features in this repository.
+
+## Contributing to Stock Parfait
+
+Pull requests are welcome. We suggest to contact us beforehand to coordinate
+your code contributions.
+
+In particular, this repository is considered "production code", and it is a good
+practice to prototype new features first in the [experiments] repository.
+
+[experiments]: https://github.com/stockparfait/experiments
