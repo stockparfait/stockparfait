@@ -58,7 +58,7 @@ func parseConfig(dbdir string) (*Config, error) {
 	if _, err := os.Stat(filePath); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			sample := `key = "YourSecretNasdaqDataLinkKey"
-tables = ["SEP", "SPF"]
+tables = ["SEP", "SFP"]
 `
 			err = errors.Annotate(err,
 				"config file '%s' does not exist.\nPlease create config file containing:\n%s",
