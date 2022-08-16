@@ -291,6 +291,7 @@ func TestDB(t *testing.T) {
 			js := fmt.Sprintf(`{
   "DB path": "%s",
   "DB": "%s",
+  "sources": ["S1", "S2"],
   "tickers": ["A", "B"],
   "exclude tickers": ["B", "C"],
   "exchanges": ["E1", "E2"],
@@ -305,6 +306,7 @@ func TestDB(t *testing.T) {
 			So(r.cachePath(), ShouldEqual, dbPath)
 			r.initConstraints()
 			So(r.constraints, ShouldResemble, &Constraints{
+				Sources:        map[string]struct{}{"S1": {}, "S2": {}},
 				Tickers:        map[string]struct{}{"A": {}, "B": {}},
 				ExcludeTickers: map[string]struct{}{"B": {}, "C": {}},
 				Exchanges:      map[string]struct{}{"E1": {}, "E2": {}},

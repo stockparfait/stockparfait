@@ -278,6 +278,7 @@ func (d Date) InRange(start, end Date) bool {
 
 // TickerRow is a row in the tickers table.
 type TickerRow struct {
+	Source      string // where the ticker was downloaded, e.g. NDL table name
 	Exchange    string // the primary exchange trading this ticker
 	Name        string // the company name
 	Category    string

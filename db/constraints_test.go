@@ -24,7 +24,10 @@ func TestConstraints(t *testing.T) {
 	t.Parallel()
 
 	Convey("Constraints work correctly", t, func() {
-		tc := NewConstraints().ExcludeTicker("E").Ticker("A", "B", "E")
+		tc := NewConstraints()
+		tc = tc.Source("S1", "S2")
+		tc = tc.ExcludeTicker("E")
+		tc = tc.Ticker("A", "B", "E")
 		tc = tc.Exchange("NASDAQ", "NYSE")
 		tc = tc.Name("Fat Ducks", "Plumb & Plumber")
 		tc = tc.Category("Do", "Break")
@@ -40,12 +43,17 @@ func TestConstraints(t *testing.T) {
 
 		Convey("CheckTickerRow", func() {
 			ticker := TickerRow{
+				Source:   "S1",
 				Exchange: "NASDAQ",
 				Name:     "Fat Ducks",
 				Category: "Do",
 				Sector:   "Domestic",
 				Industry: "Food",
 			}
+			So(tc.CheckTickerRow(ticker), ShouldBeTrue)
+			ticker.Source = "ZZ"
+			So(tc.CheckTickerRow(ticker), ShouldBeFalse)
+			ticker.Source = "S2"
 			So(tc.CheckTickerRow(ticker), ShouldBeTrue)
 			ticker.Name = "Dumb & Dumber"
 			So(tc.CheckTickerRow(ticker), ShouldBeFalse)

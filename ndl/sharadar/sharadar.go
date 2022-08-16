@@ -107,6 +107,7 @@ func (d *Dataset) FetchTickers(ctx context.Context, tables ...TableName) error {
 			break
 		}
 		d.Tickers[t.Ticker] = db.TickerRow{
+			Source:      t.TableName,
 			Exchange:    t.Exchange,
 			Name:        t.Name,
 			Category:    t.Category,

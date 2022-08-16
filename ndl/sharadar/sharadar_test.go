@@ -73,6 +73,7 @@ func TestSharadar(t *testing.T) {
 
 			expected := map[string]db.TickerRow{
 				"A": {
+					Source:      "SEP",
 					Exchange:    "Exch1",
 					Name:        "Name1",
 					Category:    "Cat1",
@@ -84,6 +85,7 @@ func TestSharadar(t *testing.T) {
 					Active:      true,
 				},
 				"B": {
+					Source:      "SFP",
 					Exchange:    "Exch2",
 					Name:        "Name2",
 					Category:    "Cat2",
@@ -95,6 +97,7 @@ func TestSharadar(t *testing.T) {
 					Active:      false,
 				},
 				"C": {
+					Source:      "SFP",
 					Exchange:    "Exch3",
 					Name:        "Name3",
 					Category:    "Cat3",
