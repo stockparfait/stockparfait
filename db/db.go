@@ -92,6 +92,7 @@ type Reader struct {
 	DB             string    `json:"DB" required:"true"` // specific DB in path
 	UseTickers     []string  `json:"tickers"`
 	ExcludeTickers []string  `json:"exclude tickers"`
+	Sources        []string  `json:"sources"`
 	Exchanges      []string  `json:"exchanges"`
 	Names          []string  `json:"names"`
 	Categories     []string  `json:"categories"`
@@ -131,6 +132,7 @@ func NewReader(dbPath, db string) *Reader {
 
 func (r *Reader) initConstraints() {
 	r.constraints = NewConstraints().
+		Source(r.Sources...).
 		Ticker(r.UseTickers...).
 		ExcludeTicker(r.ExcludeTickers...).
 		Exchange(r.Exchanges...).

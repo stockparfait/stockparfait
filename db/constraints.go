@@ -17,6 +17,7 @@ package db
 // Constraints to filter the tickers and their time series.  Zero value means no
 // constraints.
 type Constraints struct {
+	Sources        map[string]struct{}
 	Tickers        map[string]struct{}
 	ExcludeTickers map[string]struct{}
 	Exchanges      map[string]struct{}
@@ -29,6 +30,7 @@ type Constraints struct {
 // NewConstraints creates a new Constraints with no constraints.
 func NewConstraints() *Constraints {
 	return &Constraints{
+		Sources:        make(map[string]struct{}),
 		Tickers:        make(map[string]struct{}),
 		ExcludeTickers: make(map[string]struct{}),
 		Exchanges:      make(map[string]struct{}),
@@ -37,6 +39,14 @@ func NewConstraints() *Constraints {
 		Sectors:        make(map[string]struct{}),
 		Industries:     make(map[string]struct{}),
 	}
+}
+
+// Source adds sources to the constraints.
+func (c *Constraints) Source(sources ...string) *Constraints {
+	for _, s := range sources {
+		c.Sources[s] = struct{}{}
+	}
+	return c
 }
 
 // ExcludeTicker adds tickers to be ignored.
@@ -112,6 +122,11 @@ func (c *Constraints) CheckTicker(ticker string) bool {
 
 // CheckTickerRow whether it satisfies the constraints.
 func (c *Constraints) CheckTickerRow(r TickerRow) bool {
+	if len(c.Sources) > 0 {
+		if _, ok := c.Sources[r.Source]; !ok {
+			return false
+		}
+	}
 	if len(c.Exchanges) > 0 {
 		if _, ok := c.Exchanges[r.Exchange]; !ok {
 			return false
