@@ -32,7 +32,7 @@ type Flags struct {
 	DBDir    string // default: ~/.stockparfait
 	DBName   string // required
 	LogLevel logging.Level
-	// Exactly one of tickers, actions or prices must be present.
+	// Exactly one of tickers, actions, prices or monthly must be present.
 	Tickers bool
 	Actions string // ticker to print actions for
 	Prices  string // ticker to print prices for
@@ -46,7 +46,7 @@ func parseFlags(args []string) (*Flags, error) {
 	fs.StringVar(&flags.DBDir, "cache",
 		filepath.Join(os.Getenv("HOME"), ".stockparfait"),
 		"path to databases")
-	fs.StringVar(&flags.DBName, "db", "", "database name")
+	fs.StringVar(&flags.DBName, "db", "", "database name (required)")
 	flags.LogLevel = logging.Info
 	fs.Var(&flags.LogLevel, "log-level", "Log level: debug, info, warning, error")
 	fs.BoolVar(&flags.Tickers, "tickers", false, "print all ticker rows")

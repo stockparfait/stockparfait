@@ -28,6 +28,7 @@ GOPATH` to find out where your `GOPATH` is). The apps currently include:
 - `sharadar` - downloading financial data from Nasdaq Data Link [Sharadar
   US Equities and Fund Prices](https://data.nasdaq.com/databases/SFB/data) data
   (requires subscription).
+- `parfaitlist` - listing raw data from the downloaded DB, primarily for debugging.
 
 ## Quick start
 
