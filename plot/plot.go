@@ -134,7 +134,7 @@ func NewSeriesPlot(ts *stats.Timeseries) (*Plot, error) {
 // the same length.
 func NewXYPlot(xs, ys []float64) (*Plot, error) {
 	if len(xs) != len(ys) {
-		return nil, errors.Reason("len(x)=%d != len(y)=%d", len(xs), len(ys))
+		return nil, errors.Reason("len(xs)=%d != len(ys)=%d", len(xs), len(ys))
 	}
 	for i := range xs {
 		if math.IsInf(xs[i], 0) || math.IsNaN(xs[i]) {
