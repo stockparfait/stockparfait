@@ -110,29 +110,48 @@ type Plot struct {
 }
 
 // NewSeriesPlot creates an instance of a time series plot.
-func NewSeriesPlot(ts *stats.Timeseries) *Plot {
-	return &Plot{
+func NewSeriesPlot(ts *stats.Timeseries) (*Plot, error) {
+	dates := ts.Dates()
+	for i, d := range ts.Data() {
+		if math.IsInf(d, 0) || math.IsNaN(d) {
+			return nil, errors.Reason("invalid data[%s]=%f", ts.Dates()[i], d)
+		}
+		if dates[i].IsZero() {
+			return nil, errors.Reason("invalid date[%d]=%s", i, dates[i])
+		}
+	}
+	plt := &Plot{
 		Kind:   KindSeries,
 		Y:      ts.Data(),
-		Dates:  ts.Dates(),
+		Dates:  dates,
 		YLabel: "values",
 		Legend: "Unnamed",
 	}
+	return plt, nil
 }
 
-// NewXYPlot creates an instance of an untimed plot. Panics if the slices x and
-// y don't have the same length.
-func NewXYPlot(x, y []float64) *Plot {
-	if len(x) != len(y) {
-		panic(errors.Reason("len(x)=%d != len(y)=%d", len(x), len(y)))
+// NewXYPlot creates an instance of an untimed plot. Slices xs and ys must have
+// the same length.
+func NewXYPlot(xs, ys []float64) (*Plot, error) {
+	if len(xs) != len(ys) {
+		return nil, errors.Reason("len(x)=%d != len(y)=%d", len(xs), len(ys))
 	}
-	return &Plot{
+	for i := range xs {
+		if math.IsInf(xs[i], 0) || math.IsNaN(xs[i]) {
+			return nil, errors.Reason("invalid xs[%d]=%f", i, xs[i])
+		}
+		if math.IsInf(ys[i], 0) || math.IsNaN(ys[i]) {
+			return nil, errors.Reason("invalid ys[%d]=%f", i, ys[i])
+		}
+	}
+	plt := &Plot{
 		Kind:   KindXY,
-		X:      x,
-		Y:      y,
+		X:      xs,
+		Y:      ys,
 		YLabel: "values",
 		Legend: "Unnamed",
 	}
+	return plt, nil
 }
 
 // Size returns the number of points in the plot.

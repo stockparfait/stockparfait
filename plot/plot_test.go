@@ -127,18 +127,25 @@ func TestPlot(t *testing.T) {
 			}
 			ts2 := stats.NewTimeseries().Init(dates2, y2)
 
-			xyPlot1 := NewXYPlot(x1, y1).
-				SetYLabel("p1").
+			xyPlot1, err := NewXYPlot(x1, y1)
+			So(err, ShouldBeNil)
+			xyPlot1.SetYLabel("p1").
 				SetLegend("XY1").
 				SetChartType(ChartDashed).
 				SetLeftAxis(true)
 
-			timePlot1 := NewSeriesPlot(ts1).SetLegend("TS1").SetYLabel("t1").
+			timePlot1, err := NewSeriesPlot(ts1)
+			So(err, ShouldBeNil)
+			timePlot1.SetLegend("TS1").SetYLabel("t1").
 				SetLeftAxis(true)
 
-			xyPlot2 := NewXYPlot(x2, y2).SetLegend("XY2").SetYLabel("p2").
+			xyPlot2, err := NewXYPlot(x2, y2)
+			So(err, ShouldBeNil)
+			xyPlot2.SetLegend("XY2").SetYLabel("p2").
 				SetChartType(ChartScatter)
-			timePlot2 := NewSeriesPlot(ts2).SetLegend("TS2").SetYLabel("t2")
+			timePlot2, err := NewSeriesPlot(ts2)
+			So(err, ShouldBeNil)
+			timePlot2.SetLegend("TS2").SetYLabel("t2")
 
 			Convey("access methods work", func() {
 				xx, yy := xyPlot1.GetXY()
@@ -182,7 +189,9 @@ func TestPlot(t *testing.T) {
 			})
 
 			Convey("JSON conversion works", func() {
-				xyPlotBars := NewXYPlot(x2, y2).SetChartType(ChartBars)
+				xyPlotBars, err := NewXYPlot(x2, y2)
+				So(err, ShouldBeNil)
+				xyPlotBars.SetChartType(ChartBars)
 
 				So(Add(ctx, xyPlot1, "lines"), ShouldBeNil)
 				So(Add(ctx, timePlot1, "prices"), ShouldBeNil)
