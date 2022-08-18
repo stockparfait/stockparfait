@@ -141,6 +141,31 @@ func TestSchema(t *testing.T) {
 		})
 	})
 
+	Convey("TickerRow", t, func() {
+		Convey("TickerRowHeader works", func() {
+			So(len(TickerRowHeader()), ShouldEqual, 10)
+		})
+
+		Convey("CSV works", func() {
+			t := TickerRow{
+				Source:      "source",
+				Exchange:    "exch",
+				Name:        "My name is",
+				Category:    "cat",
+				Sector:      "sec",
+				Industry:    "ind",
+				Location:    "there",
+				SECFilings:  "click",
+				CompanySite: "http:",
+				Active:      true,
+			}
+			So(t.CSV(), ShouldResemble, []string{
+				"source", "exch", "My name is", "cat", "sec", "ind",
+				"there", "click", "http:", "TRUE",
+			})
+		})
+	})
+
 	Convey("ActionRow", t, func() {
 		Convey("has correct size", func() {
 			So(unsafe.Sizeof(ActionRow{}), ShouldEqual, 16)
@@ -157,6 +182,14 @@ func TestSchema(t *testing.T) {
 				})
 		})
 
+		Convey("ActionRowHeader works", func() {
+			So(len(ActionRowHeader()), ShouldEqual, 4)
+		})
+
+		Convey("CSV works", func() {
+			a := TestAction(NewDate(2020, 4, 15), 1.01, 2.0, false)
+			So(a.CSV(), ShouldResemble, []string{"2020-04-15", "1.01", "2", "FALSE"})
+		})
 	})
 
 	Convey("PriceRow", t, func() {
@@ -174,6 +207,16 @@ func TestSchema(t *testing.T) {
 			So(p.CashVolume, ShouldEqual, 1000.0)
 			So(p.Active(), ShouldBeFalse)
 		})
+
+		Convey("PriceRowHeader works", func() {
+			So(len(PriceRowHeader()), ShouldEqual, 6)
+		})
+
+		Convey("CSV works", func() {
+			p := TestPrice(NewDate(2019, 1, 2), 100.0, 50.0, 1000.0, false)
+			So(p.CSV(), ShouldResemble, []string{
+				"2019-01-02", "100", "50", "50", "1000", "FALSE"})
+		})
 	})
 
 	Convey("ResampledRow", t, func() {
@@ -186,6 +229,21 @@ func TestSchema(t *testing.T) {
 			dc := NewDate(2019, 4, 1)
 			r := TestResampled(do, dc, 10.0, 11.0, 5.0, 1000.0, true)
 			So(r.Close, ShouldEqual, 11.0)
+		})
+
+		Convey("ResampledRowHeader", func() {
+			So(len(ResampledRowHeader()), ShouldEqual, 12)
+		})
+
+		Convey("CSV", func() {
+			r := TestResampled(NewDate(2019, 1, 1), NewDate(2019, 4, 1),
+				10.0, 11.0, 5.0, 1000.0, true)
+			So(r.CSV(), ShouldResemble, []string{
+				"10", "10", "10",
+				"11", "5", "5", "1000",
+				"2019-01-01", "2019-04-01",
+				"0.2", "20", "TRUE",
+			})
 		})
 
 		Convey("DailyVolatility", func() {

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-INSTALLS=./apps/sharadar
+INSTALLS=./apps/sharadar ./apps/parfaitlist
 GOPATH=$(shell go env GOPATH)
 
 CHARTJS_VERSION=v3.8.0

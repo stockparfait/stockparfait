@@ -22,6 +22,7 @@ import (
 
 	"github.com/stockparfait/errors"
 	"github.com/stockparfait/stockparfait/message"
+	"github.com/stockparfait/stockparfait/table"
 )
 
 // lessLex is a lexicographic ordering on the slices of int.
@@ -290,12 +291,76 @@ type TickerRow struct {
 	Active      bool   // ticker is listed at the last price date
 }
 
+var _ table.Row = TickerRow{}
+
+// TickerRowHeader for CSV table.
+func TickerRowHeader() []string {
+	return []string{
+		"Source",
+		"Exchange",
+		"Name",
+		"Category",
+		"Sector",
+		"Industry",
+		"Location",
+		"SEC Filings",
+		"Company Site",
+		"Active",
+	}
+}
+
+func bool2str(x bool) string {
+	if x {
+		return "TRUE"
+	}
+	return "FALSE"
+}
+
+func float2str(x float32) string {
+	return fmt.Sprintf("%g", x)
+}
+
+func uint2str(x uint16) string {
+	return fmt.Sprintf("%d", x)
+}
+
+// CSV implements table.Row.
+func (r TickerRow) CSV() []string {
+	return []string{
+		r.Source,
+		r.Exchange,
+		r.Name,
+		r.Category,
+		r.Sector,
+		r.Industry,
+		r.Location,
+		r.SECFilings,
+		r.CompanySite,
+		bool2str(r.Active),
+	}
+}
+
 // ActionRow is a row in the actions table. Size: 16 bytes (13+padding).
 type ActionRow struct {
 	Date           Date
 	DividendFactor float32 // dividend adjustment factor (1.0 = no dividend)
 	SplitFactor    float32 // split adjustment factor (1.0 = no split)
 	Active         bool
+}
+
+var _ table.Row = ActionRow{}
+
+func (r ActionRow) CSV() []string {
+	return []string{
+		r.Date.String(),
+		float2str(r.DividendFactor),
+		float2str(r.SplitFactor),
+		bool2str(r.Active),
+	}
+}
+
+func ActionRowHeader() []string {
+	return []string{"Date", "Dividend Factor", "Split Factor", "Active"}
 }
 
 // TestAction creates an ActionRow for use in tests.
@@ -325,8 +390,32 @@ type PriceRow struct {
 	CashVolume         float32 // shares volume * closing price
 }
 
+var _ table.Row = PriceRow{}
+
+func PriceRowHeader() []string {
+	return []string{
+		"Date",
+		"Close",
+		"Close split adj",
+		"Close fully adj",
+		"Cash Volume",
+		"Active",
+	}
+}
+
+func (p PriceRow) CSV() []string {
+	return []string{
+		p.Date.String(),
+		float2str(p.CloseUnadjusted()),
+		float2str(p.CloseSplitAdjusted),
+		float2str(p.CloseFullyAdjusted),
+		float2str(p.CashVolume),
+		bool2str(p.Active()),
+	}
+}
+
 // CloseUnadjusted price, separated from the activity status.
-func (p *PriceRow) CloseUnadjusted() float32 {
+func (p PriceRow) CloseUnadjusted() float32 {
 	if p.Close < 0.0 {
 		return -p.Close
 	} else {
@@ -335,7 +424,7 @@ func (p *PriceRow) CloseUnadjusted() float32 {
 }
 
 // Active indicates whether the ticker is currently listed.
-func (p *PriceRow) Active() bool {
+func (p PriceRow) Active() bool {
 	return p.Close > 0.0
 }
 
@@ -378,6 +467,42 @@ type ResampledRow struct {
 	SumAbsLogProfits float32
 	NumSamples       uint16
 	Active           bool // if ticker is active at bar's close
+}
+
+var _ table.Row = &ResampledRow{}
+
+func (r ResampledRow) CSV() []string {
+	return []string{
+		float2str(r.Open),
+		float2str(r.OpenSplitAdjusted),
+		float2str(r.OpenFullyAdjusted),
+		float2str(r.Close),
+		float2str(r.CloseSplitAdjusted),
+		float2str(r.CloseFullyAdjusted),
+		float2str(r.CashVolume),
+		r.DateOpen.String(),
+		r.DateClose.String(),
+		float2str(r.SumAbsLogProfits),
+		uint2str(r.NumSamples),
+		bool2str(r.Active),
+	}
+}
+
+func ResampledRowHeader() []string {
+	return []string{
+		"Open",
+		"Open split adj",
+		"Open fully adj",
+		"Close",
+		"Close split adj",
+		"Close fully adj",
+		"Cash Volume",
+		"Date Open",
+		"Date Close",
+		"Sum Abs Log Profits",
+		"Samples",
+		"Active",
+	}
 }
 
 // TestResampled creates a new ResampledRow for use in tests.
