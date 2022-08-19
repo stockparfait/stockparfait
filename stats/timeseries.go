@@ -140,18 +140,18 @@ func (t *Timeseries) Shift(shift int) *Timeseries {
 	return NewTimeseries().Init(t.dates[:l+shift], t.data[-shift:])
 }
 
-// LogProfits computes a Sample of log-profits {log(x[t+1]) - log(x[t])}.
-func (t *Timeseries) LogProfits() *Sample {
+// LogProfits computes a Sample of log-profits {log(x[t+n]) - log(x[t])}.
+func (t *Timeseries) LogProfits(n int) *Sample {
+	if n < 1 {
+		panic(errors.Reason("n=%d must be >= 1", n))
+	}
 	data := make([]float64, len(t.Data()))
 	for i, d := range t.Data() {
 		data[i] = math.Log(d)
 	}
 	deltas := []float64{}
-	for i := range data {
-		if i == 0 {
-			continue
-		}
-		deltas = append(deltas, data[i]-data[i-1])
+	for i := n; i < len(data); i++ {
+		deltas = append(deltas, data[i]-data[i-n])
 	}
 	return NewSample().Init(deltas)
 }
