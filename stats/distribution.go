@@ -15,7 +15,6 @@
 package stats
 
 import (
-	"context"
 	"math"
 	"sort"
 	"time"
@@ -256,7 +255,7 @@ func NewSampleDistribution(sample []float64, buckets *Buckets) *SampleDistributi
 // NewSampleDistributionFromRand creates an instance of a SampleDistribution by
 // sampling a given distribution. It requires Buckets to create a Histogram for
 // computing a reasonable p.d.f.
-func NewSampleDistributionFromRand(ctx context.Context, d Distribution, samples int, buckets *Buckets) *SampleDistribution {
+func NewSampleDistributionFromRand(d Distribution, samples int, buckets *Buckets) *SampleDistribution {
 	sample := make([]float64, samples)
 	for i := 0; i < samples; i++ {
 		sample[i] = d.Rand()
@@ -270,7 +269,6 @@ func NewSampleDistributionFromRand(ctx context.Context, d Distribution, samples 
 // mean, MAD and quantiles (as a histogram) from a set number of samples. It
 // never stores the generated samples, so its memory footprint remains small.
 type RandDistribution struct {
-	ctx       context.Context
 	source    Distribution                 // the source distribution
 	xform     func(d Distribution) float64 // new Rand based on d.Rand
 	samples   int                          // number of samples to use for mean and histogram
@@ -287,9 +285,8 @@ var _ Distribution = &RandDistribution{}
 // is copied using Distribution.Copy method, and therefore can be sampled
 // independently and in parallel with the original source. It uses the given
 // number of samples to estimate and lazily cache mean, MAD and quantiles.
-func NewRandDistribution(ctx context.Context, source Distribution, xform func(d Distribution) float64, samples int, buckets *Buckets) *RandDistribution {
+func NewRandDistribution(source Distribution, xform func(d Distribution) float64, samples int, buckets *Buckets) *RandDistribution {
 	return &RandDistribution{
-		ctx:     ctx,
 		source:  source.Copy(),
 		xform:   xform,
 		samples: samples,
@@ -357,7 +354,6 @@ func (d *RandDistribution) CDF(x float64) float64 {
 // Copy implements Distribution.
 func (d *RandDistribution) Copy() Distribution {
 	return &RandDistribution{
-		ctx:       d.ctx,
 		source:    d.source.Copy(),
 		xform:     d.xform,
 		samples:   d.samples,
@@ -376,7 +372,7 @@ func (d *RandDistribution) Seed(seed uint64) {
 // CompoundRandDistribution creates a RandDistribution out of source compounded
 // n times. That is, source.Rand() is invoked n times and the sum of its samples
 // is a new single sample in the new distribution.
-func CompoundRandDistribution(ctx context.Context, source Distribution, n, samples int, buckets *Buckets) *RandDistribution {
+func CompoundRandDistribution(source Distribution, n, samples int, buckets *Buckets) *RandDistribution {
 	xform := func(d Distribution) float64 {
 		acc := 0.0
 		for i := 0; i < n; i++ {
@@ -384,15 +380,15 @@ func CompoundRandDistribution(ctx context.Context, source Distribution, n, sampl
 		}
 		return acc
 	}
-	return NewRandDistribution(ctx, source, xform, samples, buckets)
+	return NewRandDistribution(source, xform, samples, buckets)
 }
 
 // CompoundSampleDistribution creates a SampleDistribution out of a random
 // generator compounded n times. That is, `rnd` is invoked n times and the sum
 // of its samples is a new single sample in the new distribution.
-func CompoundSampleDistribution(ctx context.Context, source Distribution, n, samples int, buckets *Buckets) *SampleDistribution {
-	d := CompoundRandDistribution(ctx, source, n, samples, buckets)
-	return NewSampleDistributionFromRand(ctx, d, samples, buckets)
+func CompoundSampleDistribution(source Distribution, n, samples int, buckets *Buckets) *SampleDistribution {
+	d := CompoundRandDistribution(source, n, samples, buckets)
+	return NewSampleDistributionFromRand(d, samples, buckets)
 }
 
 // ExpectationMC computes a (potentially partial) expectation integral:
@@ -404,7 +400,7 @@ func CompoundSampleDistribution(ctx context.Context, source Distribution, n, sam
 // The sampling stops either when the maxIter samples have been reached, or when
 // the relative change in the result abs((res[k] - res[k-1])/res[k-1]) was less
 // than precision for 100 iterations.
-func ExpectationMC(ctx context.Context, f func(x float64) float64,
+func ExpectationMC(f func(x float64) float64,
 	d Distribution, low, high float64, maxIter int, precision float64) float64 {
 	count := 0
 	sum := 0.0

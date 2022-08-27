@@ -15,7 +15,6 @@
 package stats
 
 import (
-	"context"
 	"math"
 	"testing"
 
@@ -45,7 +44,6 @@ func TestDistribution(t *testing.T) {
 	})
 
 	Convey("Sample distribution works", t, func() {
-		ctx := context.Background()
 		data := []float64{
 			-5.0, -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 6.0}
 		buckets, err := NewBuckets(5, -5.0, 5.0, LinearSpacing)
@@ -77,20 +75,20 @@ func TestDistribution(t *testing.T) {
 
 		Convey("ExpectationMC is accurate on full range", func() {
 			one := func(x float64) float64 { return 1.0 }
-			e := ExpectationMC(ctx, one, d, math.Inf(-1), math.Inf(1), 1000, 0.01)
+			e := ExpectationMC(one, d, math.Inf(-1), math.Inf(1), 1000, 0.01)
 			So(testutil.Round(e, 2), ShouldEqual, 1.0)
 		})
 
 		Convey("ExpectationMC is accurate on a subrange", func() {
 			one := func(x float64) float64 { return 1.0 }
-			e := ExpectationMC(ctx, one, d, -3.0, 3.0, 1000, 0.01)
+			e := ExpectationMC(one, d, -3.0, 3.0, 1000, 0.01)
 			So(testutil.Round(e, 2), ShouldEqual, 0.7)
 		})
 
 		Convey("From Rand", func() {
 			d := NewNormalDistribution(2.0, 3.0)
 			d.Seed(seed)
-			d2 := NewSampleDistributionFromRand(ctx, d, 1000, buckets)
+			d2 := NewSampleDistributionFromRand(d, 1000, buckets)
 			d2.Seed(seed)
 			So(testutil.Round(d2.Mean(), 1), ShouldEqual, d.Mean())
 			So(testutil.Round(d2.MAD(), 1), ShouldEqual, d.MAD())
@@ -98,7 +96,7 @@ func TestDistribution(t *testing.T) {
 			Convey("Compounded", func() {
 				d.Seed(seed)
 				samples := 4000 // less than that is not precise enough
-				d2 := CompoundSampleDistribution(ctx, d, 16, samples, buckets)
+				d2 := CompoundSampleDistribution(d, 16, samples, buckets)
 				d2.Seed(seed)
 				So(testutil.Round(d2.Mean(), 2), ShouldEqual, d.Mean()*16.0)
 				So(testutil.Round(d2.MAD(), 2), ShouldEqual, d.MAD()*4.0)
@@ -107,13 +105,12 @@ func TestDistribution(t *testing.T) {
 	})
 
 	Convey("RandDistribution works", t, func() {
-		ctx := context.Background()
 		buckets, err := NewBuckets(4, -2.0, 2.0, LinearSpacing)
 		So(err, ShouldBeNil)
 		source := NewSampleDistribution(
 			[]float64{-2.0, 0.0, 0.0, 2.0}, buckets)
 		xform := func(d Distribution) float64 { return d.Rand() }
-		d := NewRandDistribution(ctx, source, xform, 1000, buckets)
+		d := NewRandDistribution(source, xform, 1000, buckets)
 		d.Seed(seed)
 
 		Convey("Quantile", func() {
@@ -141,7 +138,7 @@ func TestDistribution(t *testing.T) {
 		Convey("Compounded", func() {
 			d := NewNormalDistribution(2.0, 3.0)
 			d.Seed(seed)
-			d2 := CompoundRandDistribution(ctx, d, 16, 2000, buckets)
+			d2 := CompoundRandDistribution(d, 16, 2000, buckets)
 			d2.Seed(seed)
 			So(testutil.Round(d2.Mean(), 2), ShouldEqual, d.Mean()*16.0)
 			// Test MAD with up to 10% precision, hence the ratio.
