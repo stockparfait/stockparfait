@@ -95,11 +95,13 @@ func TestDistribution(t *testing.T) {
 
 			Convey("Compounded", func() {
 				d.Seed(seed)
-				samples := 4000 // less than that is not precise enough
+				samples := 5000 // less than that is not precise enough
 				d2 := CompoundSampleDistribution(d, 16, samples, buckets)
 				d2.Seed(seed)
 				So(testutil.Round(d2.Mean(), 2), ShouldEqual, d.Mean()*16.0)
 				So(testutil.Round(d2.MAD(), 2), ShouldEqual, d.MAD()*4.0)
+				So(testutil.Round(d2.Variance(), 2), ShouldEqual,
+					testutil.Round(16*d.Variance(), 2))
 			})
 		})
 	})
@@ -124,11 +126,15 @@ func TestDistribution(t *testing.T) {
 		})
 
 		Convey("Mean", func() {
-			So(testutil.Round(1.0+d.Mean(), 2), ShouldEqual, 1.0)
+			So(testutil.RoundFixed(d.Mean(), 1), ShouldEqual, 0.0)
 		})
 
 		Convey("MAD", func() {
 			So(testutil.Round(d.MAD(), 2), ShouldEqual, 1.0)
+		})
+
+		Convey("Variance", func() {
+			So(testutil.Round(d.Variance(), 2), ShouldEqual, 2.0)
 		})
 
 		Convey("CDF", func() {
@@ -138,7 +144,9 @@ func TestDistribution(t *testing.T) {
 		Convey("Compounded", func() {
 			d := NewNormalDistribution(2.0, 3.0)
 			d.Seed(seed)
-			d2 := CompoundRandDistribution(d, 16, 2000, buckets)
+			compBuckets, err := NewBuckets(100, -50, 50, LinearSpacing)
+			So(err, ShouldBeNil)
+			d2 := CompoundRandDistribution(d, 16, 2000, compBuckets)
 			d2.Seed(seed)
 			So(testutil.Round(d2.Mean(), 2), ShouldEqual, d.Mean()*16.0)
 			// Test MAD with up to 10% precision, hence the ratio.
