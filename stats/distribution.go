@@ -38,7 +38,8 @@ type Distribution interface {
 	distuv.Quantiler
 	Prob(float64) float64 // the p.d.f. value at x
 	Mean() float64
-	MAD() float64          // mean absolute deviation
+	MAD() float64 // mean absolute deviation
+	Variance() float64
 	CDF(x float64) float64 // returns max. quantile for x
 	Copy() Distribution    // shallow-copy with a new instance of rand.Source
 	// Set random seed when applicable. Mostly used in tests.
@@ -61,17 +62,14 @@ type StudentsT struct {
 
 var _ Distribution = &StudentsT{}
 
-// Mean implements Distribution.
 func (d *StudentsT) Mean() float64 {
 	return d.Mu
 }
 
-// MAD implements Distribution.
 func (d *StudentsT) MAD() float64 {
 	return d.Sigma * studentsTMAD(d.Nu)
 }
 
-// Copy implements Distribution.
 func (d *StudentsT) Copy() Distribution {
 	return &StudentsT{distuv.StudentsT{
 		Mu:    d.Mu,
@@ -81,7 +79,6 @@ func (d *StudentsT) Copy() Distribution {
 	}}
 }
 
-// Seed implements Distribution.
 func (d *StudentsT) Seed(seed uint64) {
 	d.StudentsT.Src = rand.NewSource(seed)
 }
@@ -104,17 +101,14 @@ type Normal struct {
 
 var _ Distribution = &Normal{}
 
-// Mean implements Distribution.
 func (d *Normal) Mean() float64 {
 	return d.Mu
 }
 
-// MAD implements Distribution.
 func (d *Normal) MAD() float64 {
 	return d.Sigma * normalMAD
 }
 
-// Copy implements Distribution.
 func (d *Normal) Copy() Distribution {
 	return &Normal{distuv.Normal{
 		Mu:    d.Mu,
@@ -123,7 +117,6 @@ func (d *Normal) Copy() Distribution {
 	}}
 }
 
-// Seed implements Distribution.
 func (d *Normal) Seed(seed uint64) {
 	d.Normal.Src = rand.NewSource(seed)
 }
@@ -148,7 +141,6 @@ type SampleDistribution struct {
 
 var _ Distribution = &SampleDistribution{}
 
-// Rand implements distuv.Rander.
 func (d *SampleDistribution) Rand() float64 {
 	return d.sample.Data()[d.rand.Intn(len(d.sample.Data()))]
 }
@@ -166,12 +158,10 @@ func (d *SampleDistribution) quantileIndex(x float64) int {
 	return i
 }
 
-// Quantile implements distuv.Quantiler.
 func (d *SampleDistribution) Quantile(x float64) float64 {
 	return d.sample.Data()[d.quantileIndex(x)]
 }
 
-// Prob implements Distribution.
 func (d *SampleDistribution) Prob(x float64) float64 {
 	return d.Histogram().PDF(d.Histogram().Buckets().Bucket(x))
 }
@@ -199,14 +189,16 @@ func (d *SampleDistribution) CDF(x float64) float64 {
 	return float64(l) / float64(len(s))
 }
 
-// Mean implements Distribution.
 func (d *SampleDistribution) Mean() float64 {
 	return d.Sample().Mean()
 }
 
-// MAD implements Distribution.
 func (d *SampleDistribution) MAD() float64 {
 	return d.Sample().MAD()
+}
+
+func (d *SampleDistribution) Variance() float64 {
+	return d.Sample().Variance()
 }
 
 // Sample as the source of the distribution.
@@ -221,7 +213,6 @@ func (d *SampleDistribution) Histogram() *Histogram {
 	return d.histogram
 }
 
-// Copy implements Distribution.
 func (d *SampleDistribution) Copy() Distribution {
 	return &SampleDistribution{
 		sample:    d.sample,
@@ -231,7 +222,6 @@ func (d *SampleDistribution) Copy() Distribution {
 	}
 }
 
-// Seed implements Distribution.
 func (d *SampleDistribution) Seed(seed uint64) {
 	d.rand = rand.New(rand.NewSource(seed))
 }
@@ -273,8 +263,6 @@ type RandDistribution struct {
 	xform     func(d Distribution) float64 // new Rand based on d.Rand
 	samples   int                          // number of samples to use for mean and histogram
 	buckets   *Buckets
-	mean      *float64
-	mad       *float64
 	histogram *Histogram
 }
 
@@ -294,77 +282,56 @@ func NewRandDistribution(source Distribution, xform func(d Distribution) float64
 	}
 }
 
-// Rand implements Distribution.
 func (d *RandDistribution) Rand() float64 {
 	return d.xform(d.source)
 }
 
 // Histogram of the generator, lazily cached.
 func (d *RandDistribution) Histogram() *Histogram {
-	if d.histogram == nil || d.mean == nil {
+	if d.histogram == nil {
 		d.histogram = NewHistogram(d.buckets)
-		sum := 0.0
 		for i := 0; i < d.samples; i++ {
 			v := d.Rand()
-			sum += v
 			d.histogram.Add(v)
 		}
-		mean := sum / float64(d.samples)
-		d.mean = &mean
 	}
 	return d.histogram
 }
 
-// Quantile implements Distribution.
 func (d *RandDistribution) Quantile(x float64) float64 {
 	return d.Histogram().Quantile(x)
 }
 
-// Prob implements Distribution.
 func (d *RandDistribution) Prob(x float64) float64 {
 	return d.Histogram().PDF(d.Histogram().Buckets().Bucket(x))
 }
 
-// Mean implements Distribution.
 func (d *RandDistribution) Mean() float64 {
-	d.Histogram() // compute and cache the mean
-	return *d.mean
+	return d.Histogram().Mean()
 }
 
-// MAD implement Distribution.
 func (d *RandDistribution) MAD() float64 {
-	if d.mad == nil {
-		mean := d.Mean()
-		sum := 0.0
-		for i := 0; i < d.samples; i++ {
-			v := d.Rand()
-			sum += math.Abs(v - mean)
-		}
-		mad := sum / float64(d.samples)
-		d.mad = &mad
-	}
-	return *d.mad
+	return d.Histogram().MAD()
 }
 
-// CDF implements Distribution.
+func (d *RandDistribution) Variance() float64 {
+	return d.Histogram().Variance()
+}
+
 func (d *RandDistribution) CDF(x float64) float64 {
 	return d.Histogram().CDF(x)
 }
 
-// Copy implements Distribution.
 func (d *RandDistribution) Copy() Distribution {
 	return &RandDistribution{
 		source:    d.source.Copy(),
 		xform:     d.xform,
 		samples:   d.samples,
 		buckets:   d.buckets,
-		mean:      d.mean,
-		mad:       d.mad,
 		histogram: d.histogram,
 	}
 }
 
-// Seed implements Distribution.
 func (d *RandDistribution) Seed(seed uint64) {
 	d.source.Seed(seed)
 }
