@@ -270,7 +270,10 @@ type RandDistribution struct {
 	samples   int                          // number of samples to use for mean and histogram
 	buckets   *Buckets
 	histogram *Histogram
+	workers   int // the number of parallel workers
 }
+
+var _ Distribution = &RandDistribution{}
 
 // NewRandDistribution creates a Distribution using the transformation of the
 // random sampler function of the source distribution. The source distribution
@@ -284,14 +287,20 @@ func NewRandDistribution(ctx context.Context, source Distribution, xform func(d 
 		xform:   xform,
 		samples: samples,
 		buckets: buckets,
+		workers: 2 * runtime.NumCPU(),
 	}
+}
+
+// SetWorkers sets the number of parallel workers used to sample the
+// distribution to construct its histogram. It's primarily used in tests to
+// serialize the execution.
+func (d *RandDistribution) SetWorkers(workers int) {
+	d.workers = workers
 }
 
 func (d *RandDistribution) Rand() float64 {
 	return d.xform(d.source)
 }
-
-var _ Distribution = &RandDistribution{}
 
 type randJobsIter struct {
 	d       Distribution
@@ -343,8 +352,7 @@ func (d *RandDistribution) Histogram() *Histogram {
 	// The method will panic if parallel jobs return unexpected results.
 	if d.histogram == nil {
 		d.histogram = NewHistogram(d.buckets)
-		workers := 2 * runtime.NumCPU()
-		m := parallel.Map(d.context, workers, d.jobsIter(workers))
+		m := parallel.Map(d.context, d.workers, d.jobsIter(d.workers))
 		for {
 			v, err := m.Next()
 			if err != nil { // can only be parallel.Done

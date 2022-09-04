@@ -115,8 +115,14 @@ func TestDistribution(t *testing.T) {
 		source := NewSampleDistribution(
 			[]float64{-2.0, 0.0, 0.0, 2.0}, buckets)
 		xform := func(d Distribution) float64 { return d.Rand() }
-		d := NewRandDistribution(ctx, source, xform, 1000, buckets)
+		numSamples := 1000
+		d := NewRandDistribution(ctx, source, xform, numSamples, buckets)
 		d.Seed(seed)
+		d.SetWorkers(1)
+
+		Convey("Histogram used correct number of samples", func() {
+			So(d.Histogram().Size(), ShouldEqual, numSamples)
+		})
 
 		Convey("Quantile", func() {
 			// Due to the wide [0..1) bucket, the 50th quantile is in its middle,
@@ -129,7 +135,7 @@ func TestDistribution(t *testing.T) {
 		})
 
 		Convey("Mean", func() {
-			So(testutil.RoundFixed(d.Mean(), 1), ShouldEqual, 0.0)
+			So(testutil.RoundFixed(d.Mean(), 0), ShouldEqual, 0.0)
 		})
 
 		Convey("MAD", func() {
@@ -137,7 +143,7 @@ func TestDistribution(t *testing.T) {
 		})
 
 		Convey("Variance", func() {
-			So(testutil.Round(d.Variance(), 2), ShouldEqual, 2.0)
+			So(testutil.Round(d.Variance(), 1), ShouldEqual, 2.0)
 		})
 
 		Convey("CDF", func() {
@@ -149,8 +155,9 @@ func TestDistribution(t *testing.T) {
 			d.Seed(seed)
 			compBuckets, err := NewBuckets(100, -50, 50, LinearSpacing)
 			So(err, ShouldBeNil)
-			d2 := CompoundRandDistribution(ctx, d, 16, 2000, compBuckets)
+			d2 := CompoundRandDistribution(ctx, d, 16, 3000, compBuckets)
 			d2.Seed(seed)
+			d2.SetWorkers(1)
 			So(testutil.Round(d2.Mean(), 2), ShouldEqual, d.Mean()*16.0)
 			// Test MAD with up to 10% precision, hence the ratio.
 			So(testutil.Round(d.MAD()*4.0/d2.MAD(), 2), ShouldEqual, 1.0)
