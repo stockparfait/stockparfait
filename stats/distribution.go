@@ -399,6 +399,7 @@ func (d *RandDistribution) Copy() Distribution {
 		samples:   d.samples,
 		buckets:   d.buckets,
 		histogram: d.histogram,
+		workers:   d.workers,
 	}
 }
 
