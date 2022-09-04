@@ -393,11 +393,13 @@ func (d *RandDistribution) CDF(x float64) float64 {
 
 func (d *RandDistribution) Copy() Distribution {
 	return &RandDistribution{
+		context:   d.context,
 		source:    d.source.Copy(),
 		xform:     d.xform,
 		samples:   d.samples,
 		buckets:   d.buckets,
 		histogram: d.histogram,
+		workers:   d.workers,
 	}
 }
 

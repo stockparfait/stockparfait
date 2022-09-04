@@ -120,6 +120,11 @@ func TestDistribution(t *testing.T) {
 		d.Seed(seed)
 		d.SetWorkers(1)
 
+		Convey("Copy works", func() { // must be called before d.Histogram()
+			copy := d.Copy().(*RandDistribution)
+			So(copy.Histogram().Size(), ShouldEqual, numSamples)
+		})
+
 		Convey("Histogram used correct number of samples", func() {
 			So(d.Histogram().Size(), ShouldEqual, numSamples)
 		})
