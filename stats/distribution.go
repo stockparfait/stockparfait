@@ -15,9 +15,14 @@
 package stats
 
 import (
+	"context"
 	"math"
+	"runtime"
 	"sort"
 	"time"
+
+	"github.com/stockparfait/errors"
+	"github.com/stockparfait/parallel"
 
 	"golang.org/x/exp/rand"
 	"gonum.org/v1/gonum/mathext"
@@ -259,11 +264,13 @@ func NewSampleDistributionFromRand(d Distribution, samples int, buckets *Buckets
 // mean, MAD and quantiles (as a histogram) from a set number of samples. It
 // never stores the generated samples, so its memory footprint remains small.
 type RandDistribution struct {
+	context   context.Context
 	source    Distribution                 // the source distribution
 	xform     func(d Distribution) float64 // new Rand based on d.Rand
 	samples   int                          // number of samples to use for mean and histogram
 	buckets   *Buckets
 	histogram *Histogram
+	workers   int // the number of parallel workers
 }
 
 var _ Distribution = &RandDistribution{}
@@ -273,26 +280,88 @@ var _ Distribution = &RandDistribution{}
 // is copied using Distribution.Copy method, and therefore can be sampled
 // independently and in parallel with the original source. It uses the given
 // number of samples to estimate and lazily cache mean, MAD and quantiles.
-func NewRandDistribution(source Distribution, xform func(d Distribution) float64, samples int, buckets *Buckets) *RandDistribution {
+func NewRandDistribution(ctx context.Context, source Distribution, xform func(d Distribution) float64, samples int, buckets *Buckets) *RandDistribution {
 	return &RandDistribution{
+		context: ctx,
 		source:  source.Copy(),
 		xform:   xform,
 		samples: samples,
 		buckets: buckets,
+		workers: 2 * runtime.NumCPU(),
 	}
+}
+
+// SetWorkers sets the number of parallel workers used to sample the
+// distribution to construct its histogram. It's primarily used in tests to
+// serialize the execution.
+func (d *RandDistribution) SetWorkers(workers int) {
+	d.workers = workers
 }
 
 func (d *RandDistribution) Rand() float64 {
 	return d.xform(d.source)
 }
 
+type randJobsIter struct {
+	d       Distribution
+	samples int
+	buckets *Buckets
+	workers int
+	i       int
+}
+
+var _ parallel.JobsIter = &randJobsIter{}
+
+func (r *randJobsIter) Next() (parallel.Job, error) {
+	if r.i >= r.samples {
+		return nil, parallel.Done
+	}
+	batchSize := r.samples / r.workers
+	if batchSize < 10 {
+		batchSize = 10
+	}
+	if batchSize > 1000 {
+		batchSize = 1000
+	}
+	if batchSize > r.samples-r.i {
+		batchSize = r.samples - r.i
+	}
+	r.i += batchSize
+	distCopy := r.d.Copy()
+	job := func() interface{} {
+		h := NewHistogram(r.buckets)
+		for i := 0; i < batchSize; i++ {
+			h.Add(distCopy.Rand())
+		}
+		return h
+	}
+	return job, nil
+}
+
+func (d *RandDistribution) jobsIter(workers int) parallel.JobsIter {
+	return &randJobsIter{
+		d:       d.Copy(),
+		samples: d.samples,
+		buckets: d.buckets,
+		workers: workers,
+	}
+}
+
 // Histogram of the generator, lazily cached.
 func (d *RandDistribution) Histogram() *Histogram {
+	// The method will panic if parallel jobs return unexpected results.
 	if d.histogram == nil {
 		d.histogram = NewHistogram(d.buckets)
-		for i := 0; i < d.samples; i++ {
-			v := d.Rand()
-			d.histogram.Add(v)
+		m := parallel.Map(d.context, d.workers, d.jobsIter(d.workers))
+		for {
+			v, err := m.Next()
+			if err != nil { // can only be parallel.Done
+				break
+			}
+			h := v.(*Histogram)
+			if err := d.histogram.AddHistogram(h); err != nil {
+				panic(errors.Annotate(err, "failed to merge histogram"))
+			}
 		}
 	}
 	return d.histogram
@@ -339,7 +408,7 @@ func (d *RandDistribution) Seed(seed uint64) {
 // CompoundRandDistribution creates a RandDistribution out of source compounded
 // n times. That is, source.Rand() is invoked n times and the sum of its samples
 // is a new single sample in the new distribution.
-func CompoundRandDistribution(source Distribution, n, samples int, buckets *Buckets) *RandDistribution {
+func CompoundRandDistribution(ctx context.Context, source Distribution, n, samples int, buckets *Buckets) *RandDistribution {
 	xform := func(d Distribution) float64 {
 		acc := 0.0
 		for i := 0; i < n; i++ {
@@ -347,14 +416,14 @@ func CompoundRandDistribution(source Distribution, n, samples int, buckets *Buck
 		}
 		return acc
 	}
-	return NewRandDistribution(source, xform, samples, buckets)
+	return NewRandDistribution(ctx, source, xform, samples, buckets)
 }
 
 // CompoundSampleDistribution creates a SampleDistribution out of a random
 // generator compounded n times. That is, `rnd` is invoked n times and the sum
 // of its samples is a new single sample in the new distribution.
-func CompoundSampleDistribution(source Distribution, n, samples int, buckets *Buckets) *SampleDistribution {
-	d := CompoundRandDistribution(source, n, samples, buckets)
+func CompoundSampleDistribution(ctx context.Context, source Distribution, n, samples int, buckets *Buckets) *SampleDistribution {
+	d := CompoundRandDistribution(ctx, source, n, samples, buckets)
 	return NewSampleDistributionFromRand(d, samples, buckets)
 }
 
