@@ -19,6 +19,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/stockparfait/parallel"
 	"github.com/stockparfait/testutil"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -97,36 +98,64 @@ func TestDistribution(t *testing.T) {
 			Convey("Compounded", func() {
 				d.Seed(seed)
 				ctx := context.Background()
-				samples := 5000 // less than that is not precise enough
-				d2 := CompoundSampleDistribution(ctx, d, 16, samples, buckets)
-				d2.Seed(seed)
-				So(testutil.Round(d2.Mean(), 2), ShouldEqual, d.Mean()*16.0)
-				So(testutil.Round(d2.MAD(), 2), ShouldEqual, d.MAD()*4.0)
-				So(testutil.Round(d2.Variance(), 2), ShouldEqual,
-					testutil.Round(16*d.Variance(), 2))
+				var cfg RandDistributionConfig
+				So(cfg.InitMessage(testutil.JSON(`{}`)), ShouldBeNil)
+				cfg.Samples = 5000 // less than that is not precise enough
+				cfg.Buckets = *buckets
+				cfg.Workers = 1
+
+				Convey("direct compounding", func() {
+					d2 := CompoundSampleDistribution(ctx, d, 16, &cfg)
+					d2.Seed(seed)
+					So(testutil.Round(d2.Mean(), 2), ShouldEqual, d.Mean()*16.0)
+					So(testutil.Round(d2.MAD(), 2), ShouldEqual, d.MAD()*4.0)
+					So(testutil.Round(d2.Variance(), 2), ShouldEqual,
+						testutil.Round(16*d.Variance(), 2))
+				})
+
+				Convey("fast compounding", func() {
+					d2 := FastCompoundSampleDistribution(ctx, d, 16, &cfg)
+					d2.Seed(seed)
+					So(testutil.Round(d2.Mean(), 2), ShouldEqual, 30)      // actual: 32
+					So(testutil.Round(d2.MAD(), 2), ShouldEqual, 11)       // actual: 12
+					So(testutil.Round(d2.Variance(), 2), ShouldEqual, 200) // actual: 230
+				})
 			})
 		})
 	})
 
 	Convey("RandDistribution works", t, func() {
-		ctx := context.Background()
-		buckets, err := NewBuckets(4, -2.0, 2.0, LinearSpacing)
-		So(err, ShouldBeNil)
+		ctx := parallel.TestSerialize(context.Background())
+		xform := &Transform{
+			InitState: func() interface{} { return nil },
+			Fn: func(d Distribution, s interface{}) (float64, interface{}) {
+				return d.Rand(), nil
+			},
+		}
+		var cfg RandDistributionConfig
+		js := testutil.JSON(`
+{
+  "samples": 1000,
+  "workers": 1,
+  "buckets": {
+    "n": 4,
+    "minval": -2,
+    "maxval": 2
+  }
+}`)
+		So(cfg.InitMessage(js), ShouldBeNil)
 		source := NewSampleDistribution(
-			[]float64{-2.0, 0.0, 0.0, 2.0}, buckets)
-		xform := func(d Distribution) float64 { return d.Rand() }
-		numSamples := 1000
-		d := NewRandDistribution(ctx, source, xform, numSamples, buckets)
+			[]float64{-2.0, 0.0, 0.0, 2.0}, &cfg.Buckets)
+		d := NewRandDistribution(ctx, source, xform, &cfg)
 		d.Seed(seed)
-		d.SetWorkers(1)
 
 		Convey("Copy works", func() { // must be called before d.Histogram()
 			copy := d.Copy().(*RandDistribution)
-			So(copy.Histogram().Size(), ShouldEqual, numSamples)
+			So(copy.Histogram().Size(), ShouldEqual, cfg.Samples)
 		})
 
 		Convey("Histogram used correct number of samples", func() {
-			So(d.Histogram().Size(), ShouldEqual, numSamples)
+			So(d.Histogram().Size(), ShouldEqual, cfg.Samples)
 		})
 
 		Convey("Quantile", func() {
@@ -158,14 +187,39 @@ func TestDistribution(t *testing.T) {
 		Convey("Compounded", func() {
 			d := NewNormalDistribution(2.0, 3.0)
 			d.Seed(seed)
-			compBuckets, err := NewBuckets(100, -50, 50, LinearSpacing)
-			So(err, ShouldBeNil)
-			d2 := CompoundRandDistribution(ctx, d, 16, 3000, compBuckets)
-			d2.Seed(seed)
-			d2.SetWorkers(1)
-			So(testutil.Round(d2.Mean(), 2), ShouldEqual, d.Mean()*16.0)
-			// Test MAD with up to 10% precision, hence the ratio.
-			So(testutil.Round(d.MAD()*4.0/d2.MAD(), 2), ShouldEqual, 1.0)
+			var compCfg RandDistributionConfig
+			js := testutil.JSON(`
+{
+  "samples": 3000,
+  "workers": 1,
+  "buckets": {
+    "n": 100,
+    "minval": -50,
+    "maxval": 50
+  }
+}`)
+			So(compCfg.InitMessage(js), ShouldBeNil)
+
+			Convey("direct compounding", func() {
+				d2 := CompoundRandDistribution(ctx, d, 16, &compCfg)
+				d2.Seed(seed)
+				So(testutil.Round(d2.Mean(), 2), ShouldEqual, d.Mean()*16.0)
+				// Test MAD with up to 10% precision, hence the ratio.
+				So(testutil.Round(d.MAD()*4.0/d2.MAD(), 2), ShouldEqual, 1.0)
+			})
+
+			Convey("fast compounding", func() {
+				d2 := FastCompoundRandDistribution(ctx, d, 16, &compCfg)
+				d2.Seed(seed)
+				So(testutil.Round(d2.Mean(), 2), ShouldEqual, 30.0) // actual: 32
+				// Test MAD with up to 10% precision, hence the ratio.
+				So(testutil.Round(d.MAD()*4.0/d2.MAD(), 2), ShouldEqual, 1.0)
+			})
+		})
+
+		Convey("with default config", func() {
+			d2 := NewRandDistribution(ctx, source, xform, nil)
+			So(d2.config.Workers, ShouldBeGreaterThanOrEqualTo, 1)
 		})
 	})
 }
