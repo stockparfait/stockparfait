@@ -102,8 +102,9 @@ func TestDistribution(t *testing.T) {
 				So(cfg.InitMessage(testutil.JSON(`{}`)), ShouldBeNil)
 				cfg.Samples = 5000 // less than that is not precise enough
 				cfg.Buckets = *buckets
+				cfg.Workers = 1
 
-				Convey("directly", func() {
+				Convey("direct compounding", func() {
 					d2 := CompoundSampleDistribution(ctx, d, 16, &cfg)
 					d2.Seed(seed)
 					So(testutil.Round(d2.Mean(), 2), ShouldEqual, d.Mean()*16.0)
@@ -112,7 +113,7 @@ func TestDistribution(t *testing.T) {
 						testutil.Round(16*d.Variance(), 2))
 				})
 
-				Convey("fast", func() {
+				Convey("fast compounding", func() {
 					d2 := FastCompoundSampleDistribution(ctx, d, 16, &cfg)
 					d2.Seed(seed)
 					So(testutil.Round(d2.Mean(), 2), ShouldEqual, 30)      // actual: 32
@@ -135,6 +136,7 @@ func TestDistribution(t *testing.T) {
 		js := testutil.JSON(`
 {
   "samples": 1000,
+  "workers": 1,
   "buckets": {
     "n": 4,
     "minval": -2,
@@ -189,6 +191,7 @@ func TestDistribution(t *testing.T) {
 			js := testutil.JSON(`
 {
   "samples": 3000,
+  "workers": 1,
   "buckets": {
     "n": 100,
     "minval": -50,
@@ -197,7 +200,7 @@ func TestDistribution(t *testing.T) {
 }`)
 			So(compCfg.InitMessage(js), ShouldBeNil)
 
-			Convey("directly", func() {
+			Convey("direct compounding", func() {
 				d2 := CompoundRandDistribution(ctx, d, 16, &compCfg)
 				d2.Seed(seed)
 				So(testutil.Round(d2.Mean(), 2), ShouldEqual, d.Mean()*16.0)
@@ -205,13 +208,18 @@ func TestDistribution(t *testing.T) {
 				So(testutil.Round(d.MAD()*4.0/d2.MAD(), 2), ShouldEqual, 1.0)
 			})
 
-			Convey("fast", func() {
+			Convey("fast compounding", func() {
 				d2 := FastCompoundRandDistribution(ctx, d, 16, &compCfg)
 				d2.Seed(seed)
 				So(testutil.Round(d2.Mean(), 2), ShouldEqual, 30.0) // actual: 32
 				// Test MAD with up to 10% precision, hence the ratio.
 				So(testutil.Round(d.MAD()*4.0/d2.MAD(), 2), ShouldEqual, 1.0)
 			})
+		})
+
+		Convey("with default config", func() {
+			d2 := NewRandDistribution(ctx, source, xform, nil)
+			So(d2.config.Workers, ShouldBeGreaterThanOrEqualTo, 1)
 		})
 	})
 }
