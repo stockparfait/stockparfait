@@ -474,6 +474,10 @@ type HistogramDistribution struct {
 
 var _ DistributionWithHistogram = &HistogramDistribution{}
 
+// NewHistogramDistribution creates a new distribution out of h. Note, that h is
+// stored as the original pointer, and not deep-copied. The caller must assure
+// that h is not modified after creating this distribution, otherwise the
+// behavior may be unpredictable.
 func NewHistogramDistribution(h *Histogram) *HistogramDistribution {
 	return &HistogramDistribution{
 		h:    h,
@@ -513,6 +517,8 @@ func (d *HistogramDistribution) Histogram() *Histogram {
 	return d.h
 }
 
+// Copy shallow-copies the distribution. Note, that the underlying Histogram is
+// copied by pointer, and not deep-copied.
 func (d *HistogramDistribution) Copy() Distribution {
 	return &HistogramDistribution{
 		h:    d.h,
