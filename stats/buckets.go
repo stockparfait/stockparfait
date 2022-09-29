@@ -442,6 +442,32 @@ func (h *Histogram) CDF(x float64) float64 {
 	return (float64(countLow) + coeff*float64(h.Count(b))) / float64(h.Size())
 }
 
+// Prob is the p.d.f. value at x, approximated using histogram counts.
+func (h *Histogram) Prob(x float64) float64 {
+	if x >= h.buckets.MaxVal {
+		return 0.0
+	}
+	if h.buckets.Spacing == SymmetricExponentialSpacing {
+		if x <= -h.buckets.MaxVal {
+			return 0.0
+		}
+	} else if x <= h.buckets.MinVal {
+		return 0.0
+	}
+	b := h.buckets.Bucket(x)
+	shift := (x - h.buckets.X(b, 0.5)) / h.buckets.Size(b)
+	var min, max float64 // p.d.f. values around x
+	if shift >= 0 {
+		min = h.PDF(b)
+		max = h.PDF(b + 1)
+	} else {
+		min = h.PDF(b - 1)
+		max = h.PDF(b)
+		shift = 1.0 + shift
+	}
+	return min + shift*(max-min)
+}
+
 // PDF value at the i'th bucket. Return 0.0 if i is out of range. It integrates
 // to 1.0 when dx = h.Buckets().Size(i).
 func (h *Histogram) PDF(i int) float64 {
