@@ -222,4 +222,43 @@ func TestDistribution(t *testing.T) {
 			So(d2.config.Workers, ShouldBeGreaterThanOrEqualTo, 1)
 		})
 	})
+
+	Convey("HistogramDistribution works", t, func() {
+		b, err := NewBuckets(10, 0.0, 1000.0, LinearSpacing)
+		So(err, ShouldBeNil)
+		h := NewHistogram(b)
+		for i := 0; i < 1000; i++ {
+			h.Add(float64(i))
+		}
+		d := NewHistogramDistribution(h)
+		d.Seed(42)
+
+		Convey("All methods work", func() {
+			x := d.Rand()
+			So(x, ShouldBeGreaterThanOrEqualTo, 0.0)
+			So(x, ShouldBeLessThanOrEqualTo, 1000.0)
+			So(d.Quantile(0.5), ShouldEqual, 500.0)
+			So(d.Prob(100.0), ShouldEqual, 0.001)
+			So(d.CDF(500.0), ShouldEqual, 0.5)
+			So(d.Mean(), ShouldEqual, 499.5)
+			So(d.MAD(), ShouldEqual, 250.0)
+			So(testutil.Round(d.Variance(), 3), ShouldEqual, 82500.0) // actual: 83333.25
+			So(d.Histogram(), ShouldEqual, h)
+			copy, ok := d.Copy().(DistributionWithHistogram)
+			So(ok, ShouldBeTrue)
+			copy.Seed(42)
+			So(copy.Rand(), ShouldEqual, x)
+			copy.Seed(42) // test that rand.Source is not the same.
+			So(d.Rand(), ShouldNotEqual, x)
+		})
+
+		Convey("Rand yields similar distribution", func() {
+			h2 := NewHistogram(b)
+			for i := 0; i < 1000; i++ {
+				h2.Add(d.Rand())
+			}
+			So(testutil.Round(h2.Mean(), 2), ShouldEqual, 510.0) // actual: 499.5
+			So(testutil.Round(h2.MAD(), 2), ShouldEqual, 250.0)
+		})
+	})
 }

@@ -52,6 +52,11 @@ type Distribution interface {
 	Seed(uint64)
 }
 
+type DistributionWithHistogram interface {
+	Distribution
+	Histogram() *Histogram
+}
+
 // studentsTMAD computes the mean absolute deviation of the unscaled T
 // distribution.
 func studentsTMAD(alpha float64) float64 {
@@ -145,7 +150,7 @@ type SampleDistribution struct {
 	histogram *Histogram // for a reasonable Prob / p.d.f.
 }
 
-var _ Distribution = &SampleDistribution{}
+var _ DistributionWithHistogram = &SampleDistribution{}
 
 func (d *SampleDistribution) Rand() float64 {
 	return d.sample.Data()[d.rand.Intn(len(d.sample.Data()))]
@@ -332,7 +337,7 @@ type RandDistribution struct {
 	histogram *Histogram
 }
 
-var _ Distribution = &RandDistribution{}
+var _ DistributionWithHistogram = &RandDistribution{}
 
 // NewRandDistribution creates a Distribution using the transformation of the
 // random sampler function of the source distribution. The source distribution
@@ -459,6 +464,64 @@ func (d *RandDistribution) Copy() Distribution {
 
 func (d *RandDistribution) Seed(seed uint64) {
 	d.source.Seed(seed)
+}
+
+// HistogramDistribution creates a Distribution out of a Histogram.
+type HistogramDistribution struct {
+	h    *Histogram
+	rand *rand.Rand
+}
+
+var _ DistributionWithHistogram = &HistogramDistribution{}
+
+func NewHistogramDistribution(h *Histogram) *HistogramDistribution {
+	return &HistogramDistribution{
+		h:    h,
+		rand: rand.New(rand.NewSource(uint64(time.Now().UnixNano()))),
+	}
+}
+
+func (d *HistogramDistribution) Rand() float64 {
+	return d.h.Quantile(d.rand.Float64())
+}
+
+func (d *HistogramDistribution) Quantile(x float64) float64 {
+	return d.h.Quantile(x)
+}
+
+func (d *HistogramDistribution) Prob(x float64) float64 {
+	return d.h.Prob(x)
+}
+
+func (d *HistogramDistribution) CDF(x float64) float64 {
+	return d.h.CDF(x)
+}
+
+func (d *HistogramDistribution) Mean() float64 {
+	return d.h.Mean()
+}
+
+func (d *HistogramDistribution) MAD() float64 {
+	return d.h.MAD()
+}
+
+func (d *HistogramDistribution) Variance() float64 {
+	return d.h.Variance()
+}
+
+func (d *HistogramDistribution) Histogram() *Histogram {
+	return d.h
+}
+
+func (d *HistogramDistribution) Copy() Distribution {
+	return &HistogramDistribution{
+		h:    d.h,
+		rand: rand.New(rand.NewSource(d.rand.Uint64())),
+	}
+}
+
+func (d *HistogramDistribution) Seed(seed uint64) {
+	d.rand = rand.New(rand.NewSource(seed))
 }
 
 // CompoundRandDistribution creates a RandDistribution out of source compounded
