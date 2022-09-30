@@ -125,7 +125,7 @@ func TestBuckets(t *testing.T) {
 			var b Buckets
 			So(b.InitMessage(testutil.JSON(`{}`)), ShouldBeNil)
 			So(len(b.Bounds), ShouldEqual, 102)
-			So(testutil.Round(1.0+b.X(50, 0.5), 5), ShouldEqual, 1.0) // approx. zero
+			So(testutil.RoundFixed(b.X(50, 0.5), 5), ShouldEqual, 0.0)
 			So(b.Auto, ShouldBeTrue)
 		})
 
