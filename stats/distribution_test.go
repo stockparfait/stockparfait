@@ -122,6 +122,14 @@ func TestDistribution(t *testing.T) {
 				})
 			})
 		})
+
+		Convey("With automatic bounds for buckets", func() {
+			b := *buckets
+			b.Auto = true
+			d2 := NewSampleDistribution(data, &b)
+			h := d2.Histogram()
+			So(h.Buckets().Max, ShouldEqual, 6.0)
+		})
 	})
 
 	Convey("RandDistribution works", t, func() {
@@ -139,8 +147,8 @@ func TestDistribution(t *testing.T) {
   "workers": 1,
   "buckets": {
     "n": 4,
-    "minval": -2,
-    "maxval": 2
+    "min": -2,
+    "max": 2
   }
 }`)
 		So(cfg.InitMessage(js), ShouldBeNil)
@@ -194,8 +202,8 @@ func TestDistribution(t *testing.T) {
   "workers": 1,
   "buckets": {
     "n": 100,
-    "minval": -50,
-    "maxval": 50
+    "min": -50,
+    "max": 50
   }
 }`)
 			So(compCfg.InitMessage(js), ShouldBeNil)

@@ -75,7 +75,7 @@ func TestBuckets(t *testing.T) {
 			So(b.Xs(0.5), ShouldResemble, []float64{
 				0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5})
 			So(b.Xs(0.0), ShouldResemble, []float64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
-			So(b.String(), ShouldEqual, "Buckets{N: 10, Spacing: linear, MinVal: 0, MaxVal: 10}")
+			So(b.String(), ShouldEqual, "Buckets{N: 10, Spacing: linear, Min: 0, Max: 10}")
 		})
 
 		Convey("exponential spacing", func() {
@@ -126,6 +126,58 @@ func TestBuckets(t *testing.T) {
 			So(b.InitMessage(testutil.JSON(`{}`)), ShouldBeNil)
 			So(len(b.Bounds), ShouldEqual, 102)
 			So(testutil.Round(1.0+b.X(50, 0.5), 5), ShouldEqual, 1.0) // approx. zero
+			So(b.Auto, ShouldBeTrue)
+		})
+
+		Convey("FitTo works", func() {
+			Convey("linear spacing", func() {
+				b, err := NewBuckets(5, 1, 2, LinearSpacing)
+				So(err, ShouldBeNil)
+				data := []float64{-2.0, 0.0, 4.0}
+				So(b.FitTo(data), ShouldBeNil)
+				So(b.Min, ShouldEqual, -2.0)
+				So(b.Max, ShouldEqual, 4.0)
+			})
+
+			Convey("exponential spacing for positive samples", func() {
+				b, err := NewBuckets(5, 1, 2, ExponentialSpacing)
+				So(err, ShouldBeNil)
+				data := []float64{0.0, 0.2, 4.0, 10.0}
+				So(b.FitTo(data), ShouldBeNil)
+				So(b.Spacing, ShouldEqual, ExponentialSpacing)
+				So(b.Min, ShouldEqual, 0.2)
+				So(b.Max, ShouldEqual, 10.0)
+			})
+
+			Convey("exponential spacing for negative samples", func() {
+				b, err := NewBuckets(5, 1, 2, ExponentialSpacing)
+				So(err, ShouldBeNil)
+				data := []float64{-3.0, 0.0, 0.2, 4.0, 10.0}
+				So(b.FitTo(data), ShouldBeNil)
+				So(b.Spacing, ShouldEqual, LinearSpacing)
+				So(b.Min, ShouldEqual, -3.0)
+				So(b.Max, ShouldEqual, 10.0)
+			})
+
+			Convey("symmetric exponential spacing for only positive samples", func() {
+				b, err := NewBuckets(5, 1, 2, SymmetricExponentialSpacing)
+				So(err, ShouldBeNil)
+				data := []float64{0.0, 0.2, 4.0, 10.0}
+				So(b.FitTo(data), ShouldBeNil)
+				So(b.Spacing, ShouldEqual, ExponentialSpacing)
+				So(b.Min, ShouldEqual, 0.2)
+				So(b.Max, ShouldEqual, 10.0)
+			})
+
+			Convey("symmetric exponential spacing for full range", func() {
+				b, err := NewBuckets(5, 1, 2, SymmetricExponentialSpacing)
+				So(err, ShouldBeNil)
+				data := []float64{-10.0, -3.0, -0.2, 0.0, 0.02, 4.0, 9.0}
+				So(b.FitTo(data), ShouldBeNil)
+				So(b.Spacing, ShouldEqual, SymmetricExponentialSpacing)
+				So(b.Min, ShouldEqual, 0.02)
+				So(b.Max, ShouldEqual, 10.0)
+			})
 		})
 	})
 }
