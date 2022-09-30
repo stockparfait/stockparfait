@@ -246,6 +246,9 @@ func NewSampleDistribution(sample []float64, buckets *Buckets) *SampleDistributi
 	// Sort the sample for fast quantile and c.d.f. computation.
 	sort.Slice(sample, func(i, j int) bool { return sample[i] < sample[j] })
 
+	if buckets.Auto && len(sample) >= 2 {
+		buckets.FitTo(sample) // ignore the error, it preserves the value
+	}
 	return &SampleDistribution{
 		sample:  NewSample().Init(sample),
 		buckets: buckets,
