@@ -311,12 +311,14 @@ func (b *Buckets) FitTo(data []float64) error {
 	return errors.Reason("unsupported spacing: %s", b.Spacing)
 }
 
-// Histogram stores sample counts for each bucket.
+// Histogram stores sample counts for each bucket.  The counts are continuous
+// (float64) so that Histogram can be used to represent c.d.f.-based
+// distributions derived numerically.
 type Histogram struct {
 	buckets  *Buckets
-	counts   []uint    // expected to be of length Buckets.N
+	counts   []float64 // expected to be of length Buckets.N
 	sums     []float64 // sum of samples for each bucket
-	size     uint      // total counts
+	size     float64   // total sum of counts
 	sumTotal float64   // total sum of samples
 }
 
@@ -328,7 +330,7 @@ func NewHistogram(buckets *Buckets) *Histogram {
 	}
 	return &Histogram{
 		buckets: buckets,
-		counts:  make([]uint, buckets.N),
+		counts:  make([]float64, buckets.N),
 		sums:    make([]float64, buckets.N),
 	}
 }
@@ -337,12 +339,12 @@ func NewHistogram(buckets *Buckets) *Histogram {
 func (h *Histogram) Buckets() *Buckets { return h.buckets }
 
 // Counts of the Histogram.
-func (h *Histogram) Counts() []uint { return h.counts }
+func (h *Histogram) Counts() []float64 { return h.counts }
 
 // Count of the i'th bucket. Returns 0 if i is out of range.
-func (h *Histogram) Count(i int) uint {
+func (h *Histogram) Count(i int) float64 {
 	if i < 0 || i >= len(h.counts) {
-		return 0
+		return 0.0
 	}
 	return h.counts[i]
 }
@@ -359,7 +361,7 @@ func (h *Histogram) Sum(i int) float64 {
 }
 
 // Size is the sum total of all counts.
-func (h *Histogram) Size() uint { return h.size }
+func (h *Histogram) Size() float64 { return h.size }
 
 // SumTotal of all samples.
 func (h *Histogram) SumTotal() float64 { return h.sumTotal }
@@ -372,7 +374,7 @@ func (h *Histogram) Add(xs ...float64) {
 		h.sums[i] += x
 		h.sumTotal += x
 	}
-	h.size += uint(len(xs))
+	h.size += float64(len(xs))
 }
 
 // AddHistogram adds h2 samples into the Histogram. h2 must have the same
@@ -397,7 +399,7 @@ func (h *Histogram) X(i int) float64 {
 	if h.counts[i] == 0 {
 		return h.buckets.X(i, 0.5)
 	}
-	return h.sums[i] / float64(h.counts[i])
+	return h.sums[i] / h.counts[i]
 }
 
 // Xs returns the list of mean values for all buckets. The slice is always newly
@@ -415,7 +417,7 @@ func (h *Histogram) Mean() float64 {
 	if h.size == 0 {
 		return 0.0
 	}
-	return h.sumTotal / float64(h.size)
+	return h.sumTotal / h.size
 }
 
 // MAD esmimates mean absolute deviation.
@@ -431,9 +433,9 @@ func (h *Histogram) MAD() float64 {
 		if dev < 0.0 {
 			dev = -dev
 		}
-		sum += dev * float64(h.counts[i])
+		sum += dev * h.counts[i]
 	}
-	return sum / float64(h.size)
+	return sum / h.size
 }
 
 // Variance esmimation.
@@ -446,9 +448,9 @@ func (h *Histogram) Variance() float64 {
 	for i := 0; i < h.buckets.N; i++ {
 		x := h.X(i)
 		dev := x - mean
-		sum += dev * dev * float64(h.counts[i])
+		sum += dev * dev * h.counts[i]
 	}
-	return sum / float64(h.size)
+	return sum / h.size
 }
 
 // Sigma is the estimated standard deviation.
@@ -465,9 +467,9 @@ func (h *Histogram) Quantile(q float64) float64 {
 	if h.size == 0.0 {
 		return 0.0
 	}
-	var acc uint = 0
+	var acc float64 = 0
 	idx := 0
-	qCount := uint(math.Round(q * float64(h.size)))
+	qCount := q * h.size
 	for i, c := range h.counts {
 		acc += c
 		idx = i
@@ -479,7 +481,7 @@ func (h *Histogram) Quantile(q float64) float64 {
 	if acc == accPrev {
 		return h.buckets.Bounds[idx]
 	}
-	shift := 1.0 - float64(acc-qCount)/float64(acc-accPrev)
+	shift := 1.0 - (acc-qCount)/(acc-accPrev)
 	return h.buckets.X(idx, shift)
 }
 
@@ -498,12 +500,12 @@ func (h *Histogram) CDF(x float64) float64 {
 		return 0.0
 	}
 	b := h.buckets.Bucket(x)
-	var countLow uint
+	var countLow float64
 	for i := 0; i < b; i++ {
 		countLow += h.Count(i)
 	}
 	coeff := (x - h.buckets.X(b, 0.0)) / h.buckets.Size(b)
-	return (float64(countLow) + coeff*float64(h.Count(b))) / float64(h.Size())
+	return (countLow + coeff*h.Count(b)) / h.Size()
 }
 
 // Prob is the p.d.f. value at x, approximated using histogram counts.
@@ -541,7 +543,7 @@ func (h *Histogram) PDF(i int) float64 {
 	if h.size == 0 {
 		return 0.0
 	}
-	return float64(h.counts[i]) / float64(h.size) / h.buckets.Size(i)
+	return h.counts[i] / h.size / h.buckets.Size(i)
 }
 
 // PDFs lists all the values of PDF for all the buckets. This is suitable
