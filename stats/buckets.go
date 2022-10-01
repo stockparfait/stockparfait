@@ -377,6 +377,22 @@ func (h *Histogram) Add(xs ...float64) {
 	h.size += float64(len(xs))
 }
 
+// AddCounts to the histogram directly. Assumes len(counts) = h.Buckets().N.
+func (h *Histogram) AddCounts(counts []float64) error {
+	if len(counts) != len(h.counts) {
+		return errors.Reason(
+			"len(counts)=%d != buckets.N=%d", len(counts), len(h.counts))
+	}
+	for i := range counts {
+		h.counts[i] += counts[i]
+		h.size += counts[i]
+		sum := h.buckets.X(i, 0.5) * counts[i]
+		h.sums[i] += sum
+		h.sumTotal += sum
+	}
+	return nil
+}
+
 // AddHistogram adds h2 samples into the Histogram. h2 must have the same
 // buckets as self.
 func (h *Histogram) AddHistogram(h2 *Histogram) error {

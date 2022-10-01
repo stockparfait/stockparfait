@@ -223,6 +223,13 @@ func TestHistogram(t *testing.T) {
 			So(h.CDF(1000.0), ShouldEqual, 1.0)
 			So(h.CDF(1001.0), ShouldEqual, 1.0)
 
+			Convey("from counts", func() {
+				h2 := NewHistogram(b)
+				So(h2.AddCounts([]float64{
+					0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1}), ShouldBeNil)
+				So(h.PDF(5), ShouldEqual, 0.001)
+			})
+
 			Convey("from another histogram", func() {
 				h2 := NewHistogram(b)
 				So(h2.AddHistogram(h), ShouldBeNil)
