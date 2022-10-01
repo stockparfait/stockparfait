@@ -195,7 +195,7 @@ func TestHistogram(t *testing.T) {
 			}
 			So(h.Size(), ShouldEqual, 1000)
 			So(h.Buckets().N, ShouldEqual, 10)
-			So(h.Counts(), ShouldResemble, []uint{
+			So(h.Counts(), ShouldResemble, []float64{
 				100, 100, 100, 100, 100, 100, 100, 100, 100, 100})
 			So(h.Count(5), ShouldEqual, 100)
 			So(h.Count(11), ShouldEqual, 0)
@@ -222,6 +222,13 @@ func TestHistogram(t *testing.T) {
 			So(h.CDF(950.0), ShouldEqual, 0.95)
 			So(h.CDF(1000.0), ShouldEqual, 1.0)
 			So(h.CDF(1001.0), ShouldEqual, 1.0)
+
+			Convey("from counts", func() {
+				h2 := NewHistogram(b)
+				So(h2.AddCounts([]float64{
+					0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1}), ShouldBeNil)
+				So(h.PDF(5), ShouldEqual, 0.001)
+			})
 
 			Convey("from another histogram", func() {
 				h2 := NewHistogram(b)
@@ -280,7 +287,7 @@ func TestHistogram(t *testing.T) {
 			So(h.Buckets().N, ShouldEqual, 9)
 			So(h.Buckets().Bounds, ShouldResemble, []float64{
 				-100.0, -10.0, -1.0, -0.1, -0.01, 0.01, 0.1, 1.0, 10.0, 100.0})
-			So(h.Counts(), ShouldResemble, []uint{
+			So(h.Counts(), ShouldResemble, []float64{
 				90, 9, 1, 0, 1, 0, 0, 9, 90})
 			So(testutil.RoundFixed(h.Mean(), 3), ShouldEqual, -0.5)       // actual: -0.5
 			So(testutil.Round(h.MAD(), 4), ShouldEqual, 50.0)             // actual: 50.0
