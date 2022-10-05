@@ -122,7 +122,7 @@ func (b *Buckets) checkValues() error {
 	if b.N <= 0 {
 		return errors.Reason("n=%d must be > 0", b.N)
 	}
-	if b.Spacing != LinearSpacing && b.Min <= 0.0 {
+	if b.Spacing != LinearSpacing && b.Min <= 0 {
 		return errors.Reason("minval=%f must be > 0 for non-linear spacing", b.Min)
 	}
 	if b.Spacing == SymmetricExponentialSpacing && !(b.N >= 3 && b.N%2 == 1) {
@@ -160,7 +160,7 @@ func linearVal(n, i int, shift, minval, maxval float64) float64 {
 
 // expVal computes the value in the i'th exponentially spaced bucket.
 func expVal(n, i int, shift, minval, maxval float64) float64 {
-	return math.Pow(10.0, linearVal(
+	return math.Pow(10, linearVal(
 		n, i, shift, math.Log10(minval), math.Log10(maxval)))
 }
 
@@ -213,7 +213,7 @@ func (b *Buckets) Xs(shift float64) []float64 {
 func (b *Buckets) setBounds() {
 	b.Bounds = make([]float64, b.N+1)
 	for i := range b.Bounds {
-		b.Bounds[i] = b.X(i, 0.0)
+		b.Bounds[i] = b.X(i, 0)
 	}
 }
 
@@ -244,7 +244,7 @@ func (b *Buckets) Bucket(x float64) int {
 // Size of the i'th bucket.
 func (b *Buckets) Size(i int) float64 {
 	if i < 0 || i >= b.N {
-		return 0.0
+		return 0
 	}
 	return b.Bounds[i+1] - b.Bounds[i]
 }
@@ -262,7 +262,7 @@ func (b *Buckets) FitTo(data []float64) error {
 		*b = *copy
 		return nil
 	case ExponentialSpacing:
-		if data[0] < 0 || data[len(data)-1] <= 0.0 {
+		if data[0] < 0 || data[len(data)-1] <= 0 {
 			copy := *b
 			copy.Spacing = LinearSpacing
 			if err := copy.FitTo(data); err != nil {
@@ -272,7 +272,7 @@ func (b *Buckets) FitTo(data []float64) error {
 			return nil
 		}
 		min := data[0]
-		for i := 1; i < len(data) && min == 0.0; i++ {
+		for i := 1; i < len(data) && min == 0; i++ {
 			min = data[i]
 		}
 		copy, err := NewBuckets(b.N, min, data[len(data)-1], ExponentialSpacing)
@@ -282,7 +282,7 @@ func (b *Buckets) FitTo(data []float64) error {
 		*b = *copy
 		return nil
 	case SymmetricExponentialSpacing:
-		if data[0] >= 0.0 {
+		if data[0] >= 0 {
 			copy := *b
 			copy.Spacing = ExponentialSpacing
 			if err := copy.FitTo(data); err != nil {
@@ -348,7 +348,7 @@ func (h *Histogram) Counts() []uint { return h.counts }
 // Count of the i'th bucket. Returns 0 if i is out of range.
 func (h *Histogram) Count(i int) uint {
 	if i < 0 || i >= len(h.counts) {
-		return 0.0
+		return 0
 	}
 	return h.counts[i]
 }
@@ -360,7 +360,7 @@ func (h *Histogram) Weights() []float64 { return h.weights }
 // Weight of the i'th bucket. Returns 0 if i is out of range.
 func (h *Histogram) Weight(i int) float64 {
 	if i < 0 || i >= len(h.weights) {
-		return 0.0
+		return 0
 	}
 	return h.weights[i]
 }
@@ -371,7 +371,7 @@ func (h *Histogram) Sums() []float64 { return h.sums }
 // Sum of samples for the i'th bucket. Returns 0 if i is out of range.
 func (h *Histogram) Sum(i int) float64 {
 	if i < 0 || i >= len(h.sums) {
-		return 0.0
+		return 0
 	}
 	return h.sums[i]
 }
@@ -460,7 +460,7 @@ func (h *Histogram) Xs() []float64 {
 // Mean computes the approximate mean of the distribution.
 func (h *Histogram) Mean() float64 {
 	if h.size == 0 {
-		return 0.0
+		return 0
 	}
 	return h.sumTotal / h.size
 }
@@ -468,14 +468,14 @@ func (h *Histogram) Mean() float64 {
 // MAD esmimates mean absolute deviation.
 func (h *Histogram) MAD() float64 {
 	if h.size == 0 {
-		return 0.0
+		return 0
 	}
 	mean := h.Mean()
 	sum := 0.0
 	for i := 0; i < h.buckets.N; i++ {
 		x := h.X(i)
 		dev := x - mean
-		if dev < 0.0 {
+		if dev < 0 {
 			dev = -dev
 		}
 		sum += dev * h.weights[i]
@@ -486,7 +486,7 @@ func (h *Histogram) MAD() float64 {
 // Variance esmimation.
 func (h *Histogram) Variance() float64 {
 	if h.size == 0 {
-		return 0.0
+		return 0
 	}
 	mean := h.Mean()
 	sum := 0.0
@@ -504,13 +504,14 @@ func (h *Histogram) Sigma() float64 {
 }
 
 // Quantile computes the approximation of the q'th quantile, where e.g. q=0.5 is
-// the 50th percentile. Panics if q is not within [0..1].
+// the 50th percentile. Quantiles of 0 and 1 can be used as approximations of
+// the minimum and maximum sample values. Panics if q is not within [0..1].
 func (h *Histogram) Quantile(q float64) float64 {
-	if q < 0.0 || 1.0 < q {
+	if q < 0 || 1 < q {
 		panic(errors.Reason("q=%f not in [0..1]", q))
 	}
-	if h.size == 0.0 {
-		return 0.0
+	if h.size == 0 {
+		return 0
 	}
 	var acc float64 = 0
 	idx := 0
@@ -518,7 +519,8 @@ func (h *Histogram) Quantile(q float64) float64 {
 	for i, c := range h.weights {
 		acc += c
 		idx = i
-		if acc >= qWeight {
+		// skip all the 0-weight buckets, so Quantile(0) estimates the min. value.
+		if acc > 0 && acc >= qWeight {
 			break
 		}
 	}
@@ -539,31 +541,31 @@ func (h *Histogram) CDF(x float64) float64 {
 	}
 	if h.buckets.Spacing == SymmetricExponentialSpacing {
 		if x <= -h.buckets.Max {
-			return 0.0
+			return 0
 		}
 	} else if x <= h.buckets.Min {
-		return 0.0
+		return 0
 	}
 	b := h.buckets.Bucket(x)
 	var weightLow float64
 	for i := 0; i < b; i++ {
 		weightLow += h.Weight(i)
 	}
-	coeff := (x - h.buckets.X(b, 0.0)) / h.buckets.Size(b)
+	coeff := (x - h.buckets.X(b, 0)) / h.buckets.Size(b)
 	return (weightLow + coeff*h.Weight(b)) / h.Size()
 }
 
 // Prob is the p.d.f. value at x, approximated using histogram weights.
 func (h *Histogram) Prob(x float64) float64 {
 	if x >= h.buckets.Max {
-		return 0.0
+		return 0
 	}
 	if h.buckets.Spacing == SymmetricExponentialSpacing {
 		if x <= -h.buckets.Max {
-			return 0.0
+			return 0
 		}
 	} else if x <= h.buckets.Min {
-		return 0.0
+		return 0
 	}
 	b := h.buckets.Bucket(x)
 	shift := (x - h.buckets.X(b, 0.5)) / h.buckets.Size(b)
@@ -579,14 +581,14 @@ func (h *Histogram) Prob(x float64) float64 {
 	return min + shift*(max-min)
 }
 
-// PDF value at the i'th bucket. Return 0.0 if i is out of range. It integrates
-// to 1.0 when dx = h.Buckets().Size(i).
+// PDF value at the i'th bucket. Return 0 if i is out of range. It integrates to
+// 1.0 when dx = h.Buckets().Size(i).
 func (h *Histogram) PDF(i int) float64 {
 	if i < 0 || i >= len(h.weights) {
-		return 0.0
+		return 0
 	}
 	if h.size == 0 {
-		return 0.0
+		return 0
 	}
 	return h.weights[i] / h.size / h.buckets.Size(i)
 }

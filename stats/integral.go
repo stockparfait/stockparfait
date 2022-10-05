@@ -74,48 +74,11 @@ func ExpectationMC(f func(x float64) float64, random func() float64,
 	return result
 }
 
-/// Methods for integral variable substitution in Monte Carlo integration.
-//
-// Given the original I = \integral_{x_min..x_max} f(x) dx, replace x by t: I =
-// integral_{t_min..t_max} f(x(t)) x'(t) dt, where x(t_min) = x_min, x(t_max) =
-// x_max, and x'(t) = dx/dt is the derivative of x(t) over t.
-//
-// The interesting case supported here is an N-dimensional integral over a
-// vector X=(x_1, ..., x_N) in R^N, that is the entire N-dimensional real
-// hyperspace. The original integral is assumed to be of the form:
-//
-// I = E[g(X)] = \integral g(X)*f(X)*dX
-//
-// where f(X) is a p.d.f. of a distribution. The simplest way to compute it is
-// to generate random samples of X using the same distribution; then:
-//
-// I ~= 1/N * sum_{i=1..K} g(X_i) for K number of such samples.
-//
-// In practice, the distribution f(X) may require too many samples to generate
-// enough samples in the area of interest, e.g. where g(X) is sufficiently large
-// and significantly contributes to the integral. Therefore, it may be
-// beneficial to replace it with another variable t uniformly distributed in
-// (-1..1), such that x(-1) = -Inf, x(1) = Inf, and x(t) is monotonically
-// increasing and differentiable over the entire R.
-//
-// Specificially, our g(X) will often be a unit function on a range, for
-// computing a bucket value in a histogram:
-//
-// g(x) = (x in [low .. high]) ? 1 : 0
-//
-// The substitution is x(t) = r * t / (1 - t^(2*b)), where r controls the width
-// of a near-uniform distribution of x values around zero, and b controls the
-// portion of samples falling beyond the interval [-r..r].
-//
-// However, rather than computing each bucket value separately, we will be
-// sampling x over the entire range using this method, and incrementing the
-// appropriate bucket by f(x(t))*x'(t), thus computing many g(x)'s in one go.
-
 // VarSubst computes the value of x(t) = r * t / (1 - t^(2*b)) to be used as a
 // variable substitution in an integral over x in (-Inf..Inf). The new bounds
 // for t become (-1..1), excluding the boundaries.
 func VarSubst(t, r, b float64) float64 {
-	return r * t / (1 - math.Pow(t*t, b))
+	return r * t / (1 - math.Pow(t, 2*b))
 }
 
 // VarPrime is the value of x'(t), the first derivative of x(t).

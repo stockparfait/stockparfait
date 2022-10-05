@@ -57,7 +57,7 @@ func TestIntegral(t *testing.T) {
 	})
 
 	Convey("Variable substitution methods work", t, func() {
-		Convey("VarSubst covers is symmetric and large near -1 and 1", func() {
+		Convey("VarSubst is symmetric and large near -1 and 1", func() {
 			So(VarSubst(0, 5, 2), ShouldEqual, 0)
 			So(testutil.Round(VarSubst(0.5, 5, 2), 3), ShouldEqual, 2.67)
 			So(testutil.Round(VarSubst(-0.5, 5, 2), 3), ShouldEqual, -2.67)
