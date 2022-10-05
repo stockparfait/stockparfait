@@ -174,7 +174,7 @@ func (d *SampleDistribution) Quantile(x float64) float64 {
 }
 
 func (d *SampleDistribution) Prob(x float64) float64 {
-	return d.Histogram().PDF(d.Histogram().Buckets().Bucket(x))
+	return d.Histogram().Prob(x)
 }
 
 // CDF of the sample distribution.
@@ -590,48 +590,4 @@ func CompoundSampleDistribution(ctx context.Context, source Distribution, n int,
 func FastCompoundSampleDistribution(ctx context.Context, source Distribution, n int, cfg *RandDistributionConfig) *SampleDistribution {
 	d := FastCompoundRandDistribution(ctx, source, n, cfg)
 	return NewSampleDistributionFromRandDist(d, cfg.Samples, &cfg.Buckets)
-}
-
-// ExpectationMC computes a (potentially partial) expectation integral:
-// \integral_{ low .. high } [ f(x) * d.Prob(x) * dx ] using the simple
-// Monte-Carlo method of sampling f(x) with the given distribution sampler and
-// computing the average. The bounds are inclusive. Note, that low may be -Inf,
-// and high may be +Inf.
-//
-// The sampling stops either when the maxIter samples have been reached, or when
-// the relative change in the result abs((res[k] - res[k-1])/res[k-1]) was less
-// than precision for 100 iterations.
-func ExpectationMC(f func(x float64) float64,
-	d Distribution, low, high float64, maxIter int, precision float64) float64 {
-	count := 0
-	sum := 0.0
-	iterSincePrecision := 0
-	for i := 0; i < maxIter; i++ {
-		x := d.Rand()
-		prevRes := 0.0
-		if count > 0 {
-			prevRes = sum / float64(count)
-		}
-		count++
-		if x < low || high < x {
-			continue
-		}
-		sum += f(x)
-		if count == 1 { // no prevRes yet
-			continue
-		}
-		change := sum/float64(count) - prevRes
-		if prevRes != 0.0 {
-			change = change / prevRes
-		}
-		if change < precision {
-			iterSincePrecision++
-		} else {
-			iterSincePrecision = 0
-		}
-		if iterSincePrecision >= 100 {
-			break
-		}
-	}
-	return sum / float64(count)
 }

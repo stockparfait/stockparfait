@@ -75,18 +75,6 @@ func TestDistribution(t *testing.T) {
 			So(d.CDF(10.0), ShouldEqual, 1.0)
 		})
 
-		Convey("ExpectationMC is accurate on full range", func() {
-			one := func(x float64) float64 { return 1.0 }
-			e := ExpectationMC(one, d, math.Inf(-1), math.Inf(1), 1000, 0.01)
-			So(testutil.Round(e, 2), ShouldEqual, 1.0)
-		})
-
-		Convey("ExpectationMC is accurate on a subrange", func() {
-			one := func(x float64) float64 { return 1.0 }
-			e := ExpectationMC(one, d, -3.0, 3.0, 1000, 0.01)
-			So(testutil.Round(e, 2), ShouldEqual, 0.7)
-		})
-
 		Convey("From Rand", func() {
 			d := NewNormalDistribution(2.0, 3.0)
 			d.Seed(seed)

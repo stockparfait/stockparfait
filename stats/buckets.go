@@ -122,7 +122,7 @@ func (b *Buckets) checkValues() error {
 	if b.N <= 0 {
 		return errors.Reason("n=%d must be > 0", b.N)
 	}
-	if b.Spacing != LinearSpacing && b.Min <= 0.0 {
+	if b.Spacing != LinearSpacing && b.Min <= 0 {
 		return errors.Reason("minval=%f must be > 0 for non-linear spacing", b.Min)
 	}
 	if b.Spacing == SymmetricExponentialSpacing && !(b.N >= 3 && b.N%2 == 1) {
@@ -160,7 +160,7 @@ func linearVal(n, i int, shift, minval, maxval float64) float64 {
 
 // expVal computes the value in the i'th exponentially spaced bucket.
 func expVal(n, i int, shift, minval, maxval float64) float64 {
-	return math.Pow(10.0, linearVal(
+	return math.Pow(10, linearVal(
 		n, i, shift, math.Log10(minval), math.Log10(maxval)))
 }
 
@@ -213,7 +213,7 @@ func (b *Buckets) Xs(shift float64) []float64 {
 func (b *Buckets) setBounds() {
 	b.Bounds = make([]float64, b.N+1)
 	for i := range b.Bounds {
-		b.Bounds[i] = b.X(i, 0.0)
+		b.Bounds[i] = b.X(i, 0)
 	}
 }
 
@@ -244,7 +244,7 @@ func (b *Buckets) Bucket(x float64) int {
 // Size of the i'th bucket.
 func (b *Buckets) Size(i int) float64 {
 	if i < 0 || i >= b.N {
-		return 0.0
+		return 0
 	}
 	return b.Bounds[i+1] - b.Bounds[i]
 }
@@ -262,7 +262,7 @@ func (b *Buckets) FitTo(data []float64) error {
 		*b = *copy
 		return nil
 	case ExponentialSpacing:
-		if data[0] < 0 || data[len(data)-1] <= 0.0 {
+		if data[0] < 0 || data[len(data)-1] <= 0 {
 			copy := *b
 			copy.Spacing = LinearSpacing
 			if err := copy.FitTo(data); err != nil {
@@ -272,7 +272,7 @@ func (b *Buckets) FitTo(data []float64) error {
 			return nil
 		}
 		min := data[0]
-		for i := 1; i < len(data) && min == 0.0; i++ {
+		for i := 1; i < len(data) && min == 0; i++ {
 			min = data[i]
 		}
 		copy, err := NewBuckets(b.N, min, data[len(data)-1], ExponentialSpacing)
@@ -282,7 +282,7 @@ func (b *Buckets) FitTo(data []float64) error {
 		*b = *copy
 		return nil
 	case SymmetricExponentialSpacing:
-		if data[0] >= 0.0 {
+		if data[0] >= 0 {
 			copy := *b
 			copy.Spacing = ExponentialSpacing
 			if err := copy.FitTo(data); err != nil {
@@ -315,8 +315,10 @@ func (b *Buckets) FitTo(data []float64) error {
 // (float64) so that Histogram can be used to represent c.d.f.-based
 // distributions derived numerically.
 type Histogram struct {
-	buckets  *Buckets
-	counts   []float64 // expected to be of length Buckets.N
+	buckets *Buckets
+	// All slices are expected to be of length buckets.N.
+	counts   []uint    // actual sample counts, for estimating accuracy
+	weights  []float64 // bucket values
 	sums     []float64 // sum of samples for each bucket
 	size     float64   // total sum of counts
 	sumTotal float64   // total sum of samples
@@ -330,7 +332,8 @@ func NewHistogram(buckets *Buckets) *Histogram {
 	}
 	return &Histogram{
 		buckets: buckets,
-		counts:  make([]float64, buckets.N),
+		counts:  make([]uint, buckets.N),
+		weights: make([]float64, buckets.N),
 		sums:    make([]float64, buckets.N),
 	}
 }
@@ -338,15 +341,28 @@ func NewHistogram(buckets *Buckets) *Histogram {
 // Buckets value of the Histogram.
 func (h *Histogram) Buckets() *Buckets { return h.buckets }
 
-// Counts of the Histogram.
-func (h *Histogram) Counts() []float64 { return h.counts }
+// Counts of the actual (possibly biased) samples in the Histogram. For
+// p.d.f. estimates use Weights.
+func (h *Histogram) Counts() []uint { return h.counts }
 
 // Count of the i'th bucket. Returns 0 if i is out of range.
-func (h *Histogram) Count(i int) float64 {
+func (h *Histogram) Count(i int) uint {
 	if i < 0 || i >= len(h.counts) {
-		return 0.0
+		return 0
 	}
 	return h.counts[i]
+}
+
+// Weights of the buckets in the Histogram. These are the true "sizes" of the
+// buckets in a traditional sense of a histogram.
+func (h *Histogram) Weights() []float64 { return h.weights }
+
+// Weight of the i'th bucket. Returns 0 if i is out of range.
+func (h *Histogram) Weight(i int) float64 {
+	if i < 0 || i >= len(h.weights) {
+		return 0
+	}
+	return h.weights[i]
 }
 
 // Sums of samples per bucket.
@@ -355,7 +371,7 @@ func (h *Histogram) Sums() []float64 { return h.sums }
 // Sum of samples for the i'th bucket. Returns 0 if i is out of range.
 func (h *Histogram) Sum(i int) float64 {
 	if i < 0 || i >= len(h.sums) {
-		return 0.0
+		return 0
 	}
 	return h.sums[i]
 }
@@ -371,22 +387,34 @@ func (h *Histogram) Add(xs ...float64) {
 	for _, x := range xs {
 		i := h.buckets.Bucket(x)
 		h.counts[i]++
+		h.weights[i]++
 		h.sums[i] += x
 		h.sumTotal += x
 	}
 	h.size += float64(len(xs))
 }
 
-// AddCounts to the histogram directly. Assumes len(counts) = h.Buckets().N.
-func (h *Histogram) AddCounts(counts []float64) error {
-	if len(counts) != len(h.counts) {
+func (h *Histogram) AddWithWeight(x, weight float64) {
+	i := h.buckets.Bucket(x)
+	h.counts[i]++
+	h.weights[i] += weight
+	xw := x * weight
+	h.sums[i] += xw
+	h.sumTotal += xw
+	h.size += float64(weight)
+}
+
+// AddWeights to the histogram directly. Assumes len(weights) = h.Buckets().N.
+func (h *Histogram) AddWeights(weights []float64) error {
+	if len(weights) != len(h.weights) {
 		return errors.Reason(
-			"len(counts)=%d != buckets.N=%d", len(counts), len(h.counts))
+			"len(weights)=%d != buckets.N=%d", len(weights), len(h.weights))
 	}
-	for i := range counts {
-		h.counts[i] += counts[i]
-		h.size += counts[i]
-		sum := h.buckets.X(i, 0.5) * counts[i]
+	for i := range weights {
+		h.weights[i] += weights[i]
+		h.counts[i]++
+		h.size += weights[i]
+		sum := h.buckets.X(i, 0.5) * weights[i]
 		h.sums[i] += sum
 		h.sumTotal += sum
 	}
@@ -402,6 +430,7 @@ func (h *Histogram) AddHistogram(h2 *Histogram) error {
 	}
 	for i := range h2.counts {
 		h.counts[i] += h2.counts[i]
+		h.weights[i] += h2.weights[i]
 		h.sums[i] += h2.sums[i]
 	}
 	h.size += h2.size
@@ -412,10 +441,10 @@ func (h *Histogram) AddHistogram(h2 *Histogram) error {
 // X returns the mean x value of the i'th bucket, or the logical middle of the
 // bucket if it has no samples.
 func (h *Histogram) X(i int) float64 {
-	if h.counts[i] == 0 {
+	if h.weights[i] == 0 {
 		return h.buckets.X(i, 0.5)
 	}
-	return h.sums[i] / h.counts[i]
+	return h.sums[i] / h.weights[i]
 }
 
 // Xs returns the list of mean values for all buckets. The slice is always newly
@@ -431,7 +460,7 @@ func (h *Histogram) Xs() []float64 {
 // Mean computes the approximate mean of the distribution.
 func (h *Histogram) Mean() float64 {
 	if h.size == 0 {
-		return 0.0
+		return 0
 	}
 	return h.sumTotal / h.size
 }
@@ -439,17 +468,17 @@ func (h *Histogram) Mean() float64 {
 // MAD esmimates mean absolute deviation.
 func (h *Histogram) MAD() float64 {
 	if h.size == 0 {
-		return 0.0
+		return 0
 	}
 	mean := h.Mean()
 	sum := 0.0
 	for i := 0; i < h.buckets.N; i++ {
 		x := h.X(i)
 		dev := x - mean
-		if dev < 0.0 {
+		if dev < 0 {
 			dev = -dev
 		}
-		sum += dev * h.counts[i]
+		sum += dev * h.weights[i]
 	}
 	return sum / h.size
 }
@@ -457,14 +486,14 @@ func (h *Histogram) MAD() float64 {
 // Variance esmimation.
 func (h *Histogram) Variance() float64 {
 	if h.size == 0 {
-		return 0.0
+		return 0
 	}
 	mean := h.Mean()
 	sum := 0.0
 	for i := 0; i < h.buckets.N; i++ {
 		x := h.X(i)
 		dev := x - mean
-		sum += dev * dev * h.counts[i]
+		sum += dev * dev * h.weights[i]
 	}
 	return sum / h.size
 }
@@ -475,33 +504,35 @@ func (h *Histogram) Sigma() float64 {
 }
 
 // Quantile computes the approximation of the q'th quantile, where e.g. q=0.5 is
-// the 50th percentile. Panics if q is not within [0..1].
+// the 50th percentile. Quantiles of 0 and 1 can be used as approximations of
+// the minimum and maximum sample values. Panics if q is not within [0..1].
 func (h *Histogram) Quantile(q float64) float64 {
-	if q < 0.0 || 1.0 < q {
+	if q < 0 || 1 < q {
 		panic(errors.Reason("q=%f not in [0..1]", q))
 	}
-	if h.size == 0.0 {
-		return 0.0
+	if h.size == 0 {
+		return 0
 	}
 	var acc float64 = 0
 	idx := 0
-	qCount := q * h.size
-	for i, c := range h.counts {
+	qWeight := q * h.size
+	for i, c := range h.weights {
 		acc += c
 		idx = i
-		if acc >= qCount {
+		// skip all the 0-weight buckets, so Quantile(0) estimates the min. value.
+		if acc > 0 && acc >= qWeight {
 			break
 		}
 	}
-	accPrev := acc - h.counts[idx]
+	accPrev := acc - h.weights[idx]
 	if acc == accPrev {
 		return h.buckets.Bounds[idx]
 	}
-	shift := 1.0 - (acc-qCount)/(acc-accPrev)
+	shift := 1.0 - (acc-qWeight)/(acc-accPrev)
 	return h.buckets.X(idx, shift)
 }
 
-// CDF value at x, approximated using histogram counts. It is effectively an
+// CDF value at x, approximated using histogram weights. It is effectively an
 // inverse of Quantile(), interpolating values of x when it falls between bucket
 // boundaries.
 func (h *Histogram) CDF(x float64) float64 {
@@ -510,31 +541,31 @@ func (h *Histogram) CDF(x float64) float64 {
 	}
 	if h.buckets.Spacing == SymmetricExponentialSpacing {
 		if x <= -h.buckets.Max {
-			return 0.0
+			return 0
 		}
 	} else if x <= h.buckets.Min {
-		return 0.0
+		return 0
 	}
 	b := h.buckets.Bucket(x)
-	var countLow float64
+	var weightLow float64
 	for i := 0; i < b; i++ {
-		countLow += h.Count(i)
+		weightLow += h.Weight(i)
 	}
-	coeff := (x - h.buckets.X(b, 0.0)) / h.buckets.Size(b)
-	return (countLow + coeff*h.Count(b)) / h.Size()
+	coeff := (x - h.buckets.X(b, 0)) / h.buckets.Size(b)
+	return (weightLow + coeff*h.Weight(b)) / h.Size()
 }
 
-// Prob is the p.d.f. value at x, approximated using histogram counts.
+// Prob is the p.d.f. value at x, approximated using histogram weights.
 func (h *Histogram) Prob(x float64) float64 {
 	if x >= h.buckets.Max {
-		return 0.0
+		return 0
 	}
 	if h.buckets.Spacing == SymmetricExponentialSpacing {
 		if x <= -h.buckets.Max {
-			return 0.0
+			return 0
 		}
 	} else if x <= h.buckets.Min {
-		return 0.0
+		return 0
 	}
 	b := h.buckets.Bucket(x)
 	shift := (x - h.buckets.X(b, 0.5)) / h.buckets.Size(b)
@@ -550,23 +581,23 @@ func (h *Histogram) Prob(x float64) float64 {
 	return min + shift*(max-min)
 }
 
-// PDF value at the i'th bucket. Return 0.0 if i is out of range. It integrates
-// to 1.0 when dx = h.Buckets().Size(i).
+// PDF value at the i'th bucket. Return 0 if i is out of range. It integrates to
+// 1.0 when dx = h.Buckets().Size(i).
 func (h *Histogram) PDF(i int) float64 {
-	if i < 0 || i >= len(h.counts) {
-		return 0.0
+	if i < 0 || i >= len(h.weights) {
+		return 0
 	}
 	if h.size == 0 {
-		return 0.0
+		return 0
 	}
-	return h.counts[i] / h.size / h.buckets.Size(i)
+	return h.weights[i] / h.size / h.buckets.Size(i)
 }
 
 // PDFs lists all the values of PDF for all the buckets. This is suitable
 // for plotting against Xs().
 func (h *Histogram) PDFs() []float64 {
-	res := make([]float64, len(h.counts))
-	for i := range h.counts {
+	res := make([]float64, len(h.weights))
+	for i := range h.weights {
 		res[i] = h.PDF(i)
 	}
 	return res
