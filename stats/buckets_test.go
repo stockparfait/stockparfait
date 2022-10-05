@@ -195,7 +195,9 @@ func TestHistogram(t *testing.T) {
 			}
 			So(h.Size(), ShouldEqual, 1000)
 			So(h.Buckets().N, ShouldEqual, 10)
-			So(h.Counts(), ShouldResemble, []float64{
+			So(h.Counts(), ShouldResemble, []uint{
+				100, 100, 100, 100, 100, 100, 100, 100, 100, 100})
+			So(h.Weights(), ShouldResemble, []float64{
 				100, 100, 100, 100, 100, 100, 100, 100, 100, 100})
 			So(h.Count(5), ShouldEqual, 100)
 			So(h.Count(11), ShouldEqual, 0)
@@ -225,7 +227,7 @@ func TestHistogram(t *testing.T) {
 
 			Convey("from counts", func() {
 				h2 := NewHistogram(b)
-				So(h2.AddCounts([]float64{
+				So(h2.AddWeights([]float64{
 					0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1}), ShouldBeNil)
 				So(h.PDF(5), ShouldEqual, 0.001)
 			})
@@ -234,6 +236,7 @@ func TestHistogram(t *testing.T) {
 				h2 := NewHistogram(b)
 				So(h2.AddHistogram(h), ShouldBeNil)
 				So(h2.Counts(), ShouldResemble, h.Counts())
+				So(h2.Weights(), ShouldResemble, h.Weights())
 				So(h2.Sums(), ShouldResemble, h.Sums())
 				So(h2.Size(), ShouldEqual, h.Size())
 				So(h2.SumTotal(), ShouldEqual, h.SumTotal())
@@ -276,25 +279,31 @@ func TestHistogram(t *testing.T) {
 			})
 		})
 
-		Convey("with symmetric exponential buckets", func() {
+		Convey("with symmetric exponential buckets and weights", func() {
 			b, err := NewBuckets(9, 0.01, 100.0, SymmetricExponentialSpacing)
 			So(err, ShouldBeNil)
 			h := NewHistogram(b)
 			for i := -100; i < 100; i++ {
-				h.Add(float64(i))
+				if i == 0 { // test that weights add up correctly
+					h.AddWithWeight(float64(i), 0.07)
+					h.AddWithWeight(float64(i), 0.03)
+					continue
+				}
+				h.AddWithWeight(float64(i), 0.1)
 			}
-			So(h.Size(), ShouldEqual, 200)
+			So(testutil.Round(h.Size(), 6), ShouldEqual, 20.0)
 			So(h.Buckets().N, ShouldEqual, 9)
 			So(h.Buckets().Bounds, ShouldResemble, []float64{
 				-100.0, -10.0, -1.0, -0.1, -0.01, 0.01, 0.1, 1.0, 10.0, 100.0})
-			So(h.Counts(), ShouldResemble, []float64{
-				90, 9, 1, 0, 1, 0, 0, 9, 90})
+			So(h.Counts(), ShouldResemble, []uint{90, 9, 1, 0, 2, 0, 0, 9, 90})
+			So(testutil.RoundSlice(h.Weights(), 6), ShouldResemble, []float64{
+				9, 0.9, 0.1, 0, 0.1, 0, 0, 0.9, 9})
 			So(testutil.RoundFixed(h.Mean(), 3), ShouldEqual, -0.5)       // actual: -0.5
 			So(testutil.Round(h.MAD(), 4), ShouldEqual, 50.0)             // actual: 50.0
 			So(testutil.Round(h.Sigma(), 4), ShouldEqual, 52.2)           // actual: 57.7
 			So(testutil.Round(h.Quantile(0.0), 5), ShouldEqual, -100.0)   // actual: -100.0
 			So(testutil.Round(h.Quantile(0.25), 5), ShouldEqual, -27.826) // actual: -50.0
-			So(testutil.Round(h.Quantile(0.5), 5), ShouldEqual, -0.1)     // actual: 0.0
+			So(testutil.Round(h.Quantile(0.5), 5), ShouldEqual, -0.01)    // actual: 0.0
 			So(testutil.Round(h.Quantile(0.88), 5), ShouldEqual, 54.117)  // actual: 76.0
 			So(testutil.Round(h.Quantile(1.0), 5), ShouldEqual, 100.0)    // actual: 100.0
 
