@@ -40,12 +40,16 @@ enough samples in the area of interest, e.g. where `g(X)` is sufficiently large
 and significantly contributes to the integral. Therefore, it may be beneficial
 to replace each `x` in the vector `X` with another variable `t` uniformly
 distributed in `(-1..1)`, such that `x(t -> -1) -> -Inf`, `x(t -> 1) -> Inf`,
-and `x(t)` is monotonically increasing and differentiable over the entire `R`.
+`x(t)` is monotonically increasing and differentiable over the entire `R`, and
+the probability of "interesting" values of `x(t)` is significant, so the number
+of required samples can be reduced.
 
-Specificially, our `g(X)` will often be a unit function on a subspace, for
-computing a bucket value in a histogram:
+Specificially, our `g(X)` will often be a unit function on a subspace, usually
+for computing a bucket value in a histogram for the `N`-compounded sample:
 
+```
 g(X) = (sum(X) in [low .. high]) ? 1 : 0
+```
 
 The substitution is
 ```
@@ -56,7 +60,15 @@ where `r` controls the width of a near-uniform distribution of `x` values around
 zero, and `b` controls the portion of samples falling beyond the interval
 `[-r..r]`.
 
+Empirically, for the `N`-sum over `[low..high]`, a good choice of parameters is:
+
+```
+r = max(|low|, |high|)
+b=ceiling(sqrt(N))
+```
+
 However, rather than computing each bucket value separately, we will be sampling
 `x` over the entire range using this method, and incrementing the appropriate
-bucket by `f(x(t))*x'(t)`, thus computing many `g(x)`'s in one go.
+bucket by `f(x(t))*x'(t)`, thus computing many `g(x)`'s in one go. The value of
+`r` in this case is the maximum absolute value in the buckets' range.
 
