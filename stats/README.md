@@ -40,9 +40,9 @@ enough samples in the area of interest, e.g. where `g(X)` is sufficiently large
 and significantly contributes to the integral. Therefore, it may be beneficial
 to replace each `x` in the vector `X` with another variable `t` uniformly
 distributed in `(-1..1)`, such that `x(t -> -1) -> -Inf`, `x(t -> 1) -> Inf`,
-`x(t)` is monotonically increasing and differentiable over the entire `R`, and
-the probability of "interesting" values of `x(t)` is significant, so the number
-of required samples can be reduced.
+`x(t)` is monotonically increasing and differentiable over `(-1..1)`, and the
+probability of "interesting" values of `x(t)` is significant, so the number of
+required samples can be reduced.
 
 Specificially, our `g(X)` will often be a unit function on a subspace, usually
 for computing a bucket value in a histogram for the `N`-compounded sample:
@@ -67,8 +67,9 @@ r = max(|low|, |high|)
 b=ceiling(sqrt(N))
 ```
 
-However, rather than computing each bucket value separately, we will be sampling
-`x` over the entire range using this method, and incrementing the appropriate
-bucket by `f(x(t))*x'(t)`, thus computing many `g(x)`'s in one go. The value of
-`r` in this case is the maximum absolute value in the buckets' range.
+However, rather than computing each bucket value separately, since we are
+effectively sampling `x` over the entire range, we can use every sample to
+increase the appropriate bucket by `f(x(t))*x'(t)`, thus computing many `g(x)`'s
+in one go. The value of `r` in this case is the maximum absolute value in the
+buckets' range.
 
