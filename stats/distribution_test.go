@@ -86,7 +86,7 @@ func TestDistribution(t *testing.T) {
 			Convey("Compounded", func() {
 				d.Seed(seed)
 				ctx := context.Background()
-				var cfg RandDistributionConfig
+				var cfg ParallelSamplingConfig
 				So(cfg.InitMessage(testutil.JSON(`{}`)), ShouldBeNil)
 				cfg.Samples = 5000 // less than that is not precise enough
 				cfg.Buckets = *buckets
@@ -128,7 +128,7 @@ func TestDistribution(t *testing.T) {
 				return d.Rand(), nil
 			},
 		}
-		var cfg RandDistributionConfig
+		var cfg ParallelSamplingConfig
 		js := testutil.JSON(`
 {
   "samples": 1000,
@@ -183,7 +183,7 @@ func TestDistribution(t *testing.T) {
 		Convey("Compounded", func() {
 			d := NewNormalDistribution(2.0, 3.0)
 			d.Seed(seed)
-			var compCfg RandDistributionConfig
+			var compCfg ParallelSamplingConfig
 			js := testutil.JSON(`
 {
   "samples": 3000,
@@ -255,6 +255,47 @@ func TestDistribution(t *testing.T) {
 			}
 			So(testutil.Round(h2.Mean(), 2), ShouldEqual, 510.0) // actual: 499.5
 			So(testutil.Round(h2.MAD(), 2), ShouldEqual, 250.0)
+		})
+	})
+
+	Convey("CompoundHistogram works", t, func() {
+		ctx := context.Background()
+		cfgJSON := testutil.JSON(`
+{
+  "samples": 10000,
+  "workers": 1,
+  "buckets": {
+    "n": 10,
+    "min": -5,
+    "max": 5
+  },
+  "seed": 42
+}`)
+		var cfg ParallelSamplingConfig
+		So(cfg.InitMessage(cfgJSON), ShouldBeNil)
+		n := 4
+		d := NewNormalDistribution(0.0, 1.0/math.Sqrt(float64(n)))
+		h := CompoundHistogram(ctx, d, n, &cfg)
+
+		Convey("At least half the counts are useful", func() {
+			So(h.Count(0)+h.Count(cfg.Buckets.N-1), ShouldBeLessThan, h.CountsTotal()/2)
+		})
+
+		Convey("Histogram's p.d.f. is approximately accurate", func() {
+			dxN := NewNormalDistribution(0.0, 1.0) // true n-compounded normal
+			// Ignore the extreme catch-all buckets.
+			actual := make([]float64, cfg.Buckets.N-2)
+			expected := make([]float64, cfg.Buckets.N-2)
+			for i, x := range h.Xs() {
+				if i == 0 || i == cfg.Buckets.N-1 {
+					continue
+				}
+				actual[i-1] = math.Log(h.PDF(i))
+				expected[i-1] = math.Log(dxN.Prob(x))
+			}
+
+			So(testutil.RoundSlice(actual, 1), ShouldResemble,
+				testutil.RoundSlice(expected, 1))
 		})
 	})
 }

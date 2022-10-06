@@ -63,7 +63,7 @@ zero, and `b` controls the portion of samples falling beyond the interval
 Empirically, for the `N`-sum over `[low..high]`, a good choice of parameters is:
 
 ```
-r = max(|low|, |high|)
+r = max(|low|, |high|) / sqrt(N)
 b=ceiling(sqrt(N))
 ```
 

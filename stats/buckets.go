@@ -317,11 +317,12 @@ func (b *Buckets) FitTo(data []float64) error {
 type Histogram struct {
 	buckets *Buckets
 	// All slices are expected to be of length buckets.N.
-	counts   []uint    // actual sample counts, for estimating accuracy
-	weights  []float64 // bucket values
-	sums     []float64 // sum of samples for each bucket
-	size     float64   // total sum of counts
-	sumTotal float64   // total sum of samples
+	counts      []uint    // actual sample counts, for estimating accuracy
+	weights     []float64 // bucket values
+	sums        []float64 // sum of samples for each bucket
+	size        float64   // total sum of weights
+	sumTotal    float64   // total sum of samples
+	countsTotal uint      // total sum of counts
 }
 
 // NewHistogram creates and initializes a Histogram. It panics if buckets is
@@ -376,11 +377,14 @@ func (h *Histogram) Sum(i int) float64 {
 	return h.sums[i]
 }
 
-// Size is the sum total of all counts.
+// Size is the sum total of all weights.
 func (h *Histogram) Size() float64 { return h.size }
 
 // SumTotal of all samples.
 func (h *Histogram) SumTotal() float64 { return h.sumTotal }
+
+// CountsTotal is the sum total of all counts.
+func (h *Histogram) CountsTotal() uint { return h.countsTotal }
 
 // Add samples to the Histogram.
 func (h *Histogram) Add(xs ...float64) {
@@ -390,6 +394,7 @@ func (h *Histogram) Add(xs ...float64) {
 		h.weights[i]++
 		h.sums[i] += x
 		h.sumTotal += x
+		h.countsTotal++
 	}
 	h.size += float64(len(xs))
 }
@@ -401,6 +406,7 @@ func (h *Histogram) AddWithWeight(x, weight float64) {
 	xw := x * weight
 	h.sums[i] += xw
 	h.sumTotal += xw
+	h.countsTotal++
 	h.size += float64(weight)
 }
 
@@ -417,6 +423,7 @@ func (h *Histogram) AddWeights(weights []float64) error {
 		sum := h.buckets.X(i, 0.5) * weights[i]
 		h.sums[i] += sum
 		h.sumTotal += sum
+		h.countsTotal++
 	}
 	return nil
 }
@@ -435,6 +442,7 @@ func (h *Histogram) AddHistogram(h2 *Histogram) error {
 	}
 	h.size += h2.size
 	h.sumTotal += h2.sumTotal
+	h.countsTotal += h2.countsTotal
 	return nil
 }
 
