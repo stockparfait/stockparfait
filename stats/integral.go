@@ -78,11 +78,12 @@ func ExpectationMC(f func(x float64) float64, random func() float64,
 // variable substitution in an integral over x in (-Inf..Inf). The new bounds
 // for t become (-1..1), excluding the boundaries.
 func VarSubst(t, r, b float64) float64 {
-	return r * t / (1 - math.Pow(t, 2*b))
+	t2b := math.Pow(t*t, b) // use t*t so b could be fractional
+	return r * t / (1 - t2b)
 }
 
 // VarPrime is the value of x'(t), the first derivative of x(t).
 func VarPrime(t, r, b float64) float64 {
-	t2b := math.Pow(t, 2*b)
+	t2b := math.Pow(t*t, b)
 	return r * (1 + (2*b-1)*t2b) / ((1 - t2b) * (1 - t2b))
 }

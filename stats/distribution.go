@@ -280,21 +280,22 @@ func NewSampleDistributionFromRandDist(d *RandDistribution, samples int, buckets
 	return NewSampleDistribution(sample, buckets)
 }
 
-// RandDistributionConfig is a set of configuration parameters for
+// ParallelSamplingConfig is a set of configuration parameters for
 // RandDistribution suitable for use in user config file schema.
-type RandDistributionConfig struct {
+type ParallelSamplingConfig struct {
 	BatchMin int     `json:"batch size min" default:"10"`
 	BatchMax int     `json:"batch size max" default:"10000"`
 	Samples  int     `json:"samples" default:"10000"` // for histogram
 	Buckets  Buckets `json:"buckets"`
 	Workers  int     `json:"workers"` // default: 2*runtime.NumCPU()
+	Seed     int     `json:"seed"`    // for use in tests when > 0
 }
 
-var _ message.Message = &RandDistributionConfig{}
+var _ message.Message = &ParallelSamplingConfig{}
 
-func (c *RandDistributionConfig) InitMessage(js interface{}) error {
+func (c *ParallelSamplingConfig) InitMessage(js interface{}) error {
 	if err := message.Init(c, js); err != nil {
-		return errors.Annotate(err, "failed to init RandDistributionConfig")
+		return errors.Annotate(err, "failed to init ParallelSamplingConfig")
 	}
 	if c.Workers <= 0 {
 		c.Workers = 2 * runtime.NumCPU()
@@ -334,7 +335,7 @@ type Transform struct {
 // never stores the generated samples, so its memory footprint remains small.
 type RandDistribution struct {
 	context   context.Context
-	config    *RandDistributionConfig
+	config    *ParallelSamplingConfig
 	source    Distribution // the source distribution
 	xform     *Transform
 	histogram *Histogram
@@ -347,9 +348,9 @@ var _ DistributionWithHistogram = &RandDistribution{}
 // is copied using Distribution.Copy method, and therefore can be sampled
 // independently and in parallel with the original source. It uses the given
 // number of samples to estimate and lazily cache mean, MAD and quantiles.
-func NewRandDistribution(ctx context.Context, source Distribution, xform *Transform, cfg *RandDistributionConfig) *RandDistribution {
+func NewRandDistribution(ctx context.Context, source Distribution, xform *Transform, cfg *ParallelSamplingConfig) *RandDistribution {
 	if cfg == nil {
-		cfg = &RandDistributionConfig{}
+		cfg = &ParallelSamplingConfig{}
 		if err := cfg.InitMessage(make(map[string]interface{})); err != nil {
 			panic(errors.Annotate(err, "failed to init default config"))
 		}
@@ -536,7 +537,7 @@ func (d *HistogramDistribution) Seed(seed uint64) {
 // CompoundRandDistribution creates a RandDistribution out of source compounded
 // n times. That is, source.Rand() is invoked n times and the sum of its samples
 // is a new single sample in the new distribution.
-func CompoundRandDistribution(ctx context.Context, source Distribution, n int, cfg *RandDistributionConfig) *RandDistribution {
+func CompoundRandDistribution(ctx context.Context, source Distribution, n int, cfg *ParallelSamplingConfig) *RandDistribution {
 	xform := &Transform{
 		InitState: func() interface{} { return nil },
 		Fn: func(d Distribution, state interface{}) (float64, interface{}) {
@@ -556,7 +557,7 @@ func CompoundRandDistribution(ctx context.Context, source Distribution, n int, c
 // single sequence of source samples. This reduces the number of generated
 // source samples from N*numSamples to N+numSamples.  In practice, multiple such
 // sequences are generated in parallel for further speedup.
-func FastCompoundRandDistribution(ctx context.Context, source Distribution, n int, cfg *RandDistributionConfig) *RandDistribution {
+func FastCompoundRandDistribution(ctx context.Context, source Distribution, n int, cfg *ParallelSamplingConfig) *RandDistribution {
 	xform := &Transform{
 		InitState: func() interface{} { return []float64{} },
 		Fn: func(d Distribution, state interface{}) (float64, interface{}) {
@@ -580,14 +581,102 @@ func FastCompoundRandDistribution(ctx context.Context, source Distribution, n in
 // CompoundSampleDistribution creates a SampleDistribution out of a random
 // generator compounded n times. That is, `rnd` is invoked n times and the sum
 // of its samples is a new single sample in the new distribution.
-func CompoundSampleDistribution(ctx context.Context, source Distribution, n int, cfg *RandDistributionConfig) *SampleDistribution {
+func CompoundSampleDistribution(ctx context.Context, source Distribution, n int, cfg *ParallelSamplingConfig) *SampleDistribution {
 	d := CompoundRandDistribution(ctx, source, n, cfg)
 	return NewSampleDistributionFromRand(d, cfg.Samples, &cfg.Buckets)
 }
 
 // FastCompoundSampleDistribution creates a SampleDistribution out of a random
 // generator compounded n times. See FastCompoundRandDistribution.
-func FastCompoundSampleDistribution(ctx context.Context, source Distribution, n int, cfg *RandDistributionConfig) *SampleDistribution {
+func FastCompoundSampleDistribution(ctx context.Context, source Distribution, n int, cfg *ParallelSamplingConfig) *SampleDistribution {
 	d := FastCompoundRandDistribution(ctx, source, n, cfg)
 	return NewSampleDistributionFromRandDist(d, cfg.Samples, &cfg.Buckets)
+}
+
+type compHistJobsIter struct {
+	c    *ParallelSamplingConfig
+	d    Distribution
+	n    int // compounding
+	rand *rand.Rand
+	i    int // samples counter
+}
+
+var _ parallel.JobsIter = &compHistJobsIter{}
+
+func (it *compHistJobsIter) Next() (parallel.Job, error) {
+	c := it.c
+	if it.i >= c.Samples {
+		return nil, parallel.Done
+	}
+	batchSize := c.Samples / c.Workers
+	if batchSize < c.BatchMin {
+		batchSize = c.BatchMin
+	}
+	if batchSize > c.BatchMax {
+		batchSize = c.BatchMax
+	}
+	if batchSize > c.Samples-it.i {
+		batchSize = c.Samples - it.i
+	}
+	it.i += batchSize
+	randCopy := rand.New(rand.NewSource(it.rand.Uint64()))
+	dCopy := it.d.Copy() // in case d.Prod(x) is not go-routine safe
+	var r float64
+	if c.Buckets.N >= 2 { // ignore the extreme bucket ranges
+		r = math.Abs(c.Buckets.Bounds[c.Buckets.N-1])
+		if l := math.Abs(c.Buckets.Bounds[1]); r < l {
+			r = l
+		}
+	} else {
+		r = math.Abs(c.Buckets.Bounds[c.Buckets.N])
+	}
+	r /= math.Sqrt(float64(it.n))
+	b := math.Ceil(math.Sqrt(float64(it.n)))
+	job := func() interface{} {
+		h := NewHistogram(&c.Buckets)
+		for i := 0; i < batchSize; i++ {
+			var w float64 = 1
+			var y float64 // sum of n source samples
+			for j := 0; j < it.n; j++ {
+				t := 2*randCopy.Float64() - 1
+				for t == -1 { // exclude -1
+					t = 2*randCopy.Float64() - 1
+				}
+				x := VarSubst(t, r, b)
+				w *= dCopy.Prob(x) * VarPrime(t, r, b)
+				y += x
+			}
+			h.AddWithWeight(y, w)
+		}
+		return h
+	}
+	return job, nil
+}
+
+// CompoundHistogram computes a histogram of an n-compounded source distribution
+// from its p.d.f. source.Prob(x) method.
+func CompoundHistogram(ctx context.Context, source Distribution, n int, c *ParallelSamplingConfig) *Histogram {
+
+	it := &compHistJobsIter{
+		c:    c,
+		d:    source,
+		n:    n,
+		rand: rand.New(rand.NewSource(uint64(time.Now().UnixNano()))),
+	}
+	if c.Seed > 0 {
+		it.rand = rand.New(rand.NewSource(uint64(c.Seed)))
+	}
+	h := NewHistogram(&c.Buckets)
+	m := parallel.Map(ctx, c.Workers, it)
+	for {
+		v, err := m.Next()
+		if err != nil { // can only be parallel.Done
+			break
+		}
+		hj := v.(*Histogram)
+		if err := h.AddHistogram(hj); err != nil {
+			panic(errors.Annotate(err, "failed to merge histogram"))
+		}
+	}
+	return h
 }
