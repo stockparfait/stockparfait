@@ -43,11 +43,13 @@ func PreciseEnough(x, deviation, epsilon float64, relative bool) bool {
 // StandardError accumulates and estimates the stardand deviation of an online
 // sequence of samples. The accumulation of the stardand deviation is done in a
 // computationally stable way using a generalization of the Youngs and Cramer
-// formulas.
+// formulas, a variant of the more popular Welford's algorithm.
+//
+// A zero value of StandardError is ready for use, and represents 0 samples.
 type StandardError struct {
 	n          uint    // number of samples
 	sum        float64 // sum of samples
-	sumSquares float64 // sum of (x_i - Sum/N)^2
+	sumSquares float64 // sum of (x_i - sum/n)^2
 }
 
 // Add a single sample.
@@ -112,15 +114,18 @@ func (e StandardError) Sigma() float64 {
 // and high may be +Inf.
 //
 // The sampling stops either when the maxIter samples have been reached, or when
-// the average relative (or absolute when relative==false) deviation of the
-// result becomes less than the required precision.
+// the estimated standard error becomes less than the required relative or
+// absolute precision. See PreciseEnough for the exact semantics.
+//
+// In any case, minIter iterations are guaranteed; it should normally be a small
+// number (e.g. 100) to accumulate a reasonable initial error estimate.
 func ExpectationMC(f func(x float64) float64, random func() float64,
-	low, high float64, maxIter int, precision float64, relative bool) float64 {
+	low, high float64, minIter, maxIter uint, precision float64, relative bool) float64 {
 	var count uint = 0
 	var sum, result float64
 	var stdErr StandardError
 
-	for i := 0; i < maxIter; i++ {
+	for i := uint(0); i < maxIter; i++ {
 		x := random()
 		count++
 		if x < low || high < x {
@@ -133,7 +138,7 @@ func ExpectationMC(f func(x float64) float64, random func() float64,
 		if stdErr.N() < count {
 			stdErr.AddZeros(count - stdErr.N())
 		}
-		if count < 100 {
+		if count < minIter {
 			continue // too few samples to estimate error
 		}
 		if PreciseEnough(result, stdErr.Sigma(), precision, relative) {
@@ -149,6 +154,10 @@ func ExpectationMC(f func(x float64) float64, random func() float64,
 //
 // to be used as a variable substitution in an integral over x in
 // (-Inf..Inf). The new bounds for t become (-1..1), excluding the boundaries.
+//
+// In Monte Carlo integration, the integral_{-Inf..Inf} f(x)dx is approximated
+// by the sample average E[ f(x(t))*x'(t) ] for a uniformly distributed t over
+// (-1..1).
 func VarSubst(t, scale, power, shift float64) float64 {
 	t2p := math.Pow(t*t, power) // use t*t so b could be fractional
 	return shift + scale*t/(1-t2p)

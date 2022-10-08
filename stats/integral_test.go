@@ -111,17 +111,19 @@ func TestIntegral(t *testing.T) {
 		d.Seed(seed)
 
 		Convey("on the full range", func() {
-			one := func(x float64) float64 { return 1.0 }
-			e := ExpectationMC(one, d.Rand, math.Inf(-1), math.Inf(1), 1000, 0.01, true)
+			var calls int
+			one := func(x float64) float64 { calls++; return 1.0 }
+			e := ExpectationMC(one, d.Rand, math.Inf(-1), math.Inf(1), 10, 1000, 0.01, true)
 			So(testutil.Round(e, 2), ShouldEqual, 1.0)
+			So(calls, ShouldBeGreaterThanOrEqualTo, 10)
 		})
 
 		Convey("on a subrange", func() {
 			var calls int
 			one := func(x float64) float64 { calls++; return 1.0 }
-			e := ExpectationMC(one, d.Rand, -3.0, 3.0, 1000, 0.01, true)
+			e := ExpectationMC(one, d.Rand, -3.0, 3.0, 100, 1000, 0.01, true)
 			So(testutil.Round(e, 2), ShouldEqual, 0.7)
-			So(calls, ShouldBeGreaterThan, 1)
+			So(calls, ShouldBeGreaterThanOrEqualTo, 100)
 		})
 	})
 

@@ -290,7 +290,7 @@ type ParallelSamplingConfig struct {
 	// Biased sampling parameters, when applicable. Zero values indicate that the
 	// caller must set appropriate defaults.
 	Scale   float64 `json:"bias scale"` // size of uniform distribution area
-	Power   float64 `json:"bias power"` // approach +-Inf near +-1 as t^Power
+	Power   float64 `json:"bias power"` // approach +-Inf near +-1 as 1/(1-t^(2*Power))
 	Shift   float64 `json:"bias shift"` // value of x(t=0)
 	Workers int     `json:"workers"`    // default: 2*runtime.NumCPU()
 	Seed    int     `json:"seed"`       // for use in tests when > 0
