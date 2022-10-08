@@ -1,5 +1,9 @@
 # Stock Parfait
 
+[![Build Status](https://github.com/stockparfait/stockparfait/workflows/Tests/badge.svg)](https://github.com/stockparfait/stockparfait/actions?query=workflow%3ATests)
+[![GoDoc](https://godoc.org/github.com/stockparfait/stockparfait?status.svg)](http://godoc.org/github.com/stockparfait/stockparfait)
+
+
 The command line public version of the core engine of Stock Parfait, a stock
 screener and an upcoming Monte Carlo simulator for stock prices.
 

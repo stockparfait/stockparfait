@@ -287,8 +287,13 @@ type ParallelSamplingConfig struct {
 	BatchMax int     `json:"batch size max" default:"10000"`
 	Samples  int     `json:"samples" default:"10000"` // for histogram
 	Buckets  Buckets `json:"buckets"`
-	Workers  int     `json:"workers"` // default: 2*runtime.NumCPU()
-	Seed     int     `json:"seed"`    // for use in tests when > 0
+	// Biased sampling parameters, when applicable. Zero values indicate that the
+	// caller must set appropriate defaults.
+	Scale   float64 `json:"bias scale"` // size of uniform distribution area
+	Power   float64 `json:"bias power"` // approach +-Inf near +-1 as 1/(1-t^(2*Power))
+	Shift   float64 `json:"bias shift"` // value of x(t=0)
+	Workers int     `json:"workers"`    // default: 2*runtime.NumCPU()
+	Seed    int     `json:"seed"`       // for use in tests when > 0
 }
 
 var _ message.Message = &ParallelSamplingConfig{}
@@ -621,17 +626,22 @@ func (it *compHistJobsIter) Next() (parallel.Job, error) {
 	it.i += batchSize
 	randCopy := rand.New(rand.NewSource(it.rand.Uint64()))
 	dCopy := it.d.Copy() // in case d.Prod(x) is not go-routine safe
-	var r float64
-	if c.Buckets.N >= 2 { // ignore the extreme bucket ranges
-		r = math.Abs(c.Buckets.Bounds[c.Buckets.N-1])
-		if l := math.Abs(c.Buckets.Bounds[1]); r < l {
-			r = l
+	scale := c.Scale
+	if scale == 0 {
+		if c.Buckets.N >= 2 { // ignore the extreme bucket ranges
+			scale = math.Abs(c.Buckets.Bounds[c.Buckets.N-1])
+			if l := math.Abs(c.Buckets.Bounds[1]); scale < l {
+				scale = l
+			}
+		} else {
+			scale = math.Abs(c.Buckets.Bounds[c.Buckets.N])
 		}
-	} else {
-		r = math.Abs(c.Buckets.Bounds[c.Buckets.N])
+		scale /= math.Sqrt(float64(it.n))
 	}
-	r /= math.Sqrt(float64(it.n))
-	b := math.Ceil(math.Sqrt(float64(it.n)))
+	power := c.Power
+	if power == 0 {
+		power = math.Ceil(math.Sqrt(float64(it.n)))
+	}
 	job := func() interface{} {
 		h := NewHistogram(&c.Buckets)
 		for i := 0; i < batchSize; i++ {
@@ -642,8 +652,8 @@ func (it *compHistJobsIter) Next() (parallel.Job, error) {
 				for t == -1 { // exclude -1
 					t = 2*randCopy.Float64() - 1
 				}
-				x := VarSubst(t, r, b)
-				w *= dCopy.Prob(x) * VarPrime(t, r, b)
+				x := VarSubst(t, scale, power, c.Shift)
+				w *= dCopy.Prob(x) * VarPrime(t, scale, power)
 				y += x
 			}
 			h.AddWithWeight(y, w)
