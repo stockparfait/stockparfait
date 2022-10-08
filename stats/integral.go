@@ -26,7 +26,7 @@ import (
 // Note, that epsilon provides a relative precision: the true value of x is
 // assumed to be within [x-dev..x+dev] interval, and the precision is reached
 // when dev/x < epsilon for |x| >= 1, otherwise dev < epsilon.
-func PreciseEnough(x, deviation, epsilon float64) bool {
+func PreciseEnough(x, deviation, epsilon float64, relative bool) bool {
 	if deviation <= 0 {
 		return true
 	}
@@ -34,10 +34,75 @@ func PreciseEnough(x, deviation, epsilon float64) bool {
 		return false
 	}
 	x = math.Abs(x)
-	if x < 1 {
-		x = 1
+	if relative {
+		return deviation < epsilon*x
 	}
-	return deviation < epsilon*x
+	return deviation < epsilon
+}
+
+// StandardError accumulates and estimates the stardand deviation of an online
+// sequence of samples. The accumulation of the stardand deviation is done in a
+// computationally stable way using a generalization of the Youngs and Cramer
+// formulas.
+type StandardError struct {
+	n          uint    // number of samples
+	sum        float64 // sum of samples
+	sumSquares float64 // sum of (x_i - Sum/N)^2
+}
+
+// Add a single sample.
+func (e *StandardError) Add(x float64) {
+	e.Merge(StandardError{n: 1, sum: x})
+}
+
+// AddZeros adds n zero-valued samples.
+func (e *StandardError) AddZeros(n uint) {
+	e.Merge(StandardError{n: n})
+}
+
+// Merge the other StardandError into e, so the resulting error estimate is for
+// the union of samples.
+func (e *StandardError) Merge(other StandardError) {
+	if e.n == 0 {
+		*e = other
+		return
+	}
+	if other.n == 0 {
+		return
+	}
+	n := e.n + other.n
+	adj := float64(other.n)/float64(e.n)*e.sum - other.sum
+	adj *= adj
+	adj *= float64(e.n) / float64(other.n) / float64(n)
+	*e = StandardError{
+		n:          n,
+		sum:        e.sum + other.sum,
+		sumSquares: e.sumSquares + other.sumSquares + adj,
+	}
+}
+
+// N returns the number of accumulated samples.
+func (e StandardError) N() uint { return e.n }
+
+// Mean value of all samples.
+func (e StandardError) Mean() float64 {
+	if e.n == 0 {
+		return 0
+	}
+	return e.sum / float64(e.n)
+}
+
+// Variance of the accumulated samples.
+func (e StandardError) Variance() float64 {
+	if e.n == 0 {
+		return 0
+	}
+	return e.sumSquares / float64(e.n)
+}
+
+// Sigma is the standard deviation of the accumulated samples.
+func (e StandardError) Sigma() float64 {
+	return math.Sqrt(e.Variance())
 }
 
 // ExpectationMC computes a (potentially partial) expectation integral:
@@ -47,43 +112,50 @@ func PreciseEnough(x, deviation, epsilon float64) bool {
 // and high may be +Inf.
 //
 // The sampling stops either when the maxIter samples have been reached, or when
-// the average relative deviation of the result becomes less than the required
-// precision.
+// the average relative (or absolute when relative==false) deviation of the
+// result becomes less than the required precision.
 func ExpectationMC(f func(x float64) float64, random func() float64,
-	low, high float64, maxIter int, precision float64) float64 {
-	var count = 0
-	var sum, devSum, result float64
+	low, high float64, maxIter int, precision float64, relative bool) float64 {
+	var count uint = 0
+	var sum, result float64
+	var stdErr StandardError
 
 	for i := 0; i < maxIter; i++ {
 		x := random()
-		prevRes := result
 		count++
 		if x < low || high < x {
 			continue
 		}
 		sum += f(x)
-		if count == 1 { // no useful prevRes yet
-			continue
+		c := float64(count)
+		result = sum / c
+		stdErr.Add(result)
+		if stdErr.N() < count {
+			stdErr.AddZeros(count - stdErr.N())
 		}
-		result = sum / float64(count)
-		devSum += math.Abs(prevRes - result)
-		if PreciseEnough(result, devSum/float64(count), precision) {
+		if count < 100 {
+			continue // too few samples to estimate error
+		}
+		if PreciseEnough(result, stdErr.Sigma(), precision, relative) {
 			break
 		}
 	}
 	return result
 }
 
-// VarSubst computes the value of x(t) = r * t / (1 - t^(2*b)) to be used as a
-// variable substitution in an integral over x in (-Inf..Inf). The new bounds
-// for t become (-1..1), excluding the boundaries.
-func VarSubst(t, r, b float64) float64 {
-	t2b := math.Pow(t*t, b) // use t*t so b could be fractional
-	return r * t / (1 - t2b)
+// VarSubst computes the value of
+//
+//   x(t) = shift + scale * t / (1 - t^(2*power))
+//
+// to be used as a variable substitution in an integral over x in
+// (-Inf..Inf). The new bounds for t become (-1..1), excluding the boundaries.
+func VarSubst(t, scale, power, shift float64) float64 {
+	t2p := math.Pow(t*t, power) // use t*t so b could be fractional
+	return shift + scale*t/(1-t2p)
 }
 
 // VarPrime is the value of x'(t), the first derivative of x(t).
-func VarPrime(t, r, b float64) float64 {
-	t2b := math.Pow(t*t, b)
-	return r * (1 + (2*b-1)*t2b) / ((1 - t2b) * (1 - t2b))
+func VarPrime(t, scale, power float64) float64 {
+	t2p := math.Pow(t*t, power)
+	return scale * (1 + (2*power-1)*t2p) / ((1 - t2p) * (1 - t2p))
 }

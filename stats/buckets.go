@@ -317,12 +317,13 @@ func (b *Buckets) FitTo(data []float64) error {
 type Histogram struct {
 	buckets *Buckets
 	// All slices are expected to be of length buckets.N.
-	counts      []uint    // actual sample counts, for estimating accuracy
+	counts      []uint    // actual sample counts
 	weights     []float64 // bucket values
 	sums        []float64 // sum of samples for each bucket
-	size        float64   // total sum of weights
-	sumTotal    float64   // total sum of samples
-	countsTotal uint      // total sum of counts
+	stdErrs     []StandardError
+	size        float64 // total sum of weights
+	sumTotal    float64 // total sum of samples
+	countsTotal uint    // total sum of counts
 }
 
 // NewHistogram creates and initializes a Histogram. It panics if buckets is
@@ -336,6 +337,7 @@ func NewHistogram(buckets *Buckets) *Histogram {
 		counts:  make([]uint, buckets.N),
 		weights: make([]float64, buckets.N),
 		sums:    make([]float64, buckets.N),
+		stdErrs: make([]StandardError, buckets.N),
 	}
 }
 
@@ -389,14 +391,8 @@ func (h *Histogram) CountsTotal() uint { return h.countsTotal }
 // Add samples to the Histogram.
 func (h *Histogram) Add(xs ...float64) {
 	for _, x := range xs {
-		i := h.buckets.Bucket(x)
-		h.counts[i]++
-		h.weights[i]++
-		h.sums[i] += x
-		h.sumTotal += x
-		h.countsTotal++
+		h.AddWithWeight(x, 1)
 	}
-	h.size += float64(len(xs))
 }
 
 func (h *Histogram) AddWithWeight(x, weight float64) {
@@ -408,6 +404,7 @@ func (h *Histogram) AddWithWeight(x, weight float64) {
 	h.sumTotal += xw
 	h.countsTotal++
 	h.size += float64(weight)
+	h.stdErrs[i].Add(h.PDF(i))
 }
 
 // AddWeights to the histogram directly. Assumes len(weights) = h.Buckets().N.
@@ -439,6 +436,7 @@ func (h *Histogram) AddHistogram(h2 *Histogram) error {
 		h.counts[i] += h2.counts[i]
 		h.weights[i] += h2.weights[i]
 		h.sums[i] += h2.sums[i]
+		h.stdErrs[i].Merge(h2.stdErrs[i])
 	}
 	h.size += h2.size
 	h.sumTotal += h2.sumTotal
@@ -609,4 +607,27 @@ func (h *Histogram) PDFs() []float64 {
 		res[i] = h.PDF(i)
 	}
 	return res
+}
+
+// StdError estimates the standard deviation of the p.d.f. value at each bucket.
+func (h *Histogram) StdError(i int) float64 {
+	if i < 0 || i >= len(h.weights) {
+		return 0
+	}
+	if h.size == 0 {
+		return 0
+	}
+	if h.stdErrs[i].N() < h.countsTotal {
+		h.stdErrs[i].AddZeros(h.countsTotal - h.stdErrs[i].N())
+	}
+	return h.stdErrs[i].Sigma()
+}
+
+// StdErrors is a slice of estimated standard errors for all buckets.
+func (h *Histogram) StdErrors() []float64 {
+	errors := make([]float64, len(h.weights))
+	for i := range h.weights {
+		errors[i] = h.StdError(i)
+	}
+	return errors
 }
