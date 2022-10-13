@@ -151,7 +151,7 @@ func TestDistribution(t *testing.T) {
 		})
 
 		Convey("Histogram used correct number of samples", func() {
-			So(d.Histogram().WeightsTotal(), ShouldEqual, cfg.Samples)
+			So(d.Histogram().CountsTotal(), ShouldEqual, cfg.Samples)
 		})
 
 		Convey("Quantile", func() {
