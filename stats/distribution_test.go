@@ -147,11 +147,11 @@ func TestDistribution(t *testing.T) {
 
 		Convey("Copy works", func() { // must be called before d.Histogram()
 			copy := d.Copy().(*RandDistribution)
-			So(copy.Histogram().Size(), ShouldEqual, cfg.Samples)
+			So(copy.Histogram().CountsTotal(), ShouldEqual, cfg.Samples)
 		})
 
 		Convey("Histogram used correct number of samples", func() {
-			So(d.Histogram().Size(), ShouldEqual, cfg.Samples)
+			So(d.Histogram().WeightsTotal(), ShouldEqual, cfg.Samples)
 		})
 
 		Convey("Quantile", func() {
