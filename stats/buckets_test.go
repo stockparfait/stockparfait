@@ -193,7 +193,7 @@ func TestHistogram(t *testing.T) {
 			for i := 0; i < 1000; i++ {
 				h.Add(float64(i))
 			}
-			So(h.Size(), ShouldEqual, 1000)
+			So(h.WeightsTotal(), ShouldEqual, 1000)
 			So(h.Buckets().N, ShouldEqual, 12)
 			So(h.Counts(), ShouldResemble, []uint{
 				0, 0, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100})
@@ -209,9 +209,8 @@ func TestHistogram(t *testing.T) {
 				-150, -50, 49.5, 149.5, 249.5, 349.5, 449.5, 549.5, 649.5, 749.5, 849.5, 949.5})
 			So(h.PDFs(), ShouldResemble, []float64{
 				0, 0, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001})
-			So(testutil.RoundSlice(h.StdErrors(), 2), ShouldResemble, []float64{
-				0, 0, 0.003, 0.001, 0.00065, 0.00047, 0.00037, 0.00031, 0.00026,
-				0.00023, 0.0002, 0.00018})
+			So(testutil.RoundFixedSlice(h.StdErrors(), 10), ShouldResemble, []float64{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
 			So(h.Mean(), ShouldEqual, 499.5)                     // actual: 499.5
 			So(h.MAD(), ShouldEqual, 250.0)                      // actual: 250.0
 			So(testutil.Round(h.Sigma(), 3), ShouldEqual, 287.0) // actual: ~288.7
@@ -241,7 +240,7 @@ func TestHistogram(t *testing.T) {
 				So(h2.Counts(), ShouldResemble, h.Counts())
 				So(h2.Weights(), ShouldResemble, h.Weights())
 				So(h2.Sums(), ShouldResemble, h.Sums())
-				So(h2.Size(), ShouldEqual, h.Size())
+				So(h2.WeightsTotal(), ShouldEqual, h.WeightsTotal())
 				So(h2.SumTotal(), ShouldEqual, h.SumTotal())
 			})
 		})
@@ -253,7 +252,7 @@ func TestHistogram(t *testing.T) {
 			for i := 0; i < 1000; i++ {
 				h.Add(float64(i))
 			}
-			So(h.Size(), ShouldEqual, 1000)
+			So(h.WeightsTotal(), ShouldEqual, 1000)
 			So(h.Buckets().N, ShouldEqual, 100)
 			So(len(h.Counts()), ShouldEqual, 100)
 			So(testutil.Round(h.Mean(), 5), ShouldEqual, 499.5)  // actual: 499.5
@@ -287,18 +286,18 @@ func TestHistogram(t *testing.T) {
 			So(err, ShouldBeNil)
 			h := NewHistogram(b)
 			for i := -100; i < 100; i++ {
-				if i == 0 { // test that weights add up correctly
+				if i <= -90 { // test that weights add up correctly
 					h.AddWithWeight(float64(i), 0.07)
 					h.AddWithWeight(float64(i), 0.03)
 					continue
 				}
 				h.AddWithWeight(float64(i), 0.1)
 			}
-			So(testutil.Round(h.Size(), 6), ShouldEqual, 20.0)
+			So(testutil.Round(h.WeightsTotal(), 6), ShouldEqual, 20.0)
 			So(h.Buckets().N, ShouldEqual, 9)
 			So(h.Buckets().Bounds, ShouldResemble, []float64{
 				-100.0, -10.0, -1.0, -0.1, -0.01, 0.01, 0.1, 1.0, 10.0, 100.0})
-			So(h.Counts(), ShouldResemble, []uint{90, 9, 1, 0, 2, 0, 0, 9, 90})
+			So(h.Counts(), ShouldResemble, []uint{101, 9, 1, 0, 1, 0, 0, 9, 90})
 			So(testutil.RoundSlice(h.Weights(), 6), ShouldResemble, []float64{
 				9, 0.9, 0.1, 0, 0.1, 0, 0, 0.9, 9})
 			So(testutil.RoundFixed(h.Mean(), 3), ShouldEqual, -0.5)       // actual: -0.5

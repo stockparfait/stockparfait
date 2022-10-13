@@ -317,13 +317,13 @@ func (b *Buckets) FitTo(data []float64) error {
 type Histogram struct {
 	buckets *Buckets
 	// All slices are expected to be of length buckets.N.
-	counts      []uint    // actual sample counts
-	weights     []float64 // bucket values
-	sums        []float64 // sum of samples for each bucket
-	stdErrs     []StandardError
-	size        float64 // total sum of weights
-	sumTotal    float64 // total sum of samples
-	countsTotal uint    // total sum of counts
+	counts       []uint    // actual sample counts
+	weights      []float64 // bucket values
+	sums         []float64 // weighted sum of samples for each bucket
+	stdErrs      []StandardError
+	weightsTotal float64 // total sum of weights
+	sumTotal     float64 // total weighted sum of samples
+	countsTotal  uint    // total number of samples
 }
 
 // NewHistogram creates and initializes a Histogram. It panics if buckets is
@@ -379,8 +379,8 @@ func (h *Histogram) Sum(i int) float64 {
 	return h.sums[i]
 }
 
-// Size is the sum total of all weights.
-func (h *Histogram) Size() float64 { return h.size }
+// WeightsTotal is the sum total of all weights.
+func (h *Histogram) WeightsTotal() float64 { return h.weightsTotal }
 
 // SumTotal of all samples.
 func (h *Histogram) SumTotal() float64 { return h.sumTotal }
@@ -403,8 +403,8 @@ func (h *Histogram) AddWithWeight(x, weight float64) {
 	h.sums[i] += xw
 	h.sumTotal += xw
 	h.countsTotal++
-	h.size += float64(weight)
-	h.stdErrs[i].Add(h.PDF(i))
+	h.weightsTotal += float64(weight)
+	h.stdErrs[i].Add(h.weights[i] / float64(h.counts[i]))
 }
 
 // AddWeights to the histogram directly. Assumes len(weights) = h.Buckets().N.
@@ -414,13 +414,7 @@ func (h *Histogram) AddWeights(weights []float64) error {
 			"len(weights)=%d != buckets.N=%d", len(weights), len(h.weights))
 	}
 	for i := range weights {
-		h.weights[i] += weights[i]
-		h.counts[i]++
-		h.size += weights[i]
-		sum := h.buckets.X(i, 0.5) * weights[i]
-		h.sums[i] += sum
-		h.sumTotal += sum
-		h.countsTotal++
+		h.AddWithWeight(h.buckets.X(i, 0.5), weights[i])
 	}
 	return nil
 }
@@ -438,7 +432,7 @@ func (h *Histogram) AddHistogram(h2 *Histogram) error {
 		h.sums[i] += h2.sums[i]
 		h.stdErrs[i].Merge(h2.stdErrs[i])
 	}
-	h.size += h2.size
+	h.weightsTotal += h2.weightsTotal
 	h.sumTotal += h2.sumTotal
 	h.countsTotal += h2.countsTotal
 	return nil
@@ -465,15 +459,15 @@ func (h *Histogram) Xs() []float64 {
 
 // Mean computes the approximate mean of the distribution.
 func (h *Histogram) Mean() float64 {
-	if h.size == 0 {
+	if h.weightsTotal == 0 {
 		return 0
 	}
-	return h.sumTotal / h.size
+	return h.sumTotal / h.weightsTotal
 }
 
 // MAD esmimates mean absolute deviation.
 func (h *Histogram) MAD() float64 {
-	if h.size == 0 {
+	if h.weightsTotal == 0 {
 		return 0
 	}
 	mean := h.Mean()
@@ -486,12 +480,12 @@ func (h *Histogram) MAD() float64 {
 		}
 		sum += dev * h.weights[i]
 	}
-	return sum / h.size
+	return sum / h.weightsTotal
 }
 
 // Variance esmimation.
 func (h *Histogram) Variance() float64 {
-	if h.size == 0 {
+	if h.weightsTotal == 0 {
 		return 0
 	}
 	mean := h.Mean()
@@ -501,7 +495,7 @@ func (h *Histogram) Variance() float64 {
 		dev := x - mean
 		sum += dev * dev * h.weights[i]
 	}
-	return sum / h.size
+	return sum / h.weightsTotal
 }
 
 // Sigma is the estimated standard deviation.
@@ -516,12 +510,12 @@ func (h *Histogram) Quantile(q float64) float64 {
 	if q < 0 || 1 < q {
 		panic(errors.Reason("q=%f not in [0..1]", q))
 	}
-	if h.size == 0 {
+	if h.weightsTotal == 0 {
 		return 0
 	}
 	var acc float64 = 0
 	idx := 0
-	qWeight := q * h.size
+	qWeight := q * h.weightsTotal
 	for i, c := range h.weights {
 		acc += c
 		idx = i
@@ -558,7 +552,7 @@ func (h *Histogram) CDF(x float64) float64 {
 		weightLow += h.Weight(i)
 	}
 	coeff := (x - h.buckets.X(b, 0)) / h.buckets.Size(b)
-	return (weightLow + coeff*h.Weight(b)) / h.Size()
+	return (weightLow + coeff*h.Weight(b)) / h.WeightsTotal()
 }
 
 // Prob is the p.d.f. value at x, approximated using histogram weights.
@@ -593,10 +587,10 @@ func (h *Histogram) PDF(i int) float64 {
 	if i < 0 || i >= len(h.weights) {
 		return 0
 	}
-	if h.size == 0 {
+	if h.weightsTotal == 0 {
 		return 0
 	}
-	return h.weights[i] / h.size / h.buckets.Size(i)
+	return h.weights[i] / h.weightsTotal / h.buckets.Size(i)
 }
 
 // PDFs lists all the values of PDF for all the buckets. This is suitable
@@ -614,13 +608,10 @@ func (h *Histogram) StdError(i int) float64 {
 	if i < 0 || i >= len(h.weights) {
 		return 0
 	}
-	if h.size == 0 {
+	if h.weightsTotal == 0 {
 		return 0
 	}
-	if h.stdErrs[i].N() < h.countsTotal {
-		h.stdErrs[i].AddZeros(h.countsTotal - h.stdErrs[i].N())
-	}
-	return h.stdErrs[i].Sigma()
+	return h.stdErrs[i].Sigma() * float64(h.counts[i]) / h.weightsTotal / h.buckets.Size(i)
 }
 
 // StdErrors is a slice of estimated standard errors for all buckets.
