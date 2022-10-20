@@ -90,34 +90,34 @@ var _ ndl.ValueLoader = &Ticker{}
 
 // TickerSchema is the expected schema for the TICKERS table.
 var TickerSchema = ndl.Schema{
-	{Name: "table", Type: "String"},
+	{Name: "table", Type: "text"},
 	{Name: "permaticker", Type: "Integer"},
-	{Name: "ticker", Type: "String"},
-	{Name: "name", Type: "String"},
-	{Name: "exchange", Type: "String"},
-	{Name: "isdelisted", Type: "String"},
-	{Name: "category", Type: "String"},
-	{Name: "cusips", Type: "String"},
+	{Name: "ticker", Type: "text"},
+	{Name: "name", Type: "text"},
+	{Name: "exchange", Type: "text"},
+	{Name: "isdelisted", Type: "text"},
+	{Name: "category", Type: "text"},
+	{Name: "cusips", Type: "text"},
 	{Name: "siccode", Type: "Integer"},
-	{Name: "sicsector", Type: "String"},
-	{Name: "sicindustry", Type: "String"},
-	{Name: "famasector", Type: "String"},
-	{Name: "famaindustry", Type: "String"},
-	{Name: "sector", Type: "String"},
-	{Name: "industry", Type: "String"},
-	{Name: "scalemarketcap", Type: "String"},
-	{Name: "scalerevenue", Type: "String"},
-	{Name: "relatedtickers", Type: "String"},
-	{Name: "currency", Type: "String"},
-	{Name: "location", Type: "String"},
+	{Name: "sicsector", Type: "text"},
+	{Name: "sicindustry", Type: "text"},
+	{Name: "famasector", Type: "text"},
+	{Name: "famaindustry", Type: "text"},
+	{Name: "sector", Type: "text"},
+	{Name: "industry", Type: "text"},
+	{Name: "scalemarketcap", Type: "text"},
+	{Name: "scalerevenue", Type: "text"},
+	{Name: "relatedtickers", Type: "text"},
+	{Name: "currency", Type: "text"},
+	{Name: "location", Type: "text"},
 	{Name: "lastupdated", Type: "Date"},
 	{Name: "firstadded", Type: "Date"},
 	{Name: "firstpricedate", Type: "Date"},
 	{Name: "lastpricedate", Type: "Date"},
-	{Name: "firstquarter", Type: "String"},
-	{Name: "lastquarter", Type: "String"},
-	{Name: "secfilings", Type: "String"},
-	{Name: "companysite", Type: "String"},
+	{Name: "firstquarter", Type: "text"},
+	{Name: "lastquarter", Type: "text"},
+	{Name: "secfilings", Type: "text"},
+	{Name: "companysite", Type: "text"},
 }
 
 // ActionType is the enum for the actions.
@@ -229,12 +229,12 @@ func TestAction(date db.Date, action ActionType, ticker string, value float32) A
 // ActionSchema is the expected schema for the ACTIONS table.
 var ActionSchema = ndl.Schema{
 	{Name: "date", Type: "Date"},
-	{Name: "action", Type: "String"},
-	{Name: "ticker", Type: "String"},
-	{Name: "name", Type: "String"}, // same as in Ticker
+	{Name: "action", Type: "text"},
+	{Name: "ticker", Type: "text"},
+	{Name: "name", Type: "text"}, // same as in Ticker
 	{Name: "value", Type: "BigDecimal(20,5)"},
-	{Name: "contraticker", Type: "String"}, // old/new ticker name
-	{Name: "contraname", Type: "String"},   // old/new company name
+	{Name: "contraticker", Type: "text"}, // old/new ticker name
+	{Name: "contraname", Type: "text"},   // old/new company name
 }
 
 // Price is a row in the SEP/SFP table.

@@ -27,34 +27,34 @@ func TestSchema(t *testing.T) {
 	Convey("Ticker.Load works", t, func() {
 		realSchema := ndl.Schema{
 			{Name: "permaticker", Type: "Integer"},
-			{Name: "table", Type: "String"},     // reordered
+			{Name: "table", Type: "text"},       // reordered
 			{Name: "extrafield", Type: "Weird"}, // extra field
-			{Name: "ticker", Type: "String"},
-			{Name: "name", Type: "String"},
-			{Name: "exchange", Type: "String"},
-			{Name: "isdelisted", Type: "String"},
-			{Name: "category", Type: "String"},
-			{Name: "cusips", Type: "String"},
+			{Name: "ticker", Type: "text"},
+			{Name: "name", Type: "text"},
+			{Name: "exchange", Type: "text"},
+			{Name: "isdelisted", Type: "text"},
+			{Name: "category", Type: "text"},
+			{Name: "cusips", Type: "text"},
 			{Name: "siccode", Type: "Integer"},
-			{Name: "sicsector", Type: "String"},
-			{Name: "sicindustry", Type: "String"},
-			{Name: "famasector", Type: "String"},
-			{Name: "famaindustry", Type: "String"},
-			{Name: "sector", Type: "String"},
-			{Name: "industry", Type: "String"},
-			{Name: "scalemarketcap", Type: "String"},
-			{Name: "scalerevenue", Type: "String"},
-			{Name: "relatedtickers", Type: "String"},
-			{Name: "currency", Type: "String"},
-			{Name: "location", Type: "String"},
+			{Name: "sicsector", Type: "text"},
+			{Name: "sicindustry", Type: "text"},
+			{Name: "famasector", Type: "text"},
+			{Name: "famaindustry", Type: "text"},
+			{Name: "sector", Type: "text"},
+			{Name: "industry", Type: "text"},
+			{Name: "scalemarketcap", Type: "text"},
+			{Name: "scalerevenue", Type: "text"},
+			{Name: "relatedtickers", Type: "text"},
+			{Name: "currency", Type: "text"},
+			{Name: "location", Type: "text"},
 			{Name: "lastupdated", Type: "Date"},
 			{Name: "firstadded", Type: "Date"},
 			{Name: "firstpricedate", Type: "Date"},
 			{Name: "lastpricedate", Type: "Date"},
-			{Name: "firstquarter", Type: "String"},
-			{Name: "lastquarter", Type: "String"},
-			{Name: "secfilings", Type: "String"},
-			{Name: "companysite", Type: "String"},
+			{Name: "firstquarter", Type: "text"},
+			{Name: "lastquarter", Type: "text"},
+			{Name: "secfilings", Type: "text"},
+			{Name: "companysite", Type: "text"},
 		}
 		data := []ndl.Value{
 			123.0,
@@ -131,14 +131,14 @@ func TestSchema(t *testing.T) {
 
 		Convey("Load", func() {
 			realSchema := ndl.Schema{
-				{Name: "action", Type: "String"},
+				{Name: "action", Type: "text"},
 				{Name: "date", Type: "Date"}, // reordered
-				{Name: "ticker", Type: "String"},
-				{Name: "name", Type: "String"},
-				{Name: "extraField", Type: "String"},
+				{Name: "ticker", Type: "text"},
+				{Name: "name", Type: "text"},
+				{Name: "extraField", Type: "text"},
 				{Name: "value", Type: "BigDecimal(20,5)"},
-				{Name: "contraticker", Type: "String"}, // old/new ticker name
-				{Name: "contraname", Type: "String"},   // old/new company name
+				{Name: "contraticker", Type: "text"}, // old/new ticker name
+				{Name: "contraname", Type: "text"},   // old/new company name
 			}
 			data := []ndl.Value{
 				"split",
@@ -178,7 +178,7 @@ func TestSchema(t *testing.T) {
 			{Name: "closeunadj", Type: "double"},
 			{Name: "closeadj", Type: "double"},
 			{Name: "lastupdated", Type: "Date"},
-			{Name: "fakefield", Type: "String"}, // extra field
+			{Name: "fakefield", Type: "text"}, // extra field
 		}
 		data := []ndl.Value{
 			"2020-03-14",
