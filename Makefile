@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-INSTALLS=./apps/parfait-sharadar ./apps/parfait-list
+INSTALLS=./apps/parfait-sharadar ./apps/parfait-list ./apps/parfait-import
 GOPATH=$(shell go env GOPATH)
 
 CHARTJS_VERSION=v3.8.0
