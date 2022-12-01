@@ -31,8 +31,8 @@ type Flags struct {
 	// Exactly one of tickers, prices or update-metadata must be present
 	Tickers        string // Import tickers; merge by default
 	Replace        bool   // Replace tickers table rather than merge
-	Ticker         string // Must be present with -prices.
-	Prices         string // ticker to print prices for
+	Ticker         string // Must be present with -prices
+	Prices         string // Import prices for a given ticker
 	Schema         string // schema file for either tickers or prices table
 	UpdateMetadata bool
 }
@@ -50,7 +50,7 @@ func parseFlags(args []string) (*Flags, error) {
 	fs.BoolVar(&flags.Replace, "replace", false,
 		"replace the entire tickers table, don't merge")
 	fs.StringVar(&flags.Ticker, "ticker", "", "required with -prices")
-	fs.StringVar(&flags.Prices, "prices", "", "import prices for the given ticker")
+	fs.StringVar(&flags.Prices, "prices", "", "import prices for a given ticker")
 	fs.StringVar(&flags.Schema, "schema", "", "schema config for either tickers or prices")
 	fs.BoolVar(&flags.UpdateMetadata, "update-metadata", false, "scan the DB")
 

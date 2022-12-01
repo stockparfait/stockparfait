@@ -66,9 +66,7 @@ func TestMain(t *testing.T) {
 		})
 
 		Convey("-prices without -ticker", func() {
-			_, err := parseFlags([]string{
-				"-cache", "path/to/cache", "-db", "name",
-				"-log-level", "warning", "-prices", "prices.csv"})
+			_, err := parseFlags([]string{"-db", "name", "-prices", "prices.csv"})
 			So(err, ShouldNotBeNil)
 		})
 
