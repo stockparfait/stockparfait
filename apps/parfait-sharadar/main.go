@@ -36,7 +36,7 @@ type Flags struct {
 
 func parseFlags(args []string) (*Flags, error) {
 	var flags Flags
-	fs := flag.NewFlagSet("sharadar", flag.ExitOnError)
+	fs := flag.NewFlagSet("parfait-sharadar", flag.ExitOnError)
 	fs.StringVar(&flags.DBDir, "cache",
 		filepath.Join(os.Getenv("HOME"), ".stockparfait"),
 		"path to databases")
