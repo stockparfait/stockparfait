@@ -562,6 +562,36 @@ type Metadata struct {
 	NumMonthly int  `json:"num_monthly"` // monthly price samples
 }
 
+func (m *Metadata) UpdateTickers(tickers map[string]TickerRow) {
+	m.NumTickers = len(tickers)
+}
+
+func (m *Metadata) UpdateActions(actions map[string][]ActionRow) {
+	m.NumActions = 0
+	for _, as := range actions {
+		m.NumActions += len(as)
+	}
+}
+
+func (m *Metadata) UpdatePrices(prices []PriceRow) {
+	m.NumPrices += len(prices)
+	for _, p := range prices {
+		if m.Start.IsZero() || m.Start.After(p.Date) {
+			m.Start = p.Date
+		}
+		if m.End.IsZero() || m.End.Before(p.Date) {
+			m.End = p.Date
+		}
+	}
+}
+
+func (m *Metadata) UpdateMonthly(monthly map[string][]ResampledRow) {
+	m.NumMonthly = 0
+	for _, ms := range monthly {
+		m.NumMonthly += len(ms)
+	}
+}
+
 // Time is a wrapper around time.Time with JSON methods.
 type Time time.Time
 

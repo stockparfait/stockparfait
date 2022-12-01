@@ -426,7 +426,7 @@ func (d *Dataset) DownloadAll(ctx context.Context, dbPath, dbName string, tables
 		return errors.Annotate(err, "failed to write monthly prices")
 	}
 	logging.Infof(ctx, "writing metadata...")
-	if err := w.WriteMetadata(); err != nil {
+	if err := w.WriteMetadata(w.Metadata); err != nil {
 		return errors.Annotate(err, "failed to write metadata")
 	}
 	logging.Infof(ctx, "all done.")

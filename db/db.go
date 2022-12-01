@@ -359,6 +359,16 @@ func (r *Reader) Tickers(ctx context.Context) ([]string, error) {
 	return tickers, nil
 }
 
+// AllTickerRows returns all the ticker rows from the DB as a {ticker -> row}
+// map, compatible with Writer.WriteTickers() method. Note: modifying the map
+// will modify the Reader's cached copy.
+func (r *Reader) AllTickerRows(ctx context.Context) (map[string]TickerRow, error) {
+	if err := r.cacheTickers(); err != nil {
+		return nil, errors.Annotate(err, "failed to load tickers")
+	}
+	return r.tickers, nil
+}
+
 // Actions for ticker satisfying the Reader's constraints, sorted by date.
 // All actions for all tickers are cached in memory upon the first call. Go routine
 // safe, assuming Reader's constraints are not modified.
@@ -425,10 +435,20 @@ func (r *Reader) Monthly(ticker string, start, end Date) ([]ResampledRow, error)
 	return res, nil
 }
 
+// AllMonthlyRows returns all the monthly resampled rows from the DB as a
+// {ticker -> row} map, compatible with Writer.WriteMonthly() method. Note:
+// modifying the map will modify the Reader's cached copy.
+func (r *Reader) AllMonthlyRows(ctx context.Context) (map[string][]ResampledRow, error) {
+	if err := r.cacheMonthly(); err != nil {
+		return nil, errors.Annotate(err, "failed to load tickers")
+	}
+	return r.monthly, nil
+}
+
 type Writer struct {
 	dbPath     string
 	db         string
-	metadata   Metadata
+	Metadata   Metadata
 	mkdirOnce  sync.Once
 	mkdirError error
 }
@@ -460,7 +480,7 @@ func (w *Writer) WriteTickers(tickers map[string]TickerRow) error {
 	if err := writeGob(tickersFile(w.cachePath()), tickers); err != nil {
 		return errors.Annotate(err, "failed to write '%s'", tickersFile(w.cachePath()))
 	}
-	w.metadata.NumTickers = len(tickers)
+	w.Metadata.UpdateTickers(tickers)
 	return nil
 }
 
@@ -475,10 +495,7 @@ func (w *Writer) WriteActions(actions map[string][]ActionRow) error {
 		return errors.Annotate(err, "failed to write '%s'",
 			actionsFile(w.cachePath()))
 	}
-	w.metadata.NumActions = 0
-	for _, as := range actions {
-		w.metadata.NumActions += len(as)
-	}
+	w.Metadata.UpdateActions(actions)
 	return nil
 }
 
@@ -492,15 +509,7 @@ func (w *Writer) WritePrices(ticker string, prices []PriceRow) error {
 		return errors.Annotate(err, "failed to write '%s'",
 			pricesFile(w.cachePath(), ticker))
 	}
-	w.metadata.NumPrices += len(prices)
-	for _, p := range prices {
-		if w.metadata.Start.IsZero() || w.metadata.Start.After(p.Date) {
-			w.metadata.Start = p.Date
-		}
-		if w.metadata.End.IsZero() || w.metadata.End.Before(p.Date) {
-			w.metadata.End = p.Date
-		}
-	}
+	w.Metadata.UpdatePrices(prices)
 	return nil
 }
 
@@ -565,16 +574,13 @@ func (w *Writer) WriteMonthly(monthly map[string][]ResampledRow) error {
 		return errors.Annotate(err, "failed to write '%s'",
 			monthlyFile(w.cachePath()))
 	}
-	w.metadata.NumMonthly = 0
-	for _, ms := range monthly {
-		w.metadata.NumMonthly += len(ms)
-	}
+	w.Metadata.UpdateMonthly(monthly)
 	return nil
 }
 
 // WriteMetadata saves the metadata accumulated by the Write* methods. It is
 // stored in JSON format to be human-readable.
-func (w *Writer) WriteMetadata() error {
+func (w *Writer) WriteMetadata(m Metadata) error {
 	fileName := metadataFile(w.cachePath())
 	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
@@ -584,7 +590,7 @@ func (w *Writer) WriteMetadata() error {
 
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
-	if err := enc.Encode(w.metadata); err != nil {
+	if err := enc.Encode(m); err != nil {
 		return errors.Annotate(err, "failed to write to '%s'", fileName)
 	}
 	return nil
