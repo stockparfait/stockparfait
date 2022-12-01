@@ -75,7 +75,7 @@ func TestMain(t *testing.T) {
 		So(w.WriteActions(actions), ShouldBeNil)
 		So(w.WritePrices("A", pricesA), ShouldBeNil)
 		So(w.WriteMonthly(monthly), ShouldBeNil)
-		So(w.WriteMetadata(), ShouldBeNil)
+		So(w.WriteMetadata(w.Metadata), ShouldBeNil)
 
 		ctx := context.Background()
 

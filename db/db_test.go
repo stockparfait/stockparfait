@@ -118,7 +118,7 @@ func TestDB(t *testing.T) {
 			So(w.WritePrices("A", pricesA), ShouldBeNil)
 			So(w.WritePrices("B", pricesB), ShouldBeNil)
 			So(w.WriteMonthly(monthly), ShouldBeNil)
-			So(w.WriteMetadata(), ShouldBeNil)
+			So(w.WriteMetadata(w.Metadata), ShouldBeNil)
 		})
 
 		Convey("ComputeMonthly works", func() {
