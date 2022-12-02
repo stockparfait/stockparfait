@@ -77,22 +77,6 @@ func parseFlags(args []string) (*Flags, error) {
 	return &flags, err
 }
 
-// TickerRow extends db.TickerRow with the ticker name and makes it a table.Row.
-type TickerRow struct {
-	db.TickerRow
-	Ticker string
-}
-
-var _ table.Row = TickerRow{}
-
-func (r TickerRow) CSV() []string {
-	return append([]string{r.Ticker}, r.TickerRow.CSV()...)
-}
-
-func TickerRowHeader() []string {
-	return append([]string{"Ticker"}, db.TickerRowHeader()...)
-}
-
 func tickersTable(ctx context.Context, reader *db.Reader) (*table.Table, error) {
 	tickers, err := reader.Tickers(ctx)
 	if err != nil {
@@ -105,12 +89,9 @@ func tickersTable(ctx context.Context, reader *db.Reader) (*table.Table, error) 
 		if err != nil {
 			return nil, errors.Annotate(err, "failed to read ticker row for %s", t)
 		}
-		rows = append(rows, TickerRow{
-			Ticker:    t,
-			TickerRow: tr,
-		})
+		rows = append(rows, tr.Row(t))
 	}
-	tbl := table.NewTable(TickerRowHeader()...)
+	tbl := table.NewTable(db.TickerRowHeader()...)
 	tbl.AddRow(rows...)
 	return tbl, nil
 }

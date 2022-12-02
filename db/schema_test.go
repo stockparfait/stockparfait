@@ -143,7 +143,7 @@ func TestSchema(t *testing.T) {
 
 	Convey("TickerRow", t, func() {
 		Convey("TickerRowHeader works", func() {
-			So(len(TickerRowHeader()), ShouldEqual, 10)
+			So(len(TickerRowHeader()), ShouldEqual, 11)
 		})
 
 		Convey("CSV works", func() {
@@ -159,8 +159,8 @@ func TestSchema(t *testing.T) {
 				CompanySite: "http:",
 				Active:      true,
 			}
-			So(t.CSV(), ShouldResemble, []string{
-				"source", "exch", "My name is", "cat", "sec", "ind",
+			So(t.Row("TK").CSV(), ShouldResemble, []string{
+				"TK", "source", "exch", "My name is", "cat", "sec", "ind",
 				"there", "click", "http:", "TRUE",
 			})
 		})
