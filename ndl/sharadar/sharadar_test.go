@@ -250,87 +250,6 @@ C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 			So(ds.Prices, ShouldResemble, expected)
 		})
 
-		Convey("ComputeActions", func() {
-			ds := NewDataset()
-			ds.Tickers = map[string]db.TickerRow{
-				"A": {Active: false}, // no delisting action, must be added
-				"B": {Active: true},
-				"C": {Active: true}, // no raw actions, must insert listed action
-			}
-			ds.RawActions = map[string][]Action{
-				"A": {
-					// Before the first price, will be recorded at the first price.
-					TestAction(db.NewDate(2010, 1, 1), ListedAction, "A", 0.0),
-					// Between prices, must merge with the next.
-					TestAction(db.NewDate(2020, 1, 15), DividendAction, "A", 1.0),
-					TestAction(db.NewDate(2020, 2, 1), SplitAction, "A", 2.0),
-				},
-				"B": {
-					// After the first price.
-					TestAction(db.NewDate(2020, 2, 1), DelistedAction, "A", 0.0),
-					// After the second but before the last price.
-					TestAction(db.NewDate(2020, 2, 15), DelistedAction, "A", 0.0),
-					// At the last price, to update the active bit.
-					TestAction(db.NewDate(2020, 3, 1), SplitAction, "A", 2.0),
-				},
-			}
-			ds.Prices = map[string][]db.PriceRow{
-				"A": {
-					db.TestPrice(db.NewDate(2020, 1, 1), 10.0, 5.0, 0.0, true),
-					// At split, after dividends.
-					db.TestPrice(db.NewDate(2020, 2, 1), 6.0, 6.0, 0.0, true),
-					// Delisting action must be at this date.
-					db.TestPrice(db.NewDate(2020, 3, 1), 7.0, 7.0, 0.0, true),
-				},
-				"B": {
-					// Before the first action.
-					db.TestPrice(db.NewDate(2020, 1, 1), 5.0, 5.0, 0.0, true),
-					// At delisted action.
-					db.TestPrice(db.NewDate(2020, 2, 1), 6.0, 6.0, 0.0, true),
-					// Listed action must be at this date.
-					db.TestPrice(db.NewDate(2020, 3, 1), 10.0, 10.0, 0.0, true),
-				},
-				"C": {
-					db.TestPrice(db.NewDate(2021, 1, 1), 5.0, 5.0, 0.0, true),
-					db.TestPrice(db.NewDate(2021, 2, 1), 6.0, 6.0, 0.0, true),
-					db.TestPrice(db.NewDate(2021, 3, 1), 10.0, 10.0, 0.0, true),
-				},
-			}
-			ds.ComputeActions(ctx)
-			So(ds.NumActions, ShouldEqual, 7)
-			So(ds.Actions, ShouldResemble, map[string][]db.ActionRow{
-				"A": {
-					// Listed action at first price.
-					db.TestAction(db.NewDate(2020, 1, 1), 1.0, 1.0, true),
-					// Merged split + dividend action.
-					db.TestAction(db.NewDate(2020, 2, 1), 0.8, 0.5, true),
-					// Delisted action - added automatically.
-					db.TestAction(db.NewDate(2020, 3, 1), 1.0, 1.0, false),
-				},
-				"B": {
-					// Listed action - added automatically.
-					db.TestAction(db.NewDate(2020, 1, 1), 1.0, 1.0, true),
-					// Delisted action.
-					db.TestAction(db.NewDate(2020, 2, 1), 1.0, 1.0, false),
-					// (Re)listed action - added automatically.
-					db.TestAction(db.NewDate(2020, 3, 1), 1.0, 0.5, true),
-				},
-				"C": {
-					// Listed action - added automatically.
-					db.TestAction(db.NewDate(2021, 1, 1), 1.0, 1.0, true),
-				},
-			})
-			So(ds.Prices["A"][0].Active(), ShouldBeTrue)
-			So(ds.Prices["A"][1].Active(), ShouldBeTrue)
-			So(ds.Prices["A"][2].Active(), ShouldBeFalse)
-			So(ds.Prices["B"][0].Active(), ShouldBeTrue)
-			So(ds.Prices["B"][1].Active(), ShouldBeFalse)
-			So(ds.Prices["B"][2].Active(), ShouldBeTrue)
-			So(ds.Prices["C"][0].Active(), ShouldBeTrue)
-			So(ds.Prices["C"][1].Active(), ShouldBeTrue)
-			So(ds.Prices["C"][2].Active(), ShouldBeTrue)
-		})
-
 		Convey("DownloadAll", func() {
 			tmpdir, tmpdirErr := ioutil.TempDir("", "testdownload")
 			So(tmpdirErr, ShouldBeNil)
@@ -340,7 +259,6 @@ C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 
 			server.ResponseBody = []string{
 				tickersPage,
-				actionsPage,
 				bulkJSON,
 				bulkZipStr,
 			}
@@ -354,7 +272,6 @@ C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 				Start:      db.NewDate(2019, 9, 24),
 				End:        db.NewDate(2021, 11, 9),
 				NumTickers: 3,
-				NumActions: 4,
 				NumPrices:  5,
 				NumMonthly: 3,
 			})

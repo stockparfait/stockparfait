@@ -105,13 +105,10 @@ type Reader struct {
 	Volatility     *Interval `json:"volatility"`
 	constraints    *Constraints
 	tickers        map[string]TickerRow
-	actions        map[string][]ActionRow
 	monthly        map[string][]ResampledRow
 	metadata       Metadata
 	tickersOnce    sync.Once
 	tickersError   error
-	actionsOnce    sync.Once
-	actionsError   error
 	monthlyOnce    sync.Once
 	monthlyError   error
 	metadataOnce   sync.Once
@@ -125,7 +122,6 @@ func NewReader(dbPath, db string) *Reader {
 		DBPath:  dbPath,
 		DB:      db,
 		tickers: make(map[string]TickerRow),
-		actions: make(map[string][]ActionRow),
 		monthly: make(map[string][]ResampledRow),
 	}
 }
@@ -151,17 +147,12 @@ func (r *Reader) InitMessage(js interface{}) error {
 		r.DBPath = filepath.Join(os.Getenv("HOME"), ".stockparfait")
 	}
 	r.tickers = make(map[string]TickerRow)
-	r.actions = make(map[string][]ActionRow)
 	r.monthly = make(map[string][]ResampledRow)
 	return nil
 }
 
 func tickersFile(cachePath string) string {
 	return filepath.Join(cachePath, "tickers.gob")
-}
-
-func actionsFile(cachePath string) string {
-	return filepath.Join(cachePath, "actions.gob")
 }
 
 func pricesDir(cachePath string) string {
@@ -210,16 +201,6 @@ func (r *Reader) cacheTickers() error {
 		}
 	})
 	return r.tickersError
-}
-
-func (r *Reader) cacheActions() error {
-	r.actionsOnce.Do(func() {
-		if err := readGob(actionsFile(r.cachePath()), &r.actions); err != nil {
-			r.actionsError = errors.Annotate(
-				err, "failed to load %s", actionsFile(r.cachePath()))
-		}
-	})
-	return r.actionsError
 }
 
 func (r *Reader) cacheMonthly() error {
@@ -369,26 +350,6 @@ func (r *Reader) AllTickerRows(ctx context.Context) (map[string]TickerRow, error
 	return r.tickers, nil
 }
 
-// Actions for ticker satisfying the Reader's constraints, sorted by date.
-// All actions for all tickers are cached in memory upon the first call. Go routine
-// safe, assuming Reader's constraints are not modified.
-func (r *Reader) Actions(ticker string) ([]ActionRow, error) {
-	if err := r.cacheActions(); err != nil {
-		return nil, errors.Annotate(err, "failed to load actions")
-	}
-	actions, ok := r.actions[ticker]
-	if !ok {
-		return nil, errors.Reason("no actions found for ticker %s", ticker)
-	}
-	res := []ActionRow{}
-	for _, a := range actions {
-		if a.Date.InRange(r.Start, r.End) {
-			res = append(res, a)
-		}
-	}
-	return res, nil
-}
-
 // Prices for ticker satilfying Reader's constraints, sorted by date. Prices are
 // NOT cached in memory, and are read from disk every time. It is probably go
 // routine safe, if the underlying OS allows to open and read the same file
@@ -481,21 +442,6 @@ func (w *Writer) WriteTickers(tickers map[string]TickerRow) error {
 		return errors.Annotate(err, "failed to write '%s'", tickersFile(w.cachePath()))
 	}
 	w.Metadata.UpdateTickers(tickers)
-	return nil
-}
-
-// WriteActions saves the actions table to the DB file, and sets the number of
-// actions in the metadata. Actions are indexed by ticker, and for each ticker
-// actions are assumed to be sorted by date.
-func (w *Writer) WriteActions(actions map[string][]ActionRow) error {
-	if err := w.createDirs(); err != nil {
-		return errors.Annotate(err, "failed to create DB directories")
-	}
-	if err := writeGob(actionsFile(w.cachePath()), actions); err != nil {
-		return errors.Annotate(err, "failed to write '%s'",
-			actionsFile(w.cachePath()))
-	}
-	w.Metadata.UpdateActions(actions)
 	return nil
 }
 

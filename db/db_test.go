@@ -81,15 +81,6 @@ func TestDB(t *testing.T) {
 			"A": {},
 			"B": {},
 		}
-		actions := map[string][]ActionRow{
-			"A": {
-				TestAction(NewDate(2019, 1, 1), 1.0, 1.0, true),
-			},
-			"B": {
-				TestAction(NewDate(2019, 1, 1), 1.0, 1.0, true),
-				TestAction(NewDate(2020, 1, 1), 1.0, 1.0, false),
-			},
-		}
 		pricesA := []PriceRow{
 			TestPrice(NewDate(2019, 1, 1), 10.0, 10.0, 1000.0, true),
 			TestPrice(NewDate(2019, 1, 2), 11.0, 11.0, 1100.0, true),
@@ -114,7 +105,6 @@ func TestDB(t *testing.T) {
 		Convey("write methods work", func() {
 			w := NewWriter(tmpdir, dbName)
 			So(w.WriteTickers(tickers), ShouldBeNil)
-			So(w.WriteActions(actions), ShouldBeNil)
 			So(w.WritePrices("A", pricesA), ShouldBeNil)
 			So(w.WritePrices("B", pricesB), ShouldBeNil)
 			So(w.WriteMonthly(monthly), ShouldBeNil)
@@ -229,19 +219,6 @@ func TestDB(t *testing.T) {
 			So(len(tickers), ShouldEqual, 0)
 		})
 
-		Convey("action access methods work", func() {
-			db := NewReader(tmpdir, dbName)
-			a, err := db.Actions("A")
-			So(err, ShouldBeNil)
-			So(a, ShouldResemble, actions["A"])
-
-			db.End = NewDate(2019, 6, 1)
-
-			a, err = db.Actions("B")
-			So(err, ShouldBeNil)
-			So(a, ShouldResemble, actions["B"][:1])
-		})
-
 		Convey("price access methods work", func() {
 			db := NewReader(tmpdir, dbName)
 			p, err := db.Prices("A")
@@ -280,7 +257,6 @@ func TestDB(t *testing.T) {
 				Start:      NewDate(2019, 1, 1),
 				End:        NewDate(2019, 1, 3),
 				NumTickers: 2,
-				NumActions: 3,
 				NumPrices:  6,
 				NumMonthly: 4,
 			})

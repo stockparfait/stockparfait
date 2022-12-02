@@ -54,11 +54,6 @@ func TestMain(t *testing.T) {
 			"A": {Source: "test", Active: true},
 			"B": {Source: "test", Active: false},
 		}
-		actions := map[string][]db.ActionRow{
-			"A": {
-				db.TestAction(db.NewDate(2019, 1, 1), 1.0, 1.0, true),
-			},
-		}
 		pricesA := []db.PriceRow{
 			db.TestPrice(db.NewDate(2019, 1, 1), 10.0, 10.0, 1000.0, true),
 			db.TestPrice(db.NewDate(2019, 1, 2), 11.0, 11.0, 1100.0, true),
@@ -72,7 +67,6 @@ func TestMain(t *testing.T) {
 		}
 		w := db.NewWriter(tmpdir, dbName)
 		So(w.WriteTickers(tickers), ShouldBeNil)
-		So(w.WriteActions(actions), ShouldBeNil)
 		So(w.WritePrices("A", pricesA), ShouldBeNil)
 		So(w.WriteMonthly(monthly), ShouldBeNil)
 		So(w.WriteMetadata(w.Metadata), ShouldBeNil)
@@ -89,19 +83,6 @@ func TestMain(t *testing.T) {
 Ticker,Source,Exchange,Name,Category,Sector,Industry,Location,SEC Filings,Company Site,Active
 A,test,,,,,,,,,TRUE
 B,test,,,,,,,,,FALSE
-`)
-		})
-
-		Convey("actions", func() {
-			flags, err := parseFlags([]string{"-cache", tmpdir, "-db", dbName,
-				"-actions", "A"})
-			So(err, ShouldBeNil)
-			var buf bytes.Buffer
-			So(printData(ctx, flags, &buf), ShouldBeNil)
-			So("\n"+buf.String(), ShouldEqual, `
-      Date | Dividend Factor | Split Factor | Active
----------- | --------------- | ------------ | ------
-2019-01-01 |               1 |            1 |   TRUE
 `)
 		})
 
