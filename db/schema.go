@@ -340,39 +340,6 @@ func (r TickerRow) CSV() []string {
 	}
 }
 
-// ActionRow is a row in the actions table. Size: 16 bytes (13+padding).
-type ActionRow struct {
-	Date           Date
-	DividendFactor float32 // dividend adjustment factor (1.0 = no dividend)
-	SplitFactor    float32 // split adjustment factor (1.0 = no split)
-	Active         bool
-}
-
-var _ table.Row = ActionRow{}
-
-func (r ActionRow) CSV() []string {
-	return []string{
-		r.Date.String(),
-		float2str(r.DividendFactor),
-		float2str(r.SplitFactor),
-		bool2str(r.Active),
-	}
-}
-
-func ActionRowHeader() []string {
-	return []string{"Date", "Dividend Factor", "Split Factor", "Active"}
-}
-
-// TestAction creates an ActionRow for use in tests.
-func TestAction(date Date, dividend, split float32, active bool) ActionRow {
-	return ActionRow{
-		Date:           date,
-		DividendFactor: dividend,
-		SplitFactor:    split,
-		Active:         active,
-	}
-}
-
 // PriceRow is a row in the prices table. It is intended for daily price points.
 // Size: 20 bytes.
 //
@@ -557,20 +524,12 @@ type Metadata struct {
 	Start      Date `json:"start"` // the earliest available price date
 	End        Date `json:"end"`   // the latest available price date
 	NumTickers int  `json:"num_tickers"`
-	NumActions int  `json:"num_actions"`
 	NumPrices  int  `json:"num_prices"`  // daily price samples
 	NumMonthly int  `json:"num_monthly"` // monthly price samples
 }
 
 func (m *Metadata) UpdateTickers(tickers map[string]TickerRow) {
 	m.NumTickers = len(tickers)
-}
-
-func (m *Metadata) UpdateActions(actions map[string][]ActionRow) {
-	m.NumActions = 0
-	for _, as := range actions {
-		m.NumActions += len(as)
-	}
 }
 
 func (m *Metadata) UpdatePrices(prices []PriceRow) {

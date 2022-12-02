@@ -32,9 +32,8 @@ type Flags struct {
 	DBDir    string // default: ~/.stockparfait
 	DBName   string // required
 	LogLevel logging.Level
-	// Exactly one of tickers, actions, prices or monthly must be present.
+	// Exactly one of tickers, prices or monthly must be present.
 	Tickers bool
-	Actions string // ticker to print actions for
 	Prices  string // ticker to print prices for
 	Monthly string // ticker to print monthly data for
 	CSV     bool   // dump CSV format; default: text.
@@ -50,7 +49,6 @@ func parseFlags(args []string) (*Flags, error) {
 	flags.LogLevel = logging.Info
 	fs.Var(&flags.LogLevel, "log-level", "Log level: debug, info, warning, error")
 	fs.BoolVar(&flags.Tickers, "tickers", false, "print all ticker rows")
-	fs.StringVar(&flags.Actions, "actions", "", "ticker to print actions for")
 	fs.StringVar(&flags.Prices, "prices", "", "ticker to print prices for")
 	fs.StringVar(&flags.Monthly, "monthly", "", "ticker to print monthly data for")
 	fs.BoolVar(&flags.CSV, "csv", false, "print table in CSV format; default: text")
@@ -66,9 +64,6 @@ func parseFlags(args []string) (*Flags, error) {
 	if flags.Tickers {
 		kinds++
 	}
-	if flags.Actions != "" {
-		kinds++
-	}
 	if flags.Prices != "" {
 		kinds++
 	}
@@ -77,7 +72,7 @@ func parseFlags(args []string) (*Flags, error) {
 	}
 	if kinds != 1 {
 		return nil, errors.Reason(
-			"expected exactly one of -tickers, -actions, -prices or -monthly")
+			"expected exactly one of -tickers, -prices or -monthly")
 	}
 	return &flags, err
 }
@@ -120,20 +115,6 @@ func tickersTable(ctx context.Context, reader *db.Reader) (*table.Table, error) 
 	return tbl, nil
 }
 
-func actionsTable(ctx context.Context, reader *db.Reader, ticker string) (*table.Table, error) {
-	actions, err := reader.Actions(ticker)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to read actions for %s", ticker)
-	}
-	rows := make([]table.Row, len(actions))
-	for i, a := range actions {
-		rows[i] = a
-	}
-	tbl := table.NewTable(db.ActionRowHeader()...)
-	tbl.AddRow(rows...)
-	return tbl, nil
-}
-
 func pricesTable(ctx context.Context, reader *db.Reader, ticker string) (*table.Table, error) {
 	prices, err := reader.Prices(ticker)
 	if err != nil {
@@ -169,11 +150,6 @@ func printData(ctx context.Context, flags *Flags, w io.Writer) error {
 	if flags.Tickers {
 		if tbl, err = tickersTable(ctx, reader); err != nil {
 			return errors.Annotate(err, "failed to read tickers")
-		}
-	}
-	if flags.Actions != "" {
-		if tbl, err = actionsTable(ctx, reader, flags.Actions); err != nil {
-			return errors.Annotate(err, "failed to read actions for %s", flags.Actions)
 		}
 	}
 	if flags.Prices != "" {

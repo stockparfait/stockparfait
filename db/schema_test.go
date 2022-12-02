@@ -166,32 +166,6 @@ func TestSchema(t *testing.T) {
 		})
 	})
 
-	Convey("ActionRow", t, func() {
-		Convey("has correct size", func() {
-			So(unsafe.Sizeof(ActionRow{}), ShouldEqual, 16)
-		})
-
-		Convey("TestAction works", func() {
-			d := NewDate(2019, 1, 2)
-			So(TestAction(d, 0.98, 0.5, true), ShouldResemble,
-				ActionRow{
-					Date:           d,
-					DividendFactor: 0.98,
-					SplitFactor:    0.5,
-					Active:         true,
-				})
-		})
-
-		Convey("ActionRowHeader works", func() {
-			So(len(ActionRowHeader()), ShouldEqual, 4)
-		})
-
-		Convey("CSV works", func() {
-			a := TestAction(NewDate(2020, 4, 15), 1.01, 2.0, false)
-			So(a.CSV(), ShouldResemble, []string{"2020-04-15", "1.01", "2", "FALSE"})
-		})
-	})
-
 	Convey("PriceRow", t, func() {
 		Convey("has correct size", func() {
 			So(unsafe.Sizeof(PriceRow{}), ShouldEqual, 20)

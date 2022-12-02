@@ -74,11 +74,9 @@ func FetchActions(ctx context.Context, actions ...ActionType) *ndl.RowIterator {
 type Dataset struct {
 	Tickers       map[string]db.TickerRow
 	RawActions    map[string][]Action
-	Actions       map[string][]db.ActionRow
 	Prices        map[string][]db.PriceRow
 	Monthly       map[string][]db.ResampledRow
 	NumRawActions int
-	NumActions    int
 	NumPrices     int
 }
 
@@ -87,7 +85,6 @@ func NewDataset() *Dataset {
 	return &Dataset{
 		Tickers:    make(map[string]db.TickerRow),
 		RawActions: make(map[string][]Action),
-		Actions:    make(map[string][]db.ActionRow),
 		Prices:     make(map[string][]db.PriceRow),
 		Monthly:    make(map[string][]db.ResampledRow),
 	}
@@ -294,89 +291,6 @@ func (d *Dataset) BulkDownloadPrices(ctx context.Context, table TableName) error
 	return nil
 }
 
-// ComputeActions from RawActions and Prices of the Dataset, and update the
-// Active bit in Prices. This method must be called after all the data is
-// downloaded, but before saving the prices. It combines multiple actions
-// between price points, creating at most one action per price point.
-func (d *Dataset) ComputeActions(ctx context.Context) {
-	// For each ticker, step through the prices and actions in sync by date, and
-	// generate the appropriate DB actions.
-	for ticker, prices := range d.Prices {
-		if len(prices) == 0 {
-			continue
-		}
-		rawActions := d.RawActions[ticker]
-
-		actions := []db.ActionRow{}
-		var prevPrice float32 // split-adjusted previous close
-		ai := 0               // action index
-		active := true
-		for i, price := range prices {
-			action := db.ActionRow{
-				Date:           price.Date,
-				DividendFactor: 1.0,
-				SplitFactor:    1.0,
-				Active:         true,
-			}
-			hasActions := false
-			for ; ai < len(rawActions) && !rawActions[ai].Date.After(price.Date); ai++ {
-				switch ra := rawActions[ai]; ra.Action {
-				case ListedAction:
-					action.Active = true
-					hasActions = true
-				case AcquisitionByAction, MergerFromAction, RegulatoryDelistingAction, VoluntaryDelistingAction, DelistedAction:
-					action.Active = false
-					hasActions = true
-				case DividendAction, SpinoffDividendAction:
-					if prevPrice > 0.0 { // no previous price at the first sample
-						action.DividendFactor *= (prevPrice - ra.Value) / prevPrice
-						hasActions = true
-					}
-				case SplitAction:
-					if ra.Value > 0.0 { // split factor cannot meaningfully be <= 0.0
-						action.SplitFactor *= 1.0 / ra.Value
-						hasActions = true
-					}
-				}
-			}
-			prevPrice = price.CloseSplitAdjusted
-			// Special case: no action at the start. Inject "listed" action.
-			if i == 0 && !hasActions {
-				action = db.ActionRow{
-					Date:           price.Date,
-					Active:         true,
-					DividendFactor: 1.0,
-					SplitFactor:    1.0,
-				}
-				hasActions = true
-			}
-			if hasActions {
-				actions = append(actions, action)
-				active = action.Active
-			}
-			prices[i].SetActive(active)
-		}
-		// Make sure that the actions' active status agrees with the ticker's.
-		t := d.Tickers[ticker]
-		if actions[len(actions)-1].Active != t.Active {
-			lastPrice := prices[len(prices)-1]
-			if actions[len(actions)-1].Date == lastPrice.Date {
-				actions[len(actions)-1].Active = t.Active
-			} else {
-				actions = append(actions, db.ActionRow{
-					Date:           lastPrice.Date,
-					DividendFactor: 1.0,
-					SplitFactor:    1.0,
-					Active:         t.Active,
-				})
-			}
-			prices[len(prices)-1].SetActive(t.Active)
-		}
-		d.Actions[ticker] = actions
-		d.NumActions += len(actions)
-	}
-}
-
 // DownloadAll - tickers, actions and prices for the requested tables.
 func (d *Dataset) DownloadAll(ctx context.Context, dbPath, dbName string, tables ...TableName) error {
 	if len(tables) == 0 {
@@ -387,11 +301,6 @@ func (d *Dataset) DownloadAll(ctx context.Context, dbPath, dbName string, tables
 		return errors.Annotate(err, "failed to fetch tickers")
 	}
 	logging.Infof(ctx, "downloaded %d tickers", len(d.Tickers))
-	logging.Infof(ctx, "fetching actions...")
-	if err := d.FetchActions(ctx, RelevantActions...); err != nil {
-		return errors.Annotate(err, "failed to fetch actions")
-	}
-	logging.Infof(ctx, "downloaded %d actions", d.NumRawActions)
 	currPrices := 0
 	for _, t := range tables {
 		logging.Infof(ctx, "bulk-downloading %s prices", t)
@@ -402,17 +311,10 @@ func (d *Dataset) DownloadAll(ctx context.Context, dbPath, dbName string, tables
 		currPrices = d.NumPrices
 	}
 	logging.Infof(ctx, "downloaded total %d prices", d.NumPrices)
-	logging.Infof(ctx, "processing actions...")
-	d.ComputeActions(ctx)
-	logging.Infof(ctx, "created %d DB actions", d.NumActions)
 	logging.Infof(ctx, "writing tickers...")
 	w := db.NewWriter(dbPath, dbName)
 	if err := w.WriteTickers(d.Tickers); err != nil {
 		return errors.Annotate(err, "failed to write tickers")
-	}
-	logging.Infof(ctx, "writing actions...")
-	if err := w.WriteActions(d.Actions); err != nil {
-		return errors.Annotate(err, "failed to write actions")
 	}
 	logging.Infof(ctx, "writing prices...")
 	for ticker, prices := range d.Prices {
