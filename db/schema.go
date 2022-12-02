@@ -299,7 +299,7 @@ func (t TickerRow) Row(ticker string) table.Row {
 	}
 }
 
-// TickerTableRow implements table.Row by including the ticker to TickerRow.
+// TickerTableRow implements table.Row by adding ticker name to TickerRow.
 type TickerTableRow struct {
 	TickerRow
 	Ticker string
