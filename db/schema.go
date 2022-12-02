@@ -291,11 +291,42 @@ type TickerRow struct {
 	Active      bool   // ticker is listed at the last price date
 }
 
-var _ table.Row = TickerRow{}
+// Row converts TickerRow to table.Row which includes the ticker name.
+func (t TickerRow) Row(ticker string) table.Row {
+	return TickerTableRow{
+		TickerRow: t,
+		Ticker:    ticker,
+	}
+}
+
+// TickerTableRow implements table.Row by adding ticker name to TickerRow.
+type TickerTableRow struct {
+	TickerRow
+	Ticker string
+}
+
+var _ table.Row = TickerTableRow{}
+
+func (r TickerTableRow) CSV() []string {
+	return []string{
+		r.Ticker,
+		r.Source,
+		r.Exchange,
+		r.Name,
+		r.Category,
+		r.Sector,
+		r.Industry,
+		r.Location,
+		r.SECFilings,
+		r.CompanySite,
+		bool2str(r.Active),
+	}
+}
 
 // TickerRowHeader for CSV table.
 func TickerRowHeader() []string {
 	return []string{
+		"Ticker",
 		"Source",
 		"Exchange",
 		"Name",
@@ -322,22 +353,6 @@ func float2str(x float32) string {
 
 func uint2str(x uint16) string {
 	return fmt.Sprintf("%d", x)
-}
-
-// CSV implements table.Row.
-func (r TickerRow) CSV() []string {
-	return []string{
-		r.Source,
-		r.Exchange,
-		r.Name,
-		r.Category,
-		r.Sector,
-		r.Industry,
-		r.Location,
-		r.SECFilings,
-		r.CompanySite,
-		bool2str(r.Active),
-	}
 }
 
 // PriceRow is a row in the prices table. It is intended for daily price points.
