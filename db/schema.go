@@ -407,7 +407,7 @@ func (p PriceRow) CloseUnadjusted() float32 {
 
 // Active indicates whether the ticker is currently listed.
 func (p PriceRow) Active() bool {
-	return p.Close > 0.0
+	return !math.Signbit(float64(p.Close))
 }
 
 // SetActive bit for the price point.
