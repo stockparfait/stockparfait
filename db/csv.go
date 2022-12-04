@@ -135,7 +135,9 @@ func (c *TickerRowConfig) Parse(row []string, colMap []int) (ticker string, tr T
 	return
 }
 
-// PriceRowConfig sets the custom headers of input CSV file for price rows.
+// PriceRowConfig sets the custom headers of input CSV file for price rows.  The
+// mapping is one-to-many; in particular, several price fields can map to the
+// same CSV column.
 type PriceRowConfig struct {
 	Date               string `json:"Date" default:"Date"`
 	Close              string `json:"Close" default:"Close"`
@@ -170,7 +172,7 @@ func (c *PriceRowConfig) HasPrice(header []string) bool {
 }
 
 // MapColumns maps the i'th header column to the list of PriceRow fields. In
-// particular, a signle price column can map to several price fields in
+// particular, a single price column can map to several price fields in
 // PriceRow.
 func (c *PriceRowConfig) MapColumns(header []string) [][]int {
 	m := make([][]int, len(header))
