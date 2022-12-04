@@ -33,8 +33,8 @@ func TestCSV(t *testing.T) {
 A,test,exch,A Co.,cat,sec,ind,loc,secf,www,FALSE
 B,test,exch2,B Co.,cat2,sec2,ind2,loc2,secf2,www2,TRUE
 `)
-			tickers, err := ReadCSVTickers(csvRows, c)
-			So(err, ShouldBeNil)
+			tickers := make(map[string]TickerRow)
+			So(ReadCSVTickers(csvRows, c, tickers), ShouldBeNil)
 			So(tickers, ShouldResemble, map[string]TickerRow{
 				"A": {
 					Source:      "test",
@@ -79,9 +79,10 @@ listed,long name,unused,short name,Category,whatever
 FALSE,A Co.,blah,A,cat,more blah
 TRUE,B Co.,blah,B,cat2,more blah
 `[1:])
-			tickers, err := ReadCSVTickers(csvRows, &c)
-			So(err, ShouldBeNil)
+			tickers := map[string]TickerRow{"ORIG": {Name: "Original"}}
+			So(ReadCSVTickers(csvRows, &c, tickers), ShouldBeNil)
 			So(tickers, ShouldResemble, map[string]TickerRow{
+				"ORIG": {Name: "Original"}, // should preserve
 				"A": {
 					Name:     "A Co.",
 					Category: "cat",

@@ -15,12 +15,14 @@
 package main
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stockparfait/logging"
+	"github.com/stockparfait/stockparfait/db"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -94,17 +96,95 @@ func TestMain(t *testing.T) {
 
 		tickersFile := filepath.Join(tmpdir, "tickers.csv")
 		// pricesFile := filepath.Join(tmpdir, "prices.csv")
-		// schemaFile := filepath.Join(tmpdir, "schema.json")
+		schemaFile := filepath.Join(tmpdir, "schema.json")
 
 		Convey("merge tickers", func() {
+			// Add tickers to not-yet-existing DB.
 			So(writeFile(tickersFile, `
 Ticker,Source,Exchange,Name,Category,Sector,Industry,Location,SEC Filings,Company Site,Active
 ABC,TEST,Exch,ABC Co.,Cat,Sec,Ind,Over Here,sec.gov,abc.com,TRUE
 CBA,TEST,Exch2,CBA Co.,Cat2,Sec2,Ind2,Over There,sec.gov,cba.com,FALSE
 `),
 				ShouldBeNil)
-			db := "testdb"
-			So(run([]string{"-cache", tmpdir, "-db", db, "-tickers", tickersFile}), ShouldBeNil)
+			dbName := "testdb"
+			So(run([]string{"-cache", tmpdir, "-db", dbName, "-tickers", tickersFile}),
+				ShouldBeNil)
+
+			expected := map[string]db.TickerRow{
+				"ABC": {
+					Source:      "TEST",
+					Exchange:    "Exch",
+					Name:        "ABC Co.",
+					Category:    "Cat",
+					Sector:      "Sec",
+					Industry:    "Ind",
+					Location:    "Over Here",
+					SECFilings:  "sec.gov",
+					CompanySite: "abc.com",
+					Active:      true,
+				},
+				"CBA": {
+					Source:      "TEST",
+					Exchange:    "Exch2",
+					Name:        "CBA Co.",
+					Category:    "Cat2",
+					Sector:      "Sec2",
+					Industry:    "Ind2",
+					Location:    "Over There",
+					SECFilings:  "sec.gov",
+					CompanySite: "cba.com",
+					Active:      false,
+				},
+			}
+
+			ctx := context.Background()
+			reader := db.NewReader(tmpdir, dbName)
+			tickers, err := reader.AllTickerRows(ctx)
+			So(err, ShouldBeNil)
+			So(tickers, ShouldResemble, expected)
+
+			// Add more tickers to the now-existing DB with a custom schema.
+			So(writeFile(tickersFile, `
+listed,junk,tkr
+TRUE,blah,C
+FALSE,foo,D
+`[1:]),
+				ShouldBeNil)
+			So(writeFile(schemaFile, `
+{
+  "Ticker": "tkr",
+  "Active": "listed"
+}
+`),
+				ShouldBeNil)
+			So(run([]string{
+				"-cache", tmpdir, "-db", dbName, "-tickers", tickersFile,
+				"-schema", schemaFile}), ShouldBeNil)
+			expected["C"] = db.TickerRow{Active: true}
+			expected["D"] = db.TickerRow{Active: false}
+			reader = db.NewReader(tmpdir, dbName)
+			tickers, err = reader.AllTickerRows(ctx)
+			So(err, ShouldBeNil)
+			So(tickers, ShouldResemble, expected)
+
+			// Overwrite tickers in the existing DB.
+			So(writeFile(tickersFile, `
+listed,tkr
+TRUE,X
+t,Y
+`[1:]),
+				ShouldBeNil)
+			So(run([]string{
+				"-cache", tmpdir, "-db", dbName, "-tickers", tickersFile,
+				"-schema", schemaFile, "-replace"}), ShouldBeNil)
+			expected = map[string]db.TickerRow{
+				"X": {Active: true},
+				"Y": {Active: true},
+			}
+			reader = db.NewReader(tmpdir, dbName)
+			tickers, err = reader.AllTickerRows(ctx)
+			So(err, ShouldBeNil)
+			So(tickers, ShouldResemble, expected)
 		})
 	})
 }

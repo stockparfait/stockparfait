@@ -246,34 +246,33 @@ func (c *PriceRowConfig) Parse(row []string, colMap [][]int) (pr PriceRow, err e
 	return
 }
 
-// ReadCSVTickers reads raw CSV and creates a tickers table compatible with DB
+// ReadCSVTickers reads raw CSV and updates the tickers table compatible with DB
 // Writer.
 //
 // The CSV file must have a header and at the minimum contain the Ticker column.
 // Columns with an unrecognized header are ignored, missing columns are assumed
 // to be of their default values, which are empty for all strings and true for
 // Active.
-func ReadCSVTickers(r io.Reader, c *TickerRowConfig) (map[string]TickerRow, error) {
+func ReadCSVTickers(r io.Reader, c *TickerRowConfig, tickers map[string]TickerRow) error {
 	csvReader := csv.NewReader(r)
 	rows, err := csvReader.ReadAll()
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to read tickers from CSV")
+		return errors.Annotate(err, "failed to read tickers from CSV")
 	}
 	if len(rows) <= 1 {
-		return nil, nil
+		return nil
 	}
 	header := rows[0]
 	rows = rows[1:]
 	if !c.HasTicker(header) {
-		return nil, errors.Reason("tickers CSV requires a Ticker column")
+		return errors.Reason("tickers CSV requires a Ticker column")
 	}
 	colMap := c.MapColumns(header)
-	tickers := make(map[string]TickerRow)
 	for _, r := range rows {
 		ticker, tr := c.Parse(r, colMap)
 		tickers[ticker] = tr
 	}
-	return tickers, nil
+	return nil
 }
 
 // ReadCSVPrices reads raw CSV and creates a price series compatible with DB
