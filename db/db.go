@@ -213,6 +213,34 @@ func (r *Reader) cacheMonthly() error {
 	return r.monthlyError
 }
 
+func fileExists(fileName string) bool {
+	info, err := os.Stat(fileName)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
+}
+
+// HasTickers checks if the DB exists and has the tickers table.
+func (r *Reader) HasTickers() bool {
+	return fileExists(tickersFile(r.cachePath()))
+}
+
+// HasMonthly checks if the DB exists and has the monthly table.
+func (r *Reader) HasMonthly() bool {
+	return fileExists(monthlyFile(r.cachePath()))
+}
+
+// HasPrices checks if the DB exists and has the prices for the ticker.
+func (r *Reader) HasPrices(ticker string) bool {
+	return fileExists(pricesFile(r.cachePath(), ticker))
+}
+
+// HasMetadata checks if the DB exists and has the metadata.
+func (r *Reader) HasMetadata() bool {
+	return fileExists(metadataFile(r.cachePath()))
+}
+
 // Metadata for the database. It is cached in memory upon the first call.
 func (r *Reader) Metadata() (Metadata, error) {
 	if err := r.cacheMetadata(); err != nil {

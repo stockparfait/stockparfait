@@ -16,12 +16,15 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
+	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/stockparfait/errors"
 	"github.com/stockparfait/logging"
+	"github.com/stockparfait/stockparfait/db"
 )
 
 type Flags struct {
@@ -81,6 +84,70 @@ func parseFlags(args []string) (*Flags, error) {
 	return &flags, err
 }
 
+func readJSON(fileName string) (interface{}, error) {
+	f, err := os.Open(fileName)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot open config file '%s'", fileName)
+	}
+	defer f.Close()
+
+	dec := json.NewDecoder(f)
+	var js interface{}
+	if err := dec.Decode(&js); err != nil && err != io.EOF {
+		return nil, errors.Annotate(err, "failed to decode JSON in '%s'", fileName)
+	}
+	return js, nil
+}
+
+func importTickers(ctx context.Context, flags *Flags) error {
+	tickers := make(map[string]db.TickerRow)
+	if !flags.Replace {
+		r := db.NewReader(flags.DBDir, flags.DBName)
+		if r.HasTickers() {
+			var err error
+			tickers, err = r.AllTickerRows(ctx)
+			if err != nil {
+				return errors.Annotate(err, "failed to read existing tickers")
+			}
+		}
+	}
+	c := db.NewTickerRowConfig()
+	if flags.Schema != "" {
+		js, err := readJSON(flags.Schema)
+		if err != nil {
+			return errors.Annotate(err, "failed to read config")
+		}
+		if err := c.InitMessage(js); err != nil {
+			return errors.Annotate(err, "failed to init tickers schema")
+		}
+	}
+	f, err := os.Open(flags.Tickers)
+	if err != nil {
+		return errors.Annotate(err, "cannot open tickers file '%s'", flags.Tickers)
+	}
+	defer f.Close()
+
+	if err := db.ReadCSVTickers(f, c, tickers); err != nil {
+		return errors.Annotate(err, "failed to read tickers from '%s'", flags.Tickers)
+	}
+
+	w := db.NewWriter(flags.DBDir, flags.DBName)
+	if err := w.WriteTickers(tickers); err != nil {
+		return errors.Annotate(err, "failed to write tickers to DB")
+	}
+	return nil
+}
+
+func importPrices(ctx context.Context, flags *Flags) error {
+	logging.Infof(ctx, "not yet implemented")
+	return nil
+}
+
+func updateMetadata(ctx context.Context, flags *Flags) error {
+	logging.Infof(ctx, "not yet implemented")
+	return nil
+}
+
 func run(args []string) error {
 	flags, err := parseFlags(args)
 	if err != nil {
@@ -88,7 +155,18 @@ func run(args []string) error {
 	}
 	ctx := context.Background()
 	ctx = logging.Use(ctx, logging.DefaultGoLogger(flags.LogLevel))
-	logging.Infof(ctx, "not yet implemented")
+	if flags.Tickers != "" {
+		return errors.Annotate(importTickers(ctx, flags),
+			"failed to import tickers from '%s'", flags.Tickers)
+	}
+	if flags.Prices != "" {
+		return errors.Annotate(importPrices(ctx, flags),
+			"failed to import prices for %s from '%s'", flags.Ticker, flags.Prices)
+	}
+	if flags.UpdateMetadata {
+		return errors.Annotate(updateMetadata(ctx, flags),
+			"failed to update metadata")
+	}
 	return nil
 }
 
