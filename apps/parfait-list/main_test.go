@@ -55,9 +55,9 @@ func TestMain(t *testing.T) {
 			"B": {Source: "test", Active: false},
 		}
 		pricesA := []db.PriceRow{
-			db.TestPrice(db.NewDate(2019, 1, 1), 10.0, 10.0, 1000.0, true),
-			db.TestPrice(db.NewDate(2019, 1, 2), 11.0, 11.0, 1100.0, true),
-			db.TestPrice(db.NewDate(2019, 1, 3), 12.0, 12.0, 1200.0, false),
+			db.TestPrice(db.NewDate(2019, 1, 1), 10.0, 10.0, 10.0, 1000.0, true),
+			db.TestPrice(db.NewDate(2019, 1, 2), 11.0, 11.0, 11.0, 1100.0, true),
+			db.TestPrice(db.NewDate(2019, 1, 3), 12.0, 12.0, 12.0, 1200.0, false),
 		}
 		monthly := map[string][]db.ResampledRow{
 			"A": {

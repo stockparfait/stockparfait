@@ -118,8 +118,8 @@ func TestTimeseries(t *testing.T) {
 			dt1 := db.NewDate(2000, 1, 1)
 			dt2 := db.NewDate(2005, 1, 1)
 			prices := []db.PriceRow{
-				db.TestPrice(dt1, 10.0, 5.0, 1000.0, true),
-				db.TestPrice(dt2, 12.0, 6.0, 2000.0, true),
+				db.TestPrice(dt1, 10.0, 5.0, 5.0, 1000.0, true),
+				db.TestPrice(dt2, 12.0, 6.0, 6.0, 2000.0, true),
 			}
 
 			Convey("Unadjusted", func() {

@@ -95,10 +95,12 @@ func TestMain(t *testing.T) {
 		So(tmpdirErr, ShouldBeNil)
 
 		tickersFile := filepath.Join(tmpdir, "tickers.csv")
-		// pricesFile := filepath.Join(tmpdir, "prices.csv")
+		pricesFile := filepath.Join(tmpdir, "prices.csv")
 		schemaFile := filepath.Join(tmpdir, "schema.json")
+		dbName := "testdb"
+		args := []string{"-cache", tmpdir, "-db", dbName}
 
-		Convey("merge tickers", func() {
+		Convey("import tickers", func() {
 			// Add tickers to not-yet-existing DB.
 			So(writeFile(tickersFile, `
 Ticker,Source,Exchange,Name,Category,Sector,Industry,Location,SEC Filings,Company Site,Active
@@ -106,9 +108,7 @@ ABC,TEST,Exch,ABC Co.,Cat,Sec,Ind,Over Here,sec.gov,abc.com,TRUE
 CBA,TEST,Exch2,CBA Co.,Cat2,Sec2,Ind2,Over There,sec.gov,cba.com,FALSE
 `),
 				ShouldBeNil)
-			dbName := "testdb"
-			So(run([]string{"-cache", tmpdir, "-db", dbName, "-tickers", tickersFile}),
-				ShouldBeNil)
+			So(run(append(args, "-tickers", tickersFile)), ShouldBeNil)
 
 			expected := map[string]db.TickerRow{
 				"ABC": {
@@ -157,9 +157,8 @@ FALSE,foo,D
 }
 `),
 				ShouldBeNil)
-			So(run([]string{
-				"-cache", tmpdir, "-db", dbName, "-tickers", tickersFile,
-				"-schema", schemaFile}), ShouldBeNil)
+			So(run(append(args, "-tickers", tickersFile, "-schema", schemaFile)),
+				ShouldBeNil)
 			expected["C"] = db.TickerRow{Active: true}
 			expected["D"] = db.TickerRow{Active: false}
 			reader = db.NewReader(tmpdir, dbName)
@@ -174,9 +173,8 @@ TRUE,X
 t,Y
 `[1:]),
 				ShouldBeNil)
-			So(run([]string{
-				"-cache", tmpdir, "-db", dbName, "-tickers", tickersFile,
-				"-schema", schemaFile, "-replace"}), ShouldBeNil)
+			So(run(append(args, "-tickers", tickersFile, "-schema",
+				schemaFile, "-replace")), ShouldBeNil)
 			expected = map[string]db.TickerRow{
 				"X": {Active: true},
 				"Y": {Active: true},
@@ -185,6 +183,56 @@ t,Y
 			tickers, err = reader.AllTickerRows(ctx)
 			So(err, ShouldBeNil)
 			So(tickers, ShouldResemble, expected)
+		})
+
+		Convey("import prices with default reordered schema", func() {
+			So(writeFile(pricesFile, `
+Active,Close,Close split adj,Date,Close fully adj,Cash Volume
+TRUE,10,5,2020-01-01,4.5,1000
+FALSE,11,5.5,2020-01-02,4.6,100
+`),
+				ShouldBeNil)
+			So(run(append(args, "-prices", pricesFile, "-ticker", "A")), ShouldBeNil)
+			expected := []db.PriceRow{
+				db.TestPrice(db.NewDate(2020, 1, 1), 10, 5, 4.5, 1000, true),
+				db.TestPrice(db.NewDate(2020, 1, 2), 11, 5.5, 4.6, 100, false),
+			}
+			reader := db.NewReader(tmpdir, dbName)
+			prices, err := reader.Prices("A")
+			So(err, ShouldBeNil)
+			So(prices, ShouldResemble, expected)
+		})
+
+		Convey("import prices with a custom schema, ignore invalid values", func() {
+			So(writeFile(pricesFile, `
+listed,price,time,junk,vol*price
+TRUE,10,2020-01-01,blah,1000
+FALSE,11,2020-01-02,whatever,100
+FALSE,NaN,2020-01-03,ignored,100
+FALSE,11,2020-01-04,ignored,Inf
+`),
+				ShouldBeNil)
+			So(writeFile(schemaFile, `
+{
+  "Date": "time",
+  "Active": "listed",
+  "Close": "price",
+  "Close split adj": "price",
+  "Close fully adj": "price",
+  "Cash Volume": "vol*price"
+}
+`),
+				ShouldBeNil)
+			So(run(append(args, "-prices", pricesFile, "-ticker", "A",
+				"-schema", schemaFile)), ShouldBeNil)
+			expected := []db.PriceRow{
+				db.TestPrice(db.NewDate(2020, 1, 1), 10, 10, 10, 1000, true),
+				db.TestPrice(db.NewDate(2020, 1, 2), 11, 11, 11, 100, false),
+			}
+			reader := db.NewReader(tmpdir, dbName)
+			prices, err := reader.Prices("A")
+			So(err, ShouldBeNil)
+			So(prices, ShouldResemble, expected)
 		})
 	})
 }

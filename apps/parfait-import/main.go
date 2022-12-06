@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"flag"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 
@@ -135,11 +136,81 @@ func importTickers(ctx context.Context, flags *Flags) error {
 	if err := w.WriteTickers(tickers); err != nil {
 		return errors.Annotate(err, "failed to write tickers to DB")
 	}
+	logging.Infof(ctx, "imported %d tickers", len(tickers))
 	return nil
 }
 
+func hasInf(p db.PriceRow) bool {
+	for _, v := range []float32{p.Close, p.CloseSplitAdjusted, p.CloseFullyAdjusted, p.CashVolume} {
+		if math.IsInf(float64(v), 0) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasNaN(p db.PriceRow) bool {
+	for _, v := range []float32{p.Close, p.CloseSplitAdjusted, p.CloseFullyAdjusted, p.CashVolume} {
+		if math.IsNaN(float64(v)) {
+			return true
+		}
+	}
+	return false
+}
+
 func importPrices(ctx context.Context, flags *Flags) error {
-	logging.Infof(ctx, "not yet implemented")
+	c := db.NewPriceRowConfig()
+	if flags.Schema != "" {
+		js, err := readJSON(flags.Schema)
+		if err != nil {
+			return errors.Annotate(err, "failed to read config")
+		}
+		if err := c.InitMessage(js); err != nil {
+			return errors.Annotate(err, "failed to init prices config")
+		}
+	}
+	f, err := os.Open(flags.Prices)
+	if err != nil {
+		return errors.Annotate(err, "cannot open prices file '%s'", flags.Prices)
+	}
+	defer f.Close()
+
+	pricesRaw, err := db.ReadCSVPrices(f, c)
+	if err != nil {
+		return errors.Annotate(err, "failed to read prices from '%s'", flags.Prices)
+	}
+
+	// Filter out rows with invalid values.
+	var nans, infs, noDates int
+	var prices []db.PriceRow
+	for _, p := range pricesRaw {
+		if p.Date.IsZero() {
+			noDates++
+			continue
+		}
+		if hasInf(p) {
+			infs++
+			continue
+		}
+		if hasNaN(p) {
+			nans++
+			continue
+		}
+		prices = append(prices, p)
+	}
+	if nans > 0 || infs > 0 || noDates > 0 {
+		logging.Warningf(ctx,
+			"ignored %d rows with no date, %d rows with NaN and %d rows with Inf values out of total %d rows",
+			noDates, nans, infs, len(pricesRaw))
+	}
+	if len(prices) == 0 {
+		return errors.Reason("there are no prices to import")
+	}
+	w := db.NewWriter(flags.DBDir, flags.DBName)
+	if err := w.WritePrices(flags.Ticker, prices); err != nil {
+		return errors.Annotate(err, "failed to write prices for %s to DB", flags.Ticker)
+	}
+	logging.Infof(ctx, "imported %d prices to %s", len(prices), flags.Ticker)
 	return nil
 }
 
