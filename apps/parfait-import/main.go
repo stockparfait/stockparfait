@@ -180,7 +180,7 @@ func importPrices(ctx context.Context, flags *Flags) error {
 		return errors.Annotate(err, "failed to read prices from '%s'", flags.Prices)
 	}
 
-	// Filter out rows with NaN and Inf values.
+	// Filter out rows with invalid values.
 	var nans, infs, noDates int
 	var prices []db.PriceRow
 	for _, p := range pricesRaw {
@@ -198,14 +198,17 @@ func importPrices(ctx context.Context, flags *Flags) error {
 		}
 		prices = append(prices, p)
 	}
-	w := db.NewWriter(flags.DBDir, flags.DBName)
-	if err := w.WritePrices(flags.Ticker, prices); err != nil {
-		return errors.Annotate(err, "failed to write prices for %s to DB", flags.Ticker)
-	}
 	if nans > 0 || infs > 0 || noDates > 0 {
 		logging.Warningf(ctx,
 			"ignored %d rows with no date, %d rows with NaN and %d rows with Inf values out of total %d rows",
 			noDates, nans, infs, len(pricesRaw))
+	}
+	if len(prices) == 0 {
+		return errors.Reason("there are no prices to import")
+	}
+	w := db.NewWriter(flags.DBDir, flags.DBName)
+	if err := w.WritePrices(flags.Ticker, prices); err != nil {
+		return errors.Annotate(err, "failed to write prices for %s to DB", flags.Ticker)
 	}
 	logging.Infof(ctx, "imported %d prices to %s", len(prices), flags.Ticker)
 	return nil

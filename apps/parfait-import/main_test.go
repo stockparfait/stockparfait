@@ -208,8 +208,8 @@ FALSE,11,5.5,2020-01-02,4.6,100
 listed,price,time,junk,vol*price
 TRUE,10,2020-01-01,blah,1000
 FALSE,11,2020-01-02,whatever,100
-FALSE,NaN,2020-01-03,whatever,100
-FALSE,11,2020-01-04,whatever,Inf
+FALSE,NaN,2020-01-03,ignored,100
+FALSE,11,2020-01-04,ignored,Inf
 `),
 				ShouldBeNil)
 			So(writeFile(schemaFile, `
