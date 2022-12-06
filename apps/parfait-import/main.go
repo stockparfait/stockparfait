@@ -135,11 +135,36 @@ func importTickers(ctx context.Context, flags *Flags) error {
 	if err := w.WriteTickers(tickers); err != nil {
 		return errors.Annotate(err, "failed to write tickers to DB")
 	}
+	logging.Infof(ctx, "imported %d tickers", len(tickers))
 	return nil
 }
 
 func importPrices(ctx context.Context, flags *Flags) error {
-	logging.Infof(ctx, "not yet implemented")
+	c := db.NewPriceRowConfig()
+	if flags.Schema != "" {
+		js, err := readJSON(flags.Schema)
+		if err != nil {
+			return errors.Annotate(err, "failed to read config")
+		}
+		if err := c.InitMessage(js); err != nil {
+			return errors.Annotate(err, "failed to init prices config")
+		}
+	}
+	f, err := os.Open(flags.Prices)
+	if err != nil {
+		return errors.Annotate(err, "cannot open prices file '%s'", flags.Prices)
+	}
+	defer f.Close()
+
+	prices, err := db.ReadCSVPrices(f, c)
+	if err != nil {
+		return errors.Annotate(err, "failed to read prices from '%s'", flags.Prices)
+	}
+	w := db.NewWriter(flags.DBDir, flags.DBName)
+	if err := w.WritePrices(flags.Ticker, prices); err != nil {
+		return errors.Annotate(err, "failed to write prices for %s to DB", flags.Ticker)
+	}
+	logging.Infof(ctx, "imported %d prices to %s", len(prices), flags.Ticker)
 	return nil
 }
 

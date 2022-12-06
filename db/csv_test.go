@@ -101,14 +101,14 @@ TRUE,B Co.,blah,B,cat2,more blah
 		Convey("with default schema", func() {
 			c := NewPriceRowConfig()
 			csvRows := strings.NewReader(strings.Join(PriceRowHeader(), ",") + `
-2020-01-01,10.2,5.1,5.1,1000,TRUE
-2020-01-02,20.2,10.1,10.1,2000,FALSE
+2020-01-01,10.2,5.2,5.1,1000,TRUE
+2020-01-02,20.2,10.2,10.1,2000,FALSE
 `)
 			prices, err := ReadCSVPrices(csvRows, c)
 			So(err, ShouldBeNil)
 			So(prices, ShouldResemble, []PriceRow{
-				TestPrice(NewDate(2020, 1, 1), 10.2, 5.1, 1000, true),
-				TestPrice(NewDate(2020, 1, 2), 20.2, 10.1, 2000, false),
+				TestPrice(NewDate(2020, 1, 1), 10.2, 5.2, 5.1, 1000, true),
+				TestPrice(NewDate(2020, 1, 2), 20.2, 10.2, 10.1, 2000, false),
 			})
 		})
 
@@ -131,8 +131,8 @@ eod,time
 			prices, err := ReadCSVPrices(csvRows, &c)
 			So(err, ShouldBeNil)
 			So(prices, ShouldResemble, []PriceRow{
-				TestPrice(NewDate(2020, 1, 1), 10, 10, 0, true),
-				TestPrice(NewDate(2020, 1, 2), 11.2, 11.2, 0, true),
+				TestPrice(NewDate(2020, 1, 1), 10, 10, 10, 0, true),
+				TestPrice(NewDate(2020, 1, 2), 11.2, 11.2, 11.2, 0, true),
 			})
 		})
 	})

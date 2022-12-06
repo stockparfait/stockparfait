@@ -173,11 +173,11 @@ func TestSchema(t *testing.T) {
 
 		Convey("TestPrice works", func() {
 			d := NewDate(2019, 1, 2)
-			p := TestPrice(d, 100.0, 50.0, 1000.0, false)
+			p := TestPrice(d, 100.0, 50.0, 49.5, 1000.0, false)
 			So(p.Date, ShouldResemble, d)
 			So(p.CloseUnadjusted(), ShouldEqual, 100.0)
 			So(p.CloseSplitAdjusted, ShouldEqual, 50.0)
-			So(p.CloseFullyAdjusted, ShouldEqual, 50.0)
+			So(p.CloseFullyAdjusted, ShouldEqual, 49.5)
 			So(p.CashVolume, ShouldEqual, 1000.0)
 			So(p.Active(), ShouldBeFalse)
 		})
@@ -187,7 +187,7 @@ func TestSchema(t *testing.T) {
 		})
 
 		Convey("CSV works", func() {
-			p := TestPrice(NewDate(2019, 1, 2), 100.0, 50.0, 1000.0, false)
+			p := TestPrice(NewDate(2019, 1, 2), 100.0, 50.0, 50.0, 1000.0, false)
 			So(p.CSV(), ShouldResemble, []string{
 				"2019-01-02", "100", "50", "50", "1000", "FALSE"})
 		})

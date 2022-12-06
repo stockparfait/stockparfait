@@ -418,12 +418,12 @@ func (p *PriceRow) SetActive(active bool) {
 }
 
 // TestPrice creates a PriceRow instance for use in tests.
-func TestPrice(date Date, close, adj, dv float32, active bool) PriceRow {
+func TestPrice(date Date, close, splitAdj, fullyAdj, dv float32, active bool) PriceRow {
 	p := PriceRow{
 		Date:               date,
 		Close:              close,
-		CloseSplitAdjusted: adj,
-		CloseFullyAdjusted: adj,
+		CloseSplitAdjusted: splitAdj,
+		CloseFullyAdjusted: fullyAdj,
 		CashVolume:         dv,
 	}
 	p.SetActive(active)

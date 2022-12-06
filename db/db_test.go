@@ -82,14 +82,14 @@ func TestDB(t *testing.T) {
 			"B": {},
 		}
 		pricesA := []PriceRow{
-			TestPrice(NewDate(2019, 1, 1), 10.0, 10.0, 1000.0, true),
-			TestPrice(NewDate(2019, 1, 2), 11.0, 11.0, 1100.0, true),
-			TestPrice(NewDate(2019, 1, 3), 12.0, 12.0, 1200.0, true),
+			TestPrice(NewDate(2019, 1, 1), 10.0, 10.0, 10.0, 1000.0, true),
+			TestPrice(NewDate(2019, 1, 2), 11.0, 11.0, 11.0, 1100.0, true),
+			TestPrice(NewDate(2019, 1, 3), 12.0, 12.0, 12.0, 1200.0, true),
 		}
 		pricesB := []PriceRow{
-			TestPrice(NewDate(2019, 1, 1), 100.0, 100.0, 100.0, true),
-			TestPrice(NewDate(2019, 1, 2), 110.0, 110.0, 110.0, true),
-			TestPrice(NewDate(2019, 1, 3), 120.0, 120.0, 120.0, true),
+			TestPrice(NewDate(2019, 1, 1), 100.0, 100.0, 100.0, 100.0, true),
+			TestPrice(NewDate(2019, 1, 2), 110.0, 110.0, 110.0, 110.0, true),
+			TestPrice(NewDate(2019, 1, 3), 120.0, 120.0, 120.0, 120.0, true),
 		}
 		monthly := map[string][]ResampledRow{
 			"A": {
@@ -113,13 +113,13 @@ func TestDB(t *testing.T) {
 
 		Convey("ComputeMonthly works", func() {
 			daily := []PriceRow{
-				TestPrice(NewDate(2020, 1, 3), 100.0, 50.0, 1000.0, true),
-				TestPrice(NewDate(2020, 1, 4), 110.0, 55.0, 1000.0, true),
-				TestPrice(NewDate(2020, 1, 15), 102.0, 51.0, 2000.0, true),
-				TestPrice(NewDate(2020, 2, 5), 130.0, 65.0, 1000.0, true),
-				TestPrice(NewDate(2020, 2, 6), 140.0, 70.0, 1000.0, true),
-				TestPrice(NewDate(2020, 2, 7), 150.0, 75.0, 1000.0, false),
-				TestPrice(NewDate(2020, 3, 1), 160.0, 80.0, 500.0, true),
+				TestPrice(NewDate(2020, 1, 3), 100.0, 50.0, 50.0, 1000.0, true),
+				TestPrice(NewDate(2020, 1, 4), 110.0, 55.0, 55.0, 1000.0, true),
+				TestPrice(NewDate(2020, 1, 15), 102.0, 51.0, 51.0, 2000.0, true),
+				TestPrice(NewDate(2020, 2, 5), 130.0, 65.0, 65.0, 1000.0, true),
+				TestPrice(NewDate(2020, 2, 6), 140.0, 70.0, 70.0, 1000.0, true),
+				TestPrice(NewDate(2020, 2, 7), 150.0, 75.0, 75.0, 1000.0, false),
+				TestPrice(NewDate(2020, 3, 1), 160.0, 80.0, 80.0, 500.0, true),
 			}
 			So(ComputeMonthly(daily), ShouldResemble, []ResampledRow{
 				{
