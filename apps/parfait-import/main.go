@@ -158,6 +158,26 @@ func hasNaN(p db.PriceRow) bool {
 	return false
 }
 
+func updateMonthly(ctx context.Context, flags *Flags, prices []db.PriceRow) error {
+	r := db.NewReader(flags.DBDir, flags.DBName)
+	monthly := make(map[string][]db.ResampledRow)
+	if r.HasMonthly() {
+		var err error
+		monthly, err = r.AllMonthlyRows()
+		if err != nil {
+			return errors.Annotate(err, "failed to read existing monthly data")
+		}
+	}
+	monthly[flags.Ticker] = db.ComputeMonthly(prices)
+	w := db.NewWriter(flags.DBDir, flags.DBName)
+	if err := w.WriteMonthly(monthly); err != nil {
+		return errors.Annotate(err, "failed to save updated monthly data")
+	}
+	logging.Infof(ctx, "wrote %d monthly samples for %s",
+		len(monthly[flags.Ticker]), flags.Ticker)
+	return nil
+}
+
 func importPrices(ctx context.Context, flags *Flags) error {
 	c := db.NewPriceRowConfig()
 	if flags.Schema != "" {
@@ -211,6 +231,10 @@ func importPrices(ctx context.Context, flags *Flags) error {
 		return errors.Annotate(err, "failed to write prices for %s to DB", flags.Ticker)
 	}
 	logging.Infof(ctx, "imported %d prices to %s", len(prices), flags.Ticker)
+	if err := updateMonthly(ctx, flags, prices); err != nil {
+		return errors.Annotate(err,
+			"failed to update monthly prices for %s", flags.Ticker)
+	}
 	return nil
 }
 

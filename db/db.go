@@ -427,7 +427,7 @@ func (r *Reader) Monthly(ticker string, start, end Date) ([]ResampledRow, error)
 // AllMonthlyRows returns all the monthly resampled rows from the DB as a
 // {ticker -> row} map, compatible with Writer.WriteMonthly() method. Note:
 // modifying the map will modify the Reader's cached copy.
-func (r *Reader) AllMonthlyRows(ctx context.Context) (map[string][]ResampledRow, error) {
+func (r *Reader) AllMonthlyRows() (map[string][]ResampledRow, error) {
 	if err := r.cacheMonthly(); err != nil {
 		return nil, errors.Annotate(err, "failed to load tickers")
 	}
