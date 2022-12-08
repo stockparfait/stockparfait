@@ -17,12 +17,14 @@ package main
 import (
 	"context"
 	"io/ioutil"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stockparfait/logging"
 	"github.com/stockparfait/stockparfait/db"
+	"github.com/stockparfait/testutil"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -201,6 +203,26 @@ FALSE,11,5.5,2020-01-02,4.6,100
 			prices, err := reader.Prices("A")
 			So(err, ShouldBeNil)
 			So(prices, ShouldResemble, expected)
+			monthly, err := reader.Monthly("A", db.Date{}, db.Date{})
+			So(err, ShouldBeNil)
+			So(len(monthly), ShouldEqual, 1)
+			monthly[0].SumAbsLogProfits = float32(
+				testutil.Round(float64(monthly[0].SumAbsLogProfits), 5))
+			expSALP := float32(testutil.Round(math.Log(4.6)-math.Log(4.5), 5))
+			So(monthly, ShouldResemble, []db.ResampledRow{{
+				Open:               10,
+				OpenSplitAdjusted:  5,
+				OpenFullyAdjusted:  4.5,
+				Close:              11,
+				CloseSplitAdjusted: 5.5,
+				CloseFullyAdjusted: 4.6,
+				CashVolume:         1100,
+				DateOpen:           db.NewDate(2020, 1, 1),
+				DateClose:          db.NewDate(2020, 1, 2),
+				SumAbsLogProfits:   expSALP,
+				NumSamples:         2,
+				Active:             false,
+			}})
 		})
 
 		Convey("import prices with a custom schema, ignore invalid values", func() {
