@@ -239,7 +239,35 @@ func importPrices(ctx context.Context, flags *Flags) error {
 }
 
 func updateMetadata(ctx context.Context, flags *Flags) error {
-	logging.Infof(ctx, "not yet implemented")
+	r := db.NewReader(flags.DBDir, flags.DBName)
+	if !r.HasTickers() {
+		return errors.Reason("no tickers found in DB %s", flags.DBName)
+	}
+	tickers, err := r.AllTickerRows(ctx)
+	if err != nil {
+		return errors.Annotate(err, "failed to read tickers from %s", flags.DBName)
+	}
+	var m db.Metadata
+	for t := range tickers {
+		prices, err := r.Prices(t)
+		if err != nil {
+			logging.Warningf(ctx, "no prices for %s, skipping", t)
+			continue
+		}
+		m.UpdatePrices(prices)
+		m.NumTickers++
+	}
+	monthly, err := r.AllMonthlyRows()
+	if err != nil {
+		return errors.Annotate(err, "failed to read monthly data from %s",
+			flags.DBName)
+	}
+	m.UpdateMonthly(monthly)
+	w := db.NewWriter(flags.DBDir, flags.DBName)
+	if err := w.WriteMetadata(m); err != nil {
+		return errors.Annotate(err, "failed to write metadata to %s", flags.DBName)
+	}
+	logging.Infof(ctx, "updated metadata")
 	return nil
 }
 

@@ -98,6 +98,7 @@ func TestMain(t *testing.T) {
 
 		tickersFile := filepath.Join(tmpdir, "tickers.csv")
 		pricesFile := filepath.Join(tmpdir, "prices.csv")
+		pricesFile2 := filepath.Join(tmpdir, "prices2.csv")
 		schemaFile := filepath.Join(tmpdir, "schema.json")
 		dbName := "testdb"
 		args := []string{"-cache", tmpdir, "-db", dbName}
@@ -255,6 +256,43 @@ FALSE,11,2020-01-04,ignored,Inf
 			prices, err := reader.Prices("A")
 			So(err, ShouldBeNil)
 			So(prices, ShouldResemble, expected)
+		})
+
+		Convey("update metadata", func() {
+			So(writeFile(tickersFile, `
+Ticker
+A
+B
+IGNORED
+`),
+				ShouldBeNil)
+			So(writeFile(pricesFile, `
+Date,Close fully adj
+2020-01-02,10
+2020-02-02,11
+`),
+				ShouldBeNil)
+			So(writeFile(pricesFile2, `
+Date,Close fully adj
+2020-01-05,10
+2020-03-10,11
+`),
+				ShouldBeNil)
+			So(run(append(args, "-tickers", tickersFile)), ShouldBeNil)
+			So(run(append(args, "-prices", pricesFile, "-ticker", "A")), ShouldBeNil)
+			So(run(append(args, "-prices", pricesFile2, "-ticker", "B")), ShouldBeNil)
+			So(run(append(args, "-update-metadata")), ShouldBeNil)
+
+			reader := db.NewReader(tmpdir, dbName)
+			m, err := reader.Metadata()
+			So(err, ShouldBeNil)
+			So(m, ShouldResemble, db.Metadata{
+				Start:      db.NewDate(2020, 1, 2),
+				End:        db.NewDate(2020, 3, 10),
+				NumTickers: 2,
+				NumPrices:  4,
+				NumMonthly: 4,
+			})
 		})
 	})
 }
