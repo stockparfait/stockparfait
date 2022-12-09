@@ -248,14 +248,14 @@ func updateMetadata(ctx context.Context, flags *Flags) error {
 		return errors.Annotate(err, "failed to read tickers from %s", flags.DBName)
 	}
 	var m db.Metadata
-	m.UpdateTickers(tickers)
 	for t := range tickers {
 		prices, err := r.Prices(t)
 		if err != nil {
-			logging.Warningf(ctx, "%s\nskipping %s", err.Error(), t)
+			logging.Warningf(ctx, "no prices for %s, skipping", t)
 			continue
 		}
 		m.UpdatePrices(prices)
+		m.NumTickers++
 	}
 	monthly, err := r.AllMonthlyRows()
 	if err != nil {

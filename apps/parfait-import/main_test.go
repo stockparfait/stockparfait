@@ -263,6 +263,7 @@ FALSE,11,2020-01-04,ignored,Inf
 Ticker
 A
 B
+IGNORED
 `),
 				ShouldBeNil)
 			So(writeFile(pricesFile, `
