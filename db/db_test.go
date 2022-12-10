@@ -74,7 +74,7 @@ func TestDB(t *testing.T) {
 		So(tmpdirErr, ShouldBeNil)
 	})
 
-	Convey("Data access methods", t, func() {
+	Convey("DB methods work", t, func() {
 		dbName := "testdb"
 		dbPath := filepath.Join(tmpdir, dbName)
 		tickers := map[string]TickerRow{
@@ -291,6 +291,18 @@ func TestDB(t *testing.T) {
 				Sectors:        map[string]struct{}{"s1": {}, "s2": {}},
 				Industries:     map[string]struct{}{"i1": {}, "i2": {}},
 			})
+		})
+
+		Convey("Cleanup works", func() {
+			w := NewWriter(tmpdir, dbName)
+			So(w.WritePrices("C", pricesB), ShouldBeNil) // C is not in tickers
+			So(fileExists(pricesFile(w.cachePath(), "C")), ShouldBeTrue)
+
+			ctx := context.Background()
+			So(Cleanup(ctx, tmpdir, dbName), ShouldBeNil)
+			So(fileExists(pricesFile(w.cachePath(), "C")), ShouldBeFalse)
+			So(fileExists(pricesFile(w.cachePath(), "A")), ShouldBeTrue)
+			So(fileExists(pricesFile(w.cachePath(), "B")), ShouldBeTrue)
 		})
 	})
 }

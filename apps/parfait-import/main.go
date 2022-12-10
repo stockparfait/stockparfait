@@ -39,6 +39,7 @@ type Flags struct {
 	Prices         string // Import prices for a given ticker
 	Schema         string // schema file for either tickers or prices table
 	UpdateMetadata bool
+	Cleanup        bool
 }
 
 func parseFlags(args []string) (*Flags, error) {
@@ -57,6 +58,7 @@ func parseFlags(args []string) (*Flags, error) {
 	fs.StringVar(&flags.Prices, "prices", "", "import prices for a given ticker")
 	fs.StringVar(&flags.Schema, "schema", "", "schema config for either tickers or prices")
 	fs.BoolVar(&flags.UpdateMetadata, "update-metadata", false, "scan the DB")
+	fs.BoolVar(&flags.Cleanup, "cleanup", false, "clean up orphan price files")
 
 	err := fs.Parse(args)
 	if err != nil {
@@ -75,9 +77,12 @@ func parseFlags(args []string) (*Flags, error) {
 	if flags.UpdateMetadata {
 		kinds++
 	}
+	if flags.Cleanup {
+		kinds++
+	}
 	if kinds != 1 {
 		return nil, errors.Reason(
-			"expected exactly one of -tickers, -prices or -update-metadata")
+			"expected exactly one of -tickers, -prices, -update-metadata or -cleanup")
 	}
 	if flags.Prices != "" && flags.Ticker == "" {
 		return nil, errors.Reason("-ticker is required with -prices")
@@ -106,7 +111,7 @@ func importTickers(ctx context.Context, flags *Flags) error {
 		r := db.NewReader(flags.DBDir, flags.DBName)
 		if r.HasTickers() {
 			var err error
-			tickers, err = r.AllTickerRows(ctx)
+			tickers, err = r.AllTickerRows()
 			if err != nil {
 				return errors.Annotate(err, "failed to read existing tickers")
 			}
@@ -243,7 +248,7 @@ func updateMetadata(ctx context.Context, flags *Flags) error {
 	if !r.HasTickers() {
 		return errors.Reason("no tickers found in DB %s", flags.DBName)
 	}
-	tickers, err := r.AllTickerRows(ctx)
+	tickers, err := r.AllTickerRows()
 	if err != nil {
 		return errors.Annotate(err, "failed to read tickers from %s", flags.DBName)
 	}
@@ -289,6 +294,10 @@ func run(args []string) error {
 	if flags.UpdateMetadata {
 		return errors.Annotate(updateMetadata(ctx, flags),
 			"failed to update metadata")
+	}
+	if flags.Cleanup {
+		return errors.Annotate(db.Cleanup(ctx, flags.DBDir, flags.DBName),
+			"failed to clean up DB")
 	}
 	return nil
 }

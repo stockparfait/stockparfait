@@ -331,6 +331,10 @@ func (d *Dataset) DownloadAll(ctx context.Context, dbPath, dbName string, tables
 	if err := w.WriteMetadata(w.Metadata); err != nil {
 		return errors.Annotate(err, "failed to write metadata")
 	}
+	logging.Infof(ctx, "cleaning up...")
+	if err := db.Cleanup(ctx, dbPath, dbName); err != nil {
+		return errors.Annotate(err, "failed to clean up DB")
+	}
 	logging.Infof(ctx, "all done.")
 	return nil
 }
