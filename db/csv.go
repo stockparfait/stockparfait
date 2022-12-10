@@ -17,6 +17,7 @@ package db
 import (
 	"encoding/csv"
 	"io"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -304,5 +305,6 @@ func ReadCSVPrices(r io.Reader, c *PriceRowConfig) ([]PriceRow, error) {
 		}
 		prices = append(prices, pr)
 	}
+	sort.Slice(prices, func(i, j int) bool { return prices[i].Date.Before(prices[j].Date) })
 	return prices, nil
 }

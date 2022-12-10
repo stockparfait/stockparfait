@@ -112,7 +112,7 @@ TRUE,B Co.,blah,B,cat2,more blah
 			})
 		})
 
-		Convey("with custom schema", func() {
+		Convey("with custom schema, unsorted", func() {
 			// Map "eod" to all three prices; skip Active and CashVolume.
 			cfgJSON := testutil.JSON(`
 {
@@ -125,8 +125,8 @@ TRUE,B Co.,blah,B,cat2,more blah
 			So(c.InitMessage(cfgJSON), ShouldBeNil)
 			csvRows := strings.NewReader(`
 eod,time
-10,2020-01-01
 11.2,2020-01-02
+10,2020-01-01
 `[1:])
 			prices, err := ReadCSVPrices(csvRows, &c)
 			So(err, ShouldBeNil)
