@@ -15,7 +15,6 @@
 package main
 
 import (
-	"context"
 	"io/ioutil"
 	"math"
 	"os"
@@ -38,6 +37,14 @@ func writeFile(fileName, content string) error {
 
 	_, err = f.Write([]byte(content))
 	return err
+}
+
+func fileExists(fileName string) bool {
+	info, err := os.Stat(fileName)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
 }
 
 func TestMain(t *testing.T) {
@@ -140,9 +147,8 @@ CBA,TEST,Exch2,CBA Co.,Cat2,Sec2,Ind2,Over There,sec.gov,cba.com,FALSE
 				},
 			}
 
-			ctx := context.Background()
 			reader := db.NewReader(tmpdir, dbName)
-			tickers, err := reader.AllTickerRows(ctx)
+			tickers, err := reader.AllTickerRows()
 			So(err, ShouldBeNil)
 			So(tickers, ShouldResemble, expected)
 
@@ -165,7 +171,7 @@ FALSE,foo,D
 			expected["C"] = db.TickerRow{Active: true}
 			expected["D"] = db.TickerRow{Active: false}
 			reader = db.NewReader(tmpdir, dbName)
-			tickers, err = reader.AllTickerRows(ctx)
+			tickers, err = reader.AllTickerRows()
 			So(err, ShouldBeNil)
 			So(tickers, ShouldResemble, expected)
 
@@ -183,7 +189,7 @@ t,Y
 				"Y": {Active: true},
 			}
 			reader = db.NewReader(tmpdir, dbName)
-			tickers, err = reader.AllTickerRows(ctx)
+			tickers, err = reader.AllTickerRows()
 			So(err, ShouldBeNil)
 			So(tickers, ShouldResemble, expected)
 		})
@@ -293,6 +299,33 @@ Date,Close fully adj
 				NumPrices:  4,
 				NumMonthly: 4,
 			})
+		})
+
+		Convey("cleanup", func() {
+			So(writeFile(tickersFile, `
+Ticker
+A
+`),
+				ShouldBeNil)
+			So(writeFile(pricesFile, `
+Date,Close fully adj
+2020-01-02,10
+`),
+				ShouldBeNil)
+			So(writeFile(pricesFile2, `
+Date,Close fully adj
+2020-01-05,10
+`),
+				ShouldBeNil)
+			So(run(append(args, "-tickers", tickersFile)), ShouldBeNil)
+			So(run(append(args, "-prices", pricesFile, "-ticker", "A")), ShouldBeNil)
+			So(run(append(args, "-prices", pricesFile2, "-ticker", "B")), ShouldBeNil)
+
+			bFile := filepath.Join(tmpdir, dbName, "prices", "B.gob")
+			So(fileExists(bFile), ShouldBeTrue)
+
+			So(run(append(args, "-cleanup")), ShouldBeNil)
+			So(fileExists(bFile), ShouldBeFalse)
 		})
 	})
 }

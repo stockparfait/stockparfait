@@ -371,7 +371,7 @@ func (r *Reader) Tickers(ctx context.Context) ([]string, error) {
 // AllTickerRows returns all the ticker rows from the DB as a {ticker -> row}
 // map, compatible with Writer.WriteTickers() method. Note: modifying the map
 // will modify the Reader's cached copy.
-func (r *Reader) AllTickerRows(ctx context.Context) (map[string]TickerRow, error) {
+func (r *Reader) AllTickerRows() (map[string]TickerRow, error) {
 	if err := r.cacheTickers(); err != nil {
 		return nil, errors.Annotate(err, "failed to load tickers")
 	}
@@ -566,6 +566,44 @@ func (w *Writer) WriteMetadata(m Metadata) error {
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(m); err != nil {
 		return errors.Annotate(err, "failed to write to '%s'", fileName)
+	}
+	return nil
+}
+
+// Cleanup the DB: delete price files that do not have a corresponding ticker.
+// This is useful, e.g. when a ticker gets renamed and its price series is
+// downloaded under the new name, but the old series remains in the DB.
+func Cleanup(ctx context.Context, dbPath, db string) error {
+	r := NewReader(dbPath, db)
+	tickers, err := r.AllTickerRows()
+	if err != nil {
+		return errors.Annotate(err, "failed to read tickers from DB")
+	}
+	pricesPath := pricesDir(r.cachePath())
+	f, err := os.Open(pricesPath)
+	if err != nil {
+		return errors.Annotate(err, "cannot open '%s'", pricesPath)
+	}
+	defer f.Close()
+
+	entries, err := f.ReadDir(0)
+	if err != nil {
+		return errors.Annotate(err, "failed to read '%s'", pricesPath)
+	}
+	for _, e := range entries {
+		name := e.Name()
+		if len(name) < 4 || name[len(name)-4:] != ".gob" {
+			continue
+		}
+		ticker := name[:len(name)-4]
+		if _, ok := tickers[ticker]; ok {
+			continue
+		}
+		logging.Infof(ctx, "removing stale prices for %s", ticker)
+		stalePath := pricesFile(r.cachePath(), ticker)
+		if err := os.Remove(stalePath); err != nil {
+			return errors.Annotate(err, "failed to remove '%s'", stalePath)
+		}
 	}
 	return nil
 }
