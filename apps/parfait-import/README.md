@@ -1,8 +1,11 @@
 # Importing data from CSV files
 
-The app `parfait-import` populates the database from external CSV files. This is useful for importing data downloaded from otherwise natively unsupported sources, such as from TradingView or Alpha Vantage.
+The app `parfait-import` populates the database from external CSV files. This is
+useful for importing data downloaded from otherwise unsupported sources, such as
+TradingView or Alpha Vantage.
 
-Additionally, it can be used to modify the existing data by first exporting it with [parfait-list], editing the CSV files and re-importing them back.
+Additionally, it can be used to modify the existing data by first exporting it
+with [parfait-list], editing the CSV files and re-importing them back.
 
 CSV files must have a header. The order of columns can be arbitrary, and omitted
 columns result in zero values.  The column headers by default are expected to be
@@ -11,16 +14,16 @@ as exported by `parfait-list`, and can be customized with a schema config.
 ## Quick reference
 
 ```sh
-parfait-import -db DB -tickers <file.csv> [ -replace ] [ -schema <schema.json> ]
-parfait-import -db DB -prices <file.csv> -ticker TICKER [ -schema <schema.json> ]
+parfait-import -db DB -tickers file.csv [ -replace ] [ -schema schema.json ]
+parfait-import -db DB -prices file.csv -ticker TICKER [ -schema schema.json ]
 parfait-import -db DB -update-metadata  # recompute metadata
-parfait-import -db DB -cleanup                 # delete orphaned price files
+parfait-import -db DB -cleanup          # delete orphaned price files
 ```
 
 ## Importing Tickers
 
 ```sh
-parfait-import -tickers <file.csv> [ -replace ] [ -schema <schema.json> ]
+parfait-import -tickers file.csv [ -replace ] [ -schema schema.json ]
 ```
 
 The CSV file should contain one ticker per row, and at the minimum must have the
@@ -37,7 +40,7 @@ follows:
   `Exchange`;
 - Filter the stocks as needed;
 - Download the screen (click the download button) as `screener.csv`;
-- Create `tradingview.json` schema file containing:
+- Create `tickers-schema.json` schema file containing:
 
 ```json
 {
@@ -48,24 +51,25 @@ follows:
 - Run the command:
 
 ```sh
-parfait-import -db tradingview -tickers screener.csv -schema tradingview.json
+parfait-import -db tradingview -tickers screener.csv -schema tickers-schema.json
 ```
 
 ## Importing Prices
 
 ```sh
-parfait-import -db DB -prices <file.csv> -ticker TICKER [ -schema <schema.json> ]
+parfait-import -db DB -prices file.csv -ticker TICKER [ -schema schema.json ]
 ```
 
-This updates both the daily and monthly prices for the given ticker.
+This updates both the daily and monthly prices for the given ticker, and the
+prices are automatically sorted by date.
 
 The CSV prices file should contain the `Date` and one of the price columns or
 their equivalents in a custom schema.
 
 The format of the schema file is defined by `PriceRowConfig` in [csv.go], and
-multiple price values can be populated from the same CSV column. For instance,
-the following schema will populate the `Close` field from `unadjusted close`
-column, and both adjusted prices from the same `close` column:
+multiple price values can be mapped to the same CSV column. For instance, the
+following schema will populate the `Close` field from `unadjusted close` column,
+and both split adjusted and fully adjusted prices from the same `close` column:
 
 ```json
 {
@@ -75,7 +79,7 @@ column, and both adjusted prices from the same `close` column:
 }
 ```
 
-The best way to import prices of a ticker from TradingView is to use a Pine script:
+The best way to import prices of a ticker from [TradingView] is to use a Pine script:
 
 ```
 //@version=5
@@ -99,7 +103,7 @@ number of historical data, and export chart data as `TICKER.csv` using `ISO
 time` format. This is important, since the default UNIX time format is not
 recognized.
 
-Use the custom `price-schema.json`:
+Use the custom `prices-schema.json`:
 
 ```json
 {
@@ -110,7 +114,7 @@ Use the custom `price-schema.json`:
 then run the command:
 
 ```sh
-parfait-import -db tradingview -prices TICKER.csv -schema price-schema.json
+parfait-import -db tradingview -prices TICKER.csv -schema prices-schema.json
 ```
 
 ## Metadata and cleanup

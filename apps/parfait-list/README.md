@@ -6,7 +6,7 @@ in a CSV format:
 
 ```sh
 parfait-list -db <DB> -tickers [ -csv ]
-parfait-list -db <DB> -prices <TICKER> [ -csv ]     # daily prices
+parfait-list -db <DB> -prices <TICKER> [ -csv ]   # daily prices
 parfait-list -db <DB> -monthly <TICKER> [ -csv ]  # monthly prices
 ```
 
