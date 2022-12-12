@@ -321,6 +321,7 @@ type Histogram struct {
 	weights      []float64 // bucket values
 	sums         []float64 // weighted sum of samples for each bucket
 	stdErrs      []StandardError
+	countErr     int     // samples added since last error estimation
 	weightsTotal float64 // total sum of weights
 	sumTotal     float64 // total weighted sum of samples
 	countsTotal  uint    // total number of samples
@@ -395,6 +396,12 @@ func (h *Histogram) Add(xs ...float64) {
 	}
 }
 
+func (h *Histogram) estimateErrors() {
+	for i := range h.stdErrs {
+		h.stdErrs[i].Add(h.PDF(i))
+	}
+}
+
 func (h *Histogram) AddWithWeight(x, weight float64) {
 	i := h.buckets.Bucket(x)
 	h.counts[i]++
@@ -404,7 +411,11 @@ func (h *Histogram) AddWithWeight(x, weight float64) {
 	h.sumTotal += xw
 	h.countsTotal++
 	h.weightsTotal += float64(weight)
-	h.stdErrs[i].Add(h.weights[i] / float64(h.counts[i]))
+	h.countErr++
+	if h.countErr >= len(h.counts) {
+		h.countErr = 0
+		h.estimateErrors()
+	}
 }
 
 // AddWeights to the histogram directly. Assumes len(weights) = h.Buckets().N.

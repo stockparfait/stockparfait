@@ -297,6 +297,7 @@ func TestDistribution(t *testing.T) {
 			So(testutil.RoundSlice(actual, 1), ShouldResemble,
 				testutil.RoundSlice(expected, 1))
 			for i := 0; i < h.Buckets().N; i++ {
+				So(h.stdErrs[i].n, ShouldBeGreaterThan, 0)
 				So(h.StdError(i), ShouldBeGreaterThan, 0.0)
 				So(h.StdError(i), ShouldBeLessThan, 0.1)
 			}
