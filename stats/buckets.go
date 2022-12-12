@@ -622,7 +622,7 @@ func (h *Histogram) StdError(i int) float64 {
 	if h.weightsTotal == 0 {
 		return 0
 	}
-	return h.stdErrs[i].Sigma() * float64(h.counts[i]) / h.weightsTotal / h.buckets.Size(i)
+	return h.stdErrs[i].Sigma()
 }
 
 // StdErrors is a slice of estimated standard errors for all buckets.

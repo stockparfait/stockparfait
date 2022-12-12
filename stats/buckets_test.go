@@ -209,9 +209,7 @@ func TestHistogram(t *testing.T) {
 				-150, -50, 49.5, 149.5, 249.5, 349.5, 449.5, 549.5, 649.5, 749.5, 849.5, 949.5})
 			So(h.PDFs(), ShouldResemble, []float64{
 				0, 0, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001})
-			So(testutil.RoundFixedSlice(h.StdErrors(), 10), ShouldResemble, []float64{
-				0, 0, 2.8034e-06, 1.2032e-06, 9.131e-07, 7.913e-07, 7.11e-07,
-				6.394e-07, 5.624e-07, 4.73e-07, 3.607e-07, 1.852e-07})
+			So(testutil.RoundFixedSlice(h.StdErrors(), 10), ShouldResemble, []float64{0, 0, 0.0028033796, 0.0012032171, 0.0009130649, 0.0007912784, 0.0007109822, 0.0006394433, 0.0005624354, 0.0004729673, 0.0003607038, 0.00018517})
 			So(h.Mean(), ShouldEqual, 499.5)                     // actual: 499.5
 			So(h.MAD(), ShouldEqual, 250.0)                      // actual: 250.0
 			So(testutil.Round(h.Sigma(), 3), ShouldEqual, 287.0) // actual: ~288.7
