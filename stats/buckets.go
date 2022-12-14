@@ -446,6 +446,8 @@ func (h *Histogram) AddHistogram(h2 *Histogram) error {
 	h.weightsTotal += h2.weightsTotal
 	h.sumTotal += h2.sumTotal
 	h.countsTotal += h2.countsTotal
+	h.countErr = 0
+	h.estimateErrors()
 	return nil
 }
 
