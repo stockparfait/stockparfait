@@ -200,10 +200,10 @@ func (at *ActionType) String() string {
 }
 
 // Action is a row in the ACTIONS table. Value field depends on the action:
-// - DividendAction: split and split-dividend adjusted cash dividend amount.
-// - SpinoffDividendAction: dollar value of the shares of the spunoff company
-//   issued for each share of the parent company.
-// - SplitAction: the number of resulting shares per each original share.
+//   - DividendAction: split and split-dividend adjusted cash dividend amount.
+//   - SpinoffDividendAction: dollar value of the shares of the spunoff company
+//     issued for each share of the parent company.
+//   - SplitAction: the number of resulting shares per each original share.
 type Action struct {
 	Date         db.Date
 	Action       ActionType

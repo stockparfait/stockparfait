@@ -157,9 +157,7 @@ type TableQuery struct {
 func (q *TableQuery) Copy() *TableQuery {
 	q2 := TableQuery{table: q.table, options: q.options}
 	q2.filters = make([]queryFilter, len(q.filters))
-	for i, f := range q.filters {
-		q2.filters[i] = f
-	}
+	copy(q2.filters, q.filters)
 	return &q2
 }
 

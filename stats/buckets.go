@@ -30,14 +30,14 @@ var _ message.Message = (*SpacingType)(nil)
 // Values of SpacingType:
 // - LinearSpacing divides the interval into n equal parts.
 //
-// - ExponentialSpacing divides the log-space interval into n equal parts, thus
-//   the buckets in the original interval grow exponentially away from
-//   zero. Note, that Min must be > 0.
+//   - ExponentialSpacing divides the log-space interval into n equal parts, thus
+//     the buckets in the original interval grow exponentially away from
+//     zero. Note, that Min must be > 0.
 //
-// - SymmetricExponentialSpacing makes the exponential spacing symmetric around
-//   zero. That is, the buckets grow exponentially away from zero in both
-//   directions, and the middle bucket spans [-Min..Min]. It requires n to be
-//   odd, and Min > 0, but the actual interval is [-Max..Max].
+//   - SymmetricExponentialSpacing makes the exponential spacing symmetric around
+//     zero. That is, the buckets grow exponentially away from zero in both
+//     directions, and the middle bucket spans [-Min..Min]. It requires n to be
+//     odd, and Min > 0, but the actual interval is [-Max..Max].
 const (
 	LinearSpacing SpacingType = iota
 	ExponentialSpacing

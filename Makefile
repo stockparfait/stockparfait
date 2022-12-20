@@ -33,7 +33,7 @@ all:
 
 init: js/chart.min.js js/chartjs-adapter-date-fns.bundle.min.js
 	go install github.com/smartystreets/goconvey@v1.7.2
-	go install honnef.co/go/tools/cmd/staticcheck@2021.1.2
+	go install honnef.co/go/tools/cmd/staticcheck@2022.1.3
 	go install github.com/sergey-a-berezin/gocovcheck@v1.3.0
 	go install github.com/sergey-a-berezin/gocovcheck/jsonread@v1.3.0
 	@echo "Bootstrap done!"

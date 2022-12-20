@@ -17,7 +17,6 @@ package db
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
@@ -67,7 +66,7 @@ func TestInterval(t *testing.T) {
 
 func TestDB(t *testing.T) {
 	t.Parallel()
-	tmpdir, tmpdirErr := ioutil.TempDir("", "testdb")
+	tmpdir, tmpdirErr := os.MkdirTemp("", "testdb")
 	defer os.RemoveAll(tmpdir)
 
 	Convey("Test setup succeeded", t, func() {
@@ -179,7 +178,7 @@ func TestDB(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(r, ShouldResemble, tickers["B"])
 
-			r, err = db.TickerRow("UNKNOWN")
+			_, err = db.TickerRow("UNKNOWN")
 			So(err, ShouldNotBeNil)
 
 			db.UseTickers = []string{"A", "OTHER"}

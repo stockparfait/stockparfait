@@ -15,7 +15,6 @@
 package main
 
 import (
-	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
@@ -98,7 +97,7 @@ func TestMain(t *testing.T) {
 	})
 
 	Convey("run works", t, func() {
-		tmpdir, tmpdirErr := ioutil.TempDir("", "testmain")
+		tmpdir, tmpdirErr := os.MkdirTemp("", "testmain")
 		defer os.RemoveAll(tmpdir)
 
 		So(tmpdirErr, ShouldBeNil)

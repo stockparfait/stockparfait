@@ -17,7 +17,7 @@ questions themselves with numbers and sound statistics.
 ## Installation
 
 Requirements:
-- [Google Go](https://go.dev/dl/) 1.16 or higher
+- [Google Go](https://go.dev/dl/) 1.18 or higher
 
 ```
 git clone https://github.com/stockparfait/stockparfait.git
