@@ -19,7 +19,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -251,7 +250,7 @@ C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 		})
 
 		Convey("DownloadAll", func() {
-			tmpdir, tmpdirErr := ioutil.TempDir("", "testdownload")
+			tmpdir, tmpdirErr := os.MkdirTemp("", "testdownload")
 			So(tmpdirErr, ShouldBeNil)
 			defer os.RemoveAll(tmpdir)
 

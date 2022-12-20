@@ -155,9 +155,9 @@ type pricesJobsIter struct {
 	Done      bool
 }
 
-var _ parallel.JobsIter = &pricesJobsIter{}
+var _ parallel.JobsIter[pricesResult] = &pricesJobsIter{}
 
-func (it *pricesJobsIter) Next() (parallel.Job, error) {
+func (it *pricesJobsIter) Next() (parallel.Job[pricesResult], error) {
 	if it.BatchSize <= 0 {
 		return nil, errors.Reason("batch size = %d must be > 0", it.BatchSize)
 	}
@@ -177,7 +177,7 @@ func (it *pricesJobsIter) Next() (parallel.Job, error) {
 		it.Done = true
 		return nil, parallel.Done
 	}
-	job := func() interface{} {
+	job := func() pricesResult {
 		prices := map[string][]db.PriceRow{}
 		for _, row := range rows {
 			var p Price
@@ -236,22 +236,18 @@ func (d *Dataset) BulkDownloadPrices(ctx context.Context, table TableName) error
 	cctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	m := parallel.Map(cctx, runtime.NumCPU(), &pricesJobsIter{
+	m := parallel.Map[pricesResult](cctx, runtime.NumCPU(), &pricesJobsIter{
 		Reader:    r,
 		ColMap:    colMap,
 		BatchSize: 10000,
 	})
 	for {
-		v, err := m.Next()
+		pr, err := m.Next()
 		if err != nil {
 			if err == parallel.Done {
 				break
 			}
 			return errors.Annotate(err, "failed to read CSV")
-		}
-		pr, ok := v.(pricesResult)
-		if !ok {
-			return errors.Reason("incorrect result type: %T", v)
 		}
 		if pr.Error != nil {
 			cancel() // flush the parallel jobs

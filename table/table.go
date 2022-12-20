@@ -31,16 +31,17 @@ type Row interface {
 // Table container.
 //
 // A typical use:
-//   type MyRow struct {
-//     Name string
-//     Age int
-//   }
 //
-//   func (r MyRow) CSV() []string {
-//     return []string{r.Name, fmt.Sprintf("%d", r.Age)}
-//   }
-//   t := NewTable([]string{"Name", "Age"})
-//   t.AddRow(MyRow{"John", 25}, MyRow{"Jane", 24})
+//	type MyRow struct {
+//	  Name string
+//	  Age int
+//	}
+//
+//	func (r MyRow) CSV() []string {
+//	  return []string{r.Name, fmt.Sprintf("%d", r.Age)}
+//	}
+//	t := NewTable([]string{"Name", "Age"})
+//	t.AddRow(MyRow{"John", 25}, MyRow{"Jane", 24})
 type Table struct {
 	Header []string // optional, may be nil
 	Rows   []Row

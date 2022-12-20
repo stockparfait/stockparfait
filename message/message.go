@@ -30,21 +30,21 @@ import (
 //
 // It is intended to be implemented by struct pointers, e.g.:
 //
-//   type Dog struct {
-//     Name string `json:"name" required:"true"`
-//     Good bool `json:"good"`  // default false (the zero value)
-//     Weight float64 `default:"25.5"` // json key is "Weight"
-//     Sex string `required:"true" choices:"male,female"`
-//     Ignored int `json:"-"`
-//     Parent *Dog              // recursively parse Message
-//     Pups []Dog `json:"pups"` // note the lack of pointer:
-//                              // *Dog implements Message, Dog doesn't,
-//                              // but it's still correctly populated.
-//   }
+//	type Dog struct {
+//	  Name string `json:"name" required:"true"`
+//	  Good bool `json:"good"`  // default false (the zero value)
+//	  Weight float64 `default:"25.5"` // json key is "Weight"
+//	  Sex string `required:"true" choices:"male,female"`
+//	  Ignored int `json:"-"`
+//	  Parent *Dog              // recursively parse Message
+//	  Pups []Dog `json:"pups"` // note the lack of pointer:
+//	                           // *Dog implements Message, Dog doesn't,
+//	                           // but it's still correctly populated.
+//	}
 //
-//   func (d *Dog) InitMessage(js interface{}) error {
-//     return message.Init(d, js)
-//   }
+//	func (d *Dog) InitMessage(js interface{}) error {
+//	  return message.Init(d, js)
+//	}
 type Message interface {
 	// InitMessage converts a generic JSON read by the encoding/json package into
 	// the specific message. In particular, this method typically checks for

@@ -150,7 +150,7 @@ func ExpectationMC(f func(x float64) float64, random func() float64,
 
 // VarSubst computes the value of
 //
-//   x(t) = shift + scale * t / (1 - t^(2*power))
+//	x(t) = shift + scale * t / (1 - t^(2*power))
 //
 // to be used as a variable substitution in an integral over x in
 // (-Inf..Inf). The new bounds for t become (-1..1), excluding the boundaries.
