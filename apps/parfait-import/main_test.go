@@ -27,25 +27,6 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func writeFile(fileName, content string) error {
-	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	_, err = f.Write([]byte(content))
-	return err
-}
-
-func fileExists(fileName string) bool {
-	info, err := os.Stat(fileName)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return !info.IsDir()
-}
-
 func TestMain(t *testing.T) {
 	t.Parallel()
 
@@ -111,7 +92,7 @@ func TestMain(t *testing.T) {
 
 		Convey("import tickers", func() {
 			// Add tickers to not-yet-existing DB.
-			So(writeFile(tickersFile, `
+			So(testutil.WriteFile(tickersFile, `
 Ticker,Source,Exchange,Name,Category,Sector,Industry,Location,SEC Filings,Company Site,Active
 ABC,TEST,Exch,ABC Co.,Cat,Sec,Ind,Over Here,sec.gov,abc.com,TRUE
 CBA,TEST,Exch2,CBA Co.,Cat2,Sec2,Ind2,Over There,sec.gov,cba.com,FALSE
@@ -152,13 +133,13 @@ CBA,TEST,Exch2,CBA Co.,Cat2,Sec2,Ind2,Over There,sec.gov,cba.com,FALSE
 			So(tickers, ShouldResemble, expected)
 
 			// Add more tickers to the now-existing DB with a custom schema.
-			So(writeFile(tickersFile, `
+			So(testutil.WriteFile(tickersFile, `
 listed,junk,tkr
 TRUE,blah,C
 FALSE,foo,D
 `[1:]),
 				ShouldBeNil)
-			So(writeFile(schemaFile, `
+			So(testutil.WriteFile(schemaFile, `
 {
   "Ticker": "tkr",
   "Active": "listed"
@@ -175,7 +156,7 @@ FALSE,foo,D
 			So(tickers, ShouldResemble, expected)
 
 			// Overwrite tickers in the existing DB.
-			So(writeFile(tickersFile, `
+			So(testutil.WriteFile(tickersFile, `
 listed,tkr
 TRUE,X
 t,Y
@@ -194,7 +175,7 @@ t,Y
 		})
 
 		Convey("import prices with default reordered schema", func() {
-			So(writeFile(pricesFile, `
+			So(testutil.WriteFile(pricesFile, `
 Active,Close,Close split adj,Date,Close fully adj,Cash Volume
 TRUE,10,5,2020-01-01,4.5,1000
 FALSE,11,5.5,2020-01-02,4.6,100
@@ -232,7 +213,7 @@ FALSE,11,5.5,2020-01-02,4.6,100
 		})
 
 		Convey("import prices with a custom schema, ignore invalid values", func() {
-			So(writeFile(pricesFile, `
+			So(testutil.WriteFile(pricesFile, `
 listed,price,time,junk,vol*price
 TRUE,10,2020-01-01,blah,1000
 FALSE,11,2020-01-02,whatever,100
@@ -240,7 +221,7 @@ FALSE,NaN,2020-01-03,ignored,100
 FALSE,11,2020-01-04,ignored,Inf
 `),
 				ShouldBeNil)
-			So(writeFile(schemaFile, `
+			So(testutil.WriteFile(schemaFile, `
 {
   "Date": "time",
   "Active": "listed",
@@ -264,20 +245,20 @@ FALSE,11,2020-01-04,ignored,Inf
 		})
 
 		Convey("update metadata", func() {
-			So(writeFile(tickersFile, `
+			So(testutil.WriteFile(tickersFile, `
 Ticker
 A
 B
 IGNORED
 `),
 				ShouldBeNil)
-			So(writeFile(pricesFile, `
+			So(testutil.WriteFile(pricesFile, `
 Date,Close fully adj
 2020-01-02,10
 2020-02-02,11
 `),
 				ShouldBeNil)
-			So(writeFile(pricesFile2, `
+			So(testutil.WriteFile(pricesFile2, `
 Date,Close fully adj
 2020-01-05,10
 2020-03-10,11
@@ -301,17 +282,17 @@ Date,Close fully adj
 		})
 
 		Convey("cleanup", func() {
-			So(writeFile(tickersFile, `
+			So(testutil.WriteFile(tickersFile, `
 Ticker
 A
 `),
 				ShouldBeNil)
-			So(writeFile(pricesFile, `
+			So(testutil.WriteFile(pricesFile, `
 Date,Close fully adj
 2020-01-02,10
 `),
 				ShouldBeNil)
-			So(writeFile(pricesFile2, `
+			So(testutil.WriteFile(pricesFile2, `
 Date,Close fully adj
 2020-01-05,10
 `),
@@ -321,10 +302,10 @@ Date,Close fully adj
 			So(run(append(args, "-prices", pricesFile2, "-ticker", "B")), ShouldBeNil)
 
 			bFile := filepath.Join(tmpdir, dbName, "prices", "B.gob")
-			So(fileExists(bFile), ShouldBeTrue)
+			So(testutil.FileExists(bFile), ShouldBeTrue)
 
 			So(run(append(args, "-cleanup")), ShouldBeNil)
-			So(fileExists(bFile), ShouldBeFalse)
+			So(testutil.FileExists(bFile), ShouldBeFalse)
 		})
 	})
 }
