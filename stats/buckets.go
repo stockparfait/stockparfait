@@ -44,9 +44,9 @@ const (
 	SymmetricExponentialSpacing
 )
 
-func (s *SpacingType) InitMessage(js interface{}) error {
+func (s *SpacingType) InitMessage(js any) error {
 	switch v := js.(type) {
-	case map[string]interface{}: // default value
+	case map[string]any: // default value
 		*s = LinearSpacing
 	case string:
 		switch v {
@@ -100,7 +100,7 @@ func (b Buckets) String() string {
 		b.N, b.Spacing, b.Min, b.Max)
 }
 
-func (b *Buckets) InitMessage(js interface{}) error {
+func (b *Buckets) InitMessage(js any) error {
 	if err := message.Init(b, js); err != nil {
 		return errors.Annotate(err, "failed to init Buckets")
 	}

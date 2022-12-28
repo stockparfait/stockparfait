@@ -194,7 +194,7 @@ func NewTableQuery(table string) *TableQuery {
 }
 
 // Value is an arbitrary value of a table cell.
-type Value interface{}
+type Value any
 
 // SchemaField is the schema definition for a single table column.
 type SchemaField struct {

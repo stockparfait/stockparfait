@@ -90,7 +90,7 @@ func parseFlags(args []string) (*Flags, error) {
 	return &flags, err
 }
 
-func readJSON(fileName string) (interface{}, error) {
+func readJSON(fileName string) (any, error) {
 	f, err := os.Open(fileName)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot open config file '%s'", fileName)
@@ -98,7 +98,7 @@ func readJSON(fileName string) (interface{}, error) {
 	defer f.Close()
 
 	dec := json.NewDecoder(f)
-	var js interface{}
+	var js any
 	if err := dec.Decode(&js); err != nil && err != io.EOF {
 		return nil, errors.Annotate(err, "failed to decode JSON in '%s'", fileName)
 	}

@@ -28,7 +28,7 @@ import (
 	"github.com/stockparfait/stockparfait/message"
 )
 
-func writeGob(fileName string, v interface{}) error {
+func writeGob(fileName string, v any) error {
 	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return errors.Annotate(err, "failed to open file for writing: '%s'", fileName)
@@ -41,7 +41,7 @@ func writeGob(fileName string, v interface{}) error {
 	return nil
 }
 
-func readGob(fileName string, v interface{}) error {
+func readGob(fileName string, v any) error {
 	f, err := os.Open(fileName)
 	if err != nil {
 		return errors.Annotate(err, "failed to open file for reading: '%s'", fileName)
@@ -65,7 +65,7 @@ type Interval struct {
 
 var _ message.Message = &Interval{}
 
-func (i *Interval) InitMessage(js interface{}) error {
+func (i *Interval) InitMessage(js any) error {
 	return errors.Annotate(message.Init(i, js), "failed to init from JSON")
 }
 
@@ -139,7 +139,7 @@ func (r *Reader) initConstraints() {
 }
 
 // InitMessage implements message.Message.
-func (r *Reader) InitMessage(js interface{}) error {
+func (r *Reader) InitMessage(js any) error {
 	if err := message.Init(r, js); err != nil {
 		return errors.Annotate(err, "failed to init from JSON")
 	}

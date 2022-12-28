@@ -42,7 +42,7 @@ import (
 //	                           // but it's still correctly populated.
 //	}
 //
-//	func (d *Dog) InitMessage(js interface{}) error {
+//	func (d *Dog) InitMessage(js any) error {
 //	  return message.Init(d, js)
 //	}
 type Message interface {
@@ -53,7 +53,7 @@ type Message interface {
 	//
 	// If a Message contains other Messages as fields, this method should be
 	// called recursively on the nested Messages.
-	InitMessage(js interface{}) error
+	InitMessage(js any) error
 }
 
 // rMessage is the reflected Message type. Since it's an interface, we cannot
@@ -62,7 +62,7 @@ type Message interface {
 // type.
 var rMessage = reflect.TypeOf((*Message)(nil)).Elem()
 
-func convertToMessage(jv interface{}, t reflect.Type) (reflect.Value, error) {
+func convertToMessage(jv any, t reflect.Type) (reflect.Value, error) {
 	var Nil reflect.Value
 	if !t.Implements(rMessage) {
 		return Nil, errors.Reason("type %s must implement Message", t.Name())
@@ -84,7 +84,7 @@ func convertToMessage(jv interface{}, t reflect.Type) (reflect.Value, error) {
 // map[string]* of the target type. Pointer types implementing Message are
 // initialized with their InitMessage() method. If jv == nil, set to zero or
 // default Message value, as appropriate.
-func convertToType(jv interface{}, t reflect.Type) (reflect.Value, error) {
+func convertToType(jv any, t reflect.Type) (reflect.Value, error) {
 	var Nil reflect.Value
 	if t.Implements(rMessage) {
 		if jv == nil {
@@ -98,7 +98,7 @@ func convertToType(jv interface{}, t reflect.Type) (reflect.Value, error) {
 	}
 	if ptrTp := reflect.PtrTo(t); ptrTp.Implements(rMessage) {
 		if jv == nil {
-			jv = make(map[string]interface{}) // force default values for t
+			jv = make(map[string]any) // force default values for t
 		}
 		ptr, err := convertToMessage(jv, ptrTp)
 		if err != nil {
@@ -152,7 +152,7 @@ func convertToType(jv interface{}, t reflect.Type) (reflect.Value, error) {
 			return Nil, errors.Reason(
 				"map[%s] is not supported", t.Key().Kind().String())
 		}
-		v2, ok := jv.(map[string]interface{})
+		v2, ok := jv.(map[string]any)
 		if !ok {
 			return Nil, errors.Reason("not a map[string] type: %v", jv)
 		}
@@ -167,7 +167,7 @@ func convertToType(jv interface{}, t reflect.Type) (reflect.Value, error) {
 		return res, nil
 
 	case reflect.Slice:
-		v2, ok := jv.([]interface{})
+		v2, ok := jv.([]any)
 		if !ok {
 			return Nil, errors.Reason("not a slice type: %v", jv)
 		}
@@ -246,15 +246,15 @@ func checkSet(f reflect.StructField, fv reflect.Value, v reflect.Value) error {
 }
 
 // Init is a generic method to be used by most InitMessage implementations. It
-// expects m to be a struct, and js to be a non-nil map[string]interface{}. It
-// uses struct tags to know if a field is required or if it has a simple default
+// expects m to be a struct, and js to be a non-nil map[string]any. It uses
+// struct tags to know if a field is required or if it has a simple default
 // value (such as a string, number or bool).
 //
 // If the field type is another Message, it calls its InitMessage() method.
 // Otherwise, it converts whatever value it finds to the appropriate type and
 // assigns it. Note, that when js omits a field of Message-type by value,
-// InitMessage() will be called with an empty map[string]interface{}, and a
-// custom InitMessage must handle this case.
+// InitMessage() will be called with an empty map[string]any, and a custom
+// InitMessage must handle this case.
 //
 // It then checks the original JSON for any unrecognized fields and returns an
 // error as appropriate.
@@ -269,7 +269,7 @@ func checkSet(f reflect.StructField, fv reflect.Value, v reflect.Value) error {
 // message-compatible JSON directly.
 //
 // The "choices" tag is currently supported only for string fields.
-func Init(m Message, js interface{}) error {
+func Init(m Message, js any) error {
 	rt := reflect.TypeOf(m)
 	if !(rt.Kind() == reflect.Ptr && rt.Elem().Kind() == reflect.Struct) {
 		return errors.Reason(
@@ -279,7 +279,7 @@ func Init(m Message, js interface{}) error {
 	if js == nil {
 		return errors.Reason("JSON object is nil")
 	}
-	jsMap, ok := js.(map[string]interface{})
+	jsMap, ok := js.(map[string]any)
 	if !ok {
 		return errors.Reason("JSON object is not a map: %v.", js)
 	}

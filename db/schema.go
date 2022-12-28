@@ -141,7 +141,7 @@ func (d *Date) UnmarshalJSON(data []byte) error {
 }
 
 // InitMessage implements message.Message.
-func (d *Date) InitMessage(js interface{}) error {
+func (d *Date) InitMessage(js any) error {
 	switch s := js.(type) {
 	case string:
 		date, err := NewDateFromString(s)
@@ -149,7 +149,7 @@ func (d *Date) InitMessage(js interface{}) error {
 			return errors.Annotate(err, "failed to parse Date string")
 		}
 		*d = date
-	case map[string]interface{}:
+	case map[string]any:
 		*d = Date{}
 	default:
 		return errors.Reason("expected a string or {}, got %v", js)
