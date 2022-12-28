@@ -652,7 +652,7 @@ func WriteJS(ctx context.Context, w io.Writer) error {
 // GraphConfig is a config message for a plot graph. It is intended to be used
 // primarily within GroupConfig.
 type GraphConfig struct {
-	ID        string `json:"id"`
+	ID        string `json:"id" required:"true"`
 	Title     string `json:"title"`
 	XLabel    string `json:"X label"`
 	YLogScale bool   `json:"log scale Y"`
@@ -660,7 +660,7 @@ type GraphConfig struct {
 
 var _ message.Message = &GraphConfig{}
 
-func (g *GraphConfig) InitMessage(js interface{}) error {
+func (g *GraphConfig) InitMessage(js any) error {
 	if err := message.Init(g, js); err != nil {
 		return errors.Annotate(err, "cannot parse graph")
 	}
@@ -673,7 +673,7 @@ func (g *GraphConfig) InitMessage(js interface{}) error {
 // GroupConfig is a config for a group of plots with a common X axis.
 type GroupConfig struct {
 	Timeseries bool           `json:"timeseries"`
-	ID         string         `json:"id"`
+	ID         string         `json:"id" required:"true"`
 	Title      string         `json:"title"` // default: same as ID
 	XLogScale  bool           `json:"log scale X"`
 	Graphs     []*GraphConfig `json:"graphs"`
@@ -681,7 +681,7 @@ type GroupConfig struct {
 
 var _ message.Message = &GroupConfig{}
 
-func (g *GroupConfig) InitMessage(js interface{}) error {
+func (g *GroupConfig) InitMessage(js any) error {
 	if err := message.Init(g, js); err != nil {
 		return errors.Annotate(err, "cannot parse group")
 	}
@@ -702,7 +702,7 @@ func (g *GroupConfig) InitMessage(js interface{}) error {
 	return nil
 }
 
-// ConfigureGroups ensures that the Canvas contains the listed groups.
+// ConfigureGroups ensures that the Canvas contains the given groups.
 func (c *Canvas) ConfigureGroups(groups []*GroupConfig) error {
 	for _, gc := range groups {
 		kind := KindXY
@@ -728,8 +728,8 @@ func (c *Canvas) ConfigureGroups(groups []*GroupConfig) error {
 	return nil
 }
 
-// ConfigureGroups in the Canvas in context. It's an error if Canvas is not in
-// context.
+// ConfigureGroups for the Canvas in the context. It's an error if the context
+// has no Canvas.
 func ConfigureGroups(ctx context.Context, groups []*GroupConfig) error {
 	c := Get(ctx)
 	if c == nil {

@@ -208,7 +208,7 @@ var DATA = {"Groups":[{"Kind":"KindXY","Title":"xy","XLogScale":true,"Graphs":[{
 		})
 	})
 
-	Convey("GroupConfig and GraphConfig", t, func() {
+	Convey("GroupConfig and GraphConfig work", t, func() {
 		c := NewCanvas()
 		ctx := Use(context.Background(), c)
 		XYJSON := `
