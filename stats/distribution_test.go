@@ -123,8 +123,8 @@ func TestDistribution(t *testing.T) {
 	Convey("RandDistribution works", t, func() {
 		ctx := parallel.TestSerialize(context.Background())
 		xform := &Transform{
-			InitState: func() interface{} { return nil },
-			Fn: func(d Distribution, s interface{}) (float64, interface{}) {
+			InitState: func() any { return nil },
+			Fn: func(d Distribution, s any) (float64, any) {
 				return d.Rand(), nil
 			},
 		}

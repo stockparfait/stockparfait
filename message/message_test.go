@@ -38,7 +38,7 @@ type Dog struct {
 }
 
 // Init implements Message.
-func (d *Dog) InitMessage(js interface{}) error {
+func (d *Dog) InitMessage(js any) error {
 	return Init(d, js)
 }
 
@@ -46,7 +46,7 @@ type BadChoice struct {
 	Choice string `choices:"foo,bar"` // no default
 }
 
-func (b *BadChoice) InitMessage(js interface{}) error {
+func (b *BadChoice) InitMessage(js any) error {
 	return Init(b, js)
 }
 
@@ -55,7 +55,7 @@ type DefaultField struct {
 	Zero int
 }
 
-func (f *DefaultField) InitMessage(js interface{}) error {
+func (f *DefaultField) InitMessage(js any) error {
 	return Init(f, js)
 }
 
@@ -64,7 +64,7 @@ type DefaultMsg struct {
 	Ptr *DefaultField
 }
 
-func (m *DefaultMsg) InitMessage(js interface{}) error {
+func (m *DefaultMsg) InitMessage(js any) error {
 	return Init(m, js)
 }
 

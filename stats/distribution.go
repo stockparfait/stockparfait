@@ -298,7 +298,7 @@ type ParallelSamplingConfig struct {
 
 var _ message.Message = &ParallelSamplingConfig{}
 
-func (c *ParallelSamplingConfig) InitMessage(js interface{}) error {
+func (c *ParallelSamplingConfig) InitMessage(js any) error {
 	if err := message.Init(c, js); err != nil {
 		return errors.Annotate(err, "failed to init ParallelSamplingConfig")
 	}
@@ -329,8 +329,8 @@ func (c *ParallelSamplingConfig) InitMessage(js interface{}) error {
 // values, or the log-profit over N steps) satisfies this property, but the
 // unbounded sum (such as log-price) does not.
 type Transform struct {
-	InitState func() interface{}
-	Fn        func(d Distribution, state interface{}) (float64, interface{})
+	InitState func() any
+	Fn        func(d Distribution, state any) (float64, any)
 }
 
 // RandDistribution uses a transformed Rand method of a source distribution to
@@ -356,7 +356,7 @@ var _ DistributionWithHistogram = &RandDistribution{}
 func NewRandDistribution(ctx context.Context, source Distribution, xform *Transform, cfg *ParallelSamplingConfig) *RandDistribution {
 	if cfg == nil {
 		cfg = &ParallelSamplingConfig{}
-		if err := cfg.InitMessage(make(map[string]interface{})); err != nil {
+		if err := cfg.InitMessage(make(map[string]any)); err != nil {
 			panic(errors.Annotate(err, "failed to init default config"))
 		}
 	}
@@ -543,8 +543,8 @@ func (d *HistogramDistribution) Seed(seed uint64) {
 // is a new single sample in the new distribution.
 func CompoundRandDistribution(ctx context.Context, source Distribution, n int, cfg *ParallelSamplingConfig) *RandDistribution {
 	xform := &Transform{
-		InitState: func() interface{} { return nil },
-		Fn: func(d Distribution, state interface{}) (float64, interface{}) {
+		InitState: func() any { return nil },
+		Fn: func(d Distribution, state any) (float64, any) {
 			acc := 0.0
 			for i := 0; i < n; i++ {
 				acc += d.Rand()
@@ -563,8 +563,8 @@ func CompoundRandDistribution(ctx context.Context, source Distribution, n int, c
 // sequences are generated in parallel for further speedup.
 func FastCompoundRandDistribution(ctx context.Context, source Distribution, n int, cfg *ParallelSamplingConfig) *RandDistribution {
 	xform := &Transform{
-		InitState: func() interface{} { return []float64{} },
-		Fn: func(d Distribution, state interface{}) (float64, interface{}) {
+		InitState: func() any { return []float64{} },
+		Fn: func(d Distribution, state any) (float64, any) {
 			sums := state.([]float64)
 			if len(sums) > 0 {
 				sums = sums[1:]

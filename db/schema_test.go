@@ -33,7 +33,7 @@ type TestDateMessage struct {
 
 var _ message.Message = &TestDateMessage{}
 
-func (m *TestDateMessage) InitMessage(js interface{}) error {
+func (m *TestDateMessage) InitMessage(js any) error {
 	return message.Init(m, js)
 }
 

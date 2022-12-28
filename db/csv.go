@@ -43,13 +43,13 @@ type TickerRowConfig struct {
 var _ message.Message = &TickerRowConfig{}
 
 // InitMessage implements message.Message.
-func (c *TickerRowConfig) InitMessage(js interface{}) error {
+func (c *TickerRowConfig) InitMessage(js any) error {
 	return errors.Annotate(message.Init(c, js), "failed to init from JSON")
 }
 
 func NewTickerRowConfig() *TickerRowConfig {
 	var c TickerRowConfig
-	if err := c.InitMessage(map[string]interface{}{}); err != nil {
+	if err := c.InitMessage(map[string]any{}); err != nil {
 		panic(errors.Annotate(err, "failed to init default TickerRowConfig"))
 	}
 	return &c
@@ -150,13 +150,13 @@ type PriceRowConfig struct {
 
 var _ message.Message = &PriceRowConfig{}
 
-func (c *PriceRowConfig) InitMessage(js interface{}) error {
+func (c *PriceRowConfig) InitMessage(js any) error {
 	return errors.Annotate(message.Init(c, js), "failed to init from JSON")
 }
 
 func NewPriceRowConfig() *PriceRowConfig {
 	var c PriceRowConfig
-	if err := c.InitMessage(map[string]interface{}{}); err != nil {
+	if err := c.InitMessage(map[string]any{}); err != nil {
 		panic(errors.Annotate(err, "failed to init default PriceRowConfig"))
 	}
 	return &c
