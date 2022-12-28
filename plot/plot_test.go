@@ -21,6 +21,7 @@ import (
 
 	"github.com/stockparfait/stockparfait/db"
 	"github.com/stockparfait/stockparfait/stats"
+	"github.com/stockparfait/testutil"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -205,5 +206,40 @@ var DATA = {"Groups":[{"Kind":"KindXY","Title":"xy","XLogScale":true,"Graphs":[{
 ;`)
 			})
 		})
+	})
+
+	Convey("GroupConfig and GraphConfig", t, func() {
+		c := NewCanvas()
+		ctx := Use(context.Background(), c)
+		XYJSON := `
+{
+  "id": "real",
+  "title": "Real Group",
+  "log scale X": true,
+  "graphs": [
+    {"id": "r1", "title": "Real One", "X label": "points"},
+    {"id": "r2", "X label": "points", "log scale Y": true}
+  ]
+}`
+		SeriesJSON := `
+{
+  "id": "time",
+  "timeseries": true,
+  "graphs": [
+    {"id": "t1", "title": "Time One", "X label": "dates"},
+    {"id": "t2", "X label": "dates", "log scale Y": true}
+  ]
+}`
+		var groupXY, groupSeries GroupConfig
+		So(groupXY.InitMessage(testutil.JSON(XYJSON)), ShouldBeNil)
+		So(groupSeries.InitMessage(testutil.JSON(SeriesJSON)), ShouldBeNil)
+		So(ConfigureGroups(ctx, []*GroupConfig{&groupXY, &groupSeries}), ShouldBeNil)
+		So(len(c.Groups), ShouldEqual, 2)
+
+		So(c.Groups[0].Title, ShouldEqual, "Real Group")
+		So(len(c.Groups[0].Graphs), ShouldEqual, 2)
+
+		So(len(c.Groups[1].Graphs), ShouldEqual, 2)
+		So(c.Groups[1].Graphs[0].Title, ShouldEqual, "Time One")
 	})
 }
