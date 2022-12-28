@@ -24,6 +24,7 @@ import (
 	"github.com/stockparfait/errors"
 
 	"github.com/stockparfait/stockparfait/db"
+	"github.com/stockparfait/stockparfait/message"
 	"github.com/stockparfait/stockparfait/stats"
 )
 
@@ -646,4 +647,93 @@ func WriteJS(ctx context.Context, w io.Writer) error {
 		return errors.Reason("no Canvas in context")
 	}
 	return c.WriteJS(w)
+}
+
+// GraphConfig is a config message for a plot graph. It is intended to be used
+// primarily within GroupConfig.
+type GraphConfig struct {
+	ID        string `json:"id" required:"true"`
+	Title     string `json:"title"`
+	XLabel    string `json:"X label"`
+	YLogScale bool   `json:"log scale Y"`
+}
+
+var _ message.Message = &GraphConfig{}
+
+func (g *GraphConfig) InitMessage(js any) error {
+	if err := message.Init(g, js); err != nil {
+		return errors.Annotate(err, "cannot parse graph")
+	}
+	if g.ID == "" {
+		return errors.Reason("graph must have a non-empty ID")
+	}
+	return nil
+}
+
+// GroupConfig is a config for a group of plots with a common X axis.
+type GroupConfig struct {
+	Timeseries bool           `json:"timeseries"`
+	ID         string         `json:"id" required:"true"`
+	Title      string         `json:"title"` // default: same as ID
+	XLogScale  bool           `json:"log scale X"`
+	Graphs     []*GraphConfig `json:"graphs"`
+}
+
+var _ message.Message = &GroupConfig{}
+
+func (g *GroupConfig) InitMessage(js any) error {
+	if err := message.Init(g, js); err != nil {
+		return errors.Annotate(err, "cannot parse group")
+	}
+	if g.ID == "" {
+		return errors.Reason("group must have a non-empty ID")
+	}
+	if g.Title == "" {
+		g.Title = g.ID
+	}
+	if len(g.Graphs) < 1 {
+		return errors.Reason("at least one graph is required in group '%s'",
+			g.ID)
+	}
+	if g.Timeseries && g.XLogScale {
+		return errors.Reason("timeseries group '%s' cannot have log-scale X",
+			g.ID)
+	}
+	return nil
+}
+
+// ConfigureGroups ensures that the Canvas contains the given groups.
+func (c *Canvas) ConfigureGroups(groups []*GroupConfig) error {
+	for _, gc := range groups {
+		kind := KindXY
+		if gc.Timeseries {
+			kind = KindSeries
+		}
+		group := NewGroup(kind, gc.ID).SetXLogScale(gc.XLogScale)
+		group.SetTitle(gc.Title)
+		if err := c.AddGroup(group); err != nil {
+			return errors.Annotate(err, "cannot add group '%s'", gc.ID)
+		}
+		for _, gpc := range gc.Graphs {
+			graph, err := c.EnsureGraph(kind, gpc.ID, gc.ID)
+			if err != nil {
+				return errors.Annotate(err, "cannot ensure graph '%s' in group '%s'",
+					gpc.ID, gc.ID)
+			}
+			graph.SetTitle(gpc.Title).
+				SetXLabel(gpc.XLabel).
+				SetYLogScale(gpc.YLogScale)
+		}
+	}
+	return nil
+}
+
+// ConfigureGroups for the Canvas in the context. It's an error if the context
+// has no Canvas.
+func ConfigureGroups(ctx context.Context, groups []*GroupConfig) error {
+	c := Get(ctx)
+	if c == nil {
+		return errors.Reason("no Canvas in context")
+	}
+	return c.ConfigureGroups(groups)
 }
