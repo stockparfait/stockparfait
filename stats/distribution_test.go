@@ -122,10 +122,10 @@ func TestDistribution(t *testing.T) {
 
 	Convey("RandDistribution works", t, func() {
 		ctx := parallel.TestSerialize(context.Background())
-		xform := &Transform{
-			InitState: func() any { return nil },
-			Fn: func(d Distribution, s any) (float64, any) {
-				return d.Rand(), nil
+		xform := &Transform[struct{}]{
+			InitState: func() struct{} { return struct{}{} },
+			Fn: func(d Distribution, s struct{}) (float64, struct{}) {
+				return d.Rand(), struct{}{}
 			},
 		}
 		var cfg ParallelSamplingConfig
@@ -146,7 +146,7 @@ func TestDistribution(t *testing.T) {
 		d.Seed(seed)
 
 		Convey("Copy works", func() { // must be called before d.Histogram()
-			copy := d.Copy().(*RandDistribution)
+			copy := d.Copy().(*RandDistribution[struct{}])
 			So(copy.Histogram().CountsTotal(), ShouldEqual, cfg.Samples)
 		})
 

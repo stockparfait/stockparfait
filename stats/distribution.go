@@ -269,7 +269,7 @@ func NewSampleDistributionFromRand(d Distribution, samples int, buckets *Buckets
 
 // NewSampleDistributionFromRandDist is similar to NewSampleDistributionFromRand
 // except that it uses fast stateful sample generation of RandDistribution.
-func NewSampleDistributionFromRandDist(d *RandDistribution, samples int, buckets *Buckets) *SampleDistribution {
+func NewSampleDistributionFromRandDist[S any](d *RandDistribution[S], samples int, buckets *Buckets) *SampleDistribution {
 	sample := make([]float64, samples)
 	s := d.xform.InitState()
 	for i := 0; i < samples; i++ {
@@ -328,9 +328,9 @@ func (c *ParallelSamplingConfig) InitMessage(js any) error {
 // As an example, a sliding window compounding (the sum of last N d.Rand()
 // values, or the log-profit over N steps) satisfies this property, but the
 // unbounded sum (such as log-price) does not.
-type Transform struct {
-	InitState func() any
-	Fn        func(d Distribution, state any) (float64, any)
+type Transform[State any] struct {
+	InitState func() State
+	Fn        func(d Distribution, state State) (float64, State)
 }
 
 // RandDistribution uses a transformed Rand method of a source distribution to
@@ -338,29 +338,29 @@ type Transform struct {
 // calls the source's Rand and applies the transform. It estimates and caches
 // mean, MAD and quantiles (as a histogram) from a set number of samples. It
 // never stores the generated samples, so its memory footprint remains small.
-type RandDistribution struct {
+type RandDistribution[State any] struct {
 	context   context.Context
 	config    *ParallelSamplingConfig
 	source    Distribution // the source distribution
-	xform     *Transform
+	xform     *Transform[State]
 	histogram *Histogram
 }
 
-var _ DistributionWithHistogram = &RandDistribution{}
+var _ DistributionWithHistogram = &RandDistribution[int]{}
 
 // NewRandDistribution creates a Distribution using the transformation of the
 // random sampler function of the source distribution. The source distribution
 // is copied using Distribution.Copy method, and therefore can be sampled
 // independently and in parallel with the original source. It uses the given
 // number of samples to estimate and lazily cache mean, MAD and quantiles.
-func NewRandDistribution(ctx context.Context, source Distribution, xform *Transform, cfg *ParallelSamplingConfig) *RandDistribution {
+func NewRandDistribution[S any](ctx context.Context, source Distribution, xform *Transform[S], cfg *ParallelSamplingConfig) *RandDistribution[S] {
 	if cfg == nil {
 		cfg = &ParallelSamplingConfig{}
 		if err := cfg.InitMessage(make(map[string]any)); err != nil {
 			panic(errors.Annotate(err, "failed to init default config"))
 		}
 	}
-	return &RandDistribution{
+	return &RandDistribution[S]{
 		context: ctx,
 		config:  cfg,
 		source:  source.Copy(),
@@ -368,19 +368,19 @@ func NewRandDistribution(ctx context.Context, source Distribution, xform *Transf
 	}
 }
 
-func (d *RandDistribution) Rand() float64 {
+func (d *RandDistribution[S]) Rand() float64 {
 	x, _ := d.xform.Fn(d.source, d.xform.InitState())
 	return x
 }
 
-type randJobsIter struct {
-	d *RandDistribution
+type randJobsIter[S any] struct {
+	d *RandDistribution[S]
 	i int
 }
 
-var _ parallel.JobsIter[*Histogram] = &randJobsIter{}
+var _ parallel.JobsIter[*Histogram] = &randJobsIter[int]{}
 
-func (r *randJobsIter) Next() (parallel.Job[*Histogram], error) {
+func (r *randJobsIter[S]) Next() (parallel.Job[*Histogram], error) {
 	c := r.d.config
 	if r.i >= c.Samples {
 		return nil, parallel.Done
@@ -411,14 +411,14 @@ func (r *randJobsIter) Next() (parallel.Job[*Histogram], error) {
 	return job, nil
 }
 
-func (d *RandDistribution) jobsIter() parallel.JobsIter[*Histogram] {
-	return &randJobsIter{
-		d: d.Copy().(*RandDistribution),
+func (d *RandDistribution[S]) jobsIter() parallel.JobsIter[*Histogram] {
+	return &randJobsIter[S]{
+		d: d.Copy().(*RandDistribution[S]),
 	}
 }
 
 // Histogram of the generator, lazily cached.
-func (d *RandDistribution) Histogram() *Histogram {
+func (d *RandDistribution[S]) Histogram() *Histogram {
 	// The method will panic if parallel jobs return unexpected results.
 	if d.histogram == nil {
 		d.histogram = NewHistogram(&d.config.Buckets)
@@ -436,32 +436,32 @@ func (d *RandDistribution) Histogram() *Histogram {
 	return d.histogram
 }
 
-func (d *RandDistribution) Quantile(x float64) float64 {
+func (d *RandDistribution[S]) Quantile(x float64) float64 {
 	return d.Histogram().Quantile(x)
 }
 
-func (d *RandDistribution) Prob(x float64) float64 {
+func (d *RandDistribution[S]) Prob(x float64) float64 {
 	return d.Histogram().PDF(d.Histogram().Buckets().Bucket(x))
 }
 
-func (d *RandDistribution) Mean() float64 {
+func (d *RandDistribution[S]) Mean() float64 {
 	return d.Histogram().Mean()
 }
 
-func (d *RandDistribution) MAD() float64 {
+func (d *RandDistribution[S]) MAD() float64 {
 	return d.Histogram().MAD()
 }
 
-func (d *RandDistribution) Variance() float64 {
+func (d *RandDistribution[S]) Variance() float64 {
 	return d.Histogram().Variance()
 }
 
-func (d *RandDistribution) CDF(x float64) float64 {
+func (d *RandDistribution[S]) CDF(x float64) float64 {
 	return d.Histogram().CDF(x)
 }
 
-func (d *RandDistribution) Copy() Distribution {
-	return &RandDistribution{
+func (d *RandDistribution[S]) Copy() Distribution {
+	return &RandDistribution[S]{
 		context:   d.context,
 		config:    d.config,
 		source:    d.source.Copy(),
@@ -470,7 +470,7 @@ func (d *RandDistribution) Copy() Distribution {
 	}
 }
 
-func (d *RandDistribution) Seed(seed uint64) {
+func (d *RandDistribution[S]) Seed(seed uint64) {
 	d.source.Seed(seed)
 }
 
@@ -541,19 +541,21 @@ func (d *HistogramDistribution) Seed(seed uint64) {
 // CompoundRandDistribution creates a RandDistribution out of source compounded
 // n times. That is, source.Rand() is invoked n times and the sum of its samples
 // is a new single sample in the new distribution.
-func CompoundRandDistribution(ctx context.Context, source Distribution, n int, cfg *ParallelSamplingConfig) *RandDistribution {
-	xform := &Transform{
-		InitState: func() any { return nil },
-		Fn: func(d Distribution, state any) (float64, any) {
+func CompoundRandDistribution(ctx context.Context, source Distribution, n int, cfg *ParallelSamplingConfig) *RandDistribution[struct{}] {
+	xform := &Transform[struct{}]{
+		InitState: func() struct{} { return struct{}{} },
+		Fn: func(d Distribution, state struct{}) (float64, struct{}) {
 			acc := 0.0
 			for i := 0; i < n; i++ {
 				acc += d.Rand()
 			}
-			return acc, nil
+			return acc, struct{}{}
 		},
 	}
 	return NewRandDistribution(ctx, source, xform, cfg)
 }
+
+type FastCompoundState []float64
 
 // FastCompoundRandDistribution creates a RandDistribution out of source
 // compounded n times. However, the source.Rand() values are not recomputed n
@@ -561,11 +563,11 @@ func CompoundRandDistribution(ctx context.Context, source Distribution, n int, c
 // single sequence of source samples. This reduces the number of generated
 // source samples from N*numSamples to N+numSamples.  In practice, multiple such
 // sequences are generated in parallel for further speedup.
-func FastCompoundRandDistribution(ctx context.Context, source Distribution, n int, cfg *ParallelSamplingConfig) *RandDistribution {
-	xform := &Transform{
-		InitState: func() any { return []float64{} },
-		Fn: func(d Distribution, state any) (float64, any) {
-			sums := state.([]float64)
+func FastCompoundRandDistribution(ctx context.Context, source Distribution, n int, cfg *ParallelSamplingConfig) *RandDistribution[FastCompoundState] {
+	xform := &Transform[FastCompoundState]{
+		InitState: func() FastCompoundState { return FastCompoundState{} },
+		Fn: func(d Distribution, state FastCompoundState) (float64, FastCompoundState) {
+			sums := state
 			if len(sums) > 0 {
 				sums = sums[1:]
 			}
