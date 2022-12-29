@@ -555,6 +555,7 @@ func CompoundRandDistribution(ctx context.Context, source Distribution, n int, c
 	return NewRandDistribution(ctx, source, xform, cfg)
 }
 
+// FastCompoundState is used in Transform by FastCompoundRandDistribution.
 type FastCompoundState []float64
 
 // FastCompoundRandDistribution creates a RandDistribution out of source
@@ -567,18 +568,17 @@ func FastCompoundRandDistribution(ctx context.Context, source Distribution, n in
 	xform := &Transform[FastCompoundState]{
 		InitState: func() FastCompoundState { return FastCompoundState{} },
 		Fn: func(d Distribution, state FastCompoundState) (float64, FastCompoundState) {
-			sums := state
-			if len(sums) > 0 {
-				sums = sums[1:]
+			if len(state) > 0 {
+				state = state[1:]
 			}
-			for len(sums) < n {
+			for len(state) < n {
 				var last float64
-				if len(sums) > 0 {
-					last = sums[len(sums)-1]
+				if len(state) > 0 {
+					last = state[len(state)-1]
 				}
-				sums = append(sums, last+d.Rand())
+				state = append(state, last+d.Rand())
 			}
-			return sums[n-1] - sums[0], sums
+			return state[n-1] - state[0], state
 		},
 	}
 	return NewRandDistribution(ctx, source, xform, cfg)
