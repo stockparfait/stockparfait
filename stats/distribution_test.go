@@ -104,9 +104,9 @@ func TestDistribution(t *testing.T) {
 				Convey("fast compounding", func() {
 					d2 := FastCompoundSampleDistribution(ctx, d, 16, &cfg)
 					d2.Seed(seed)
-					So(testutil.Round(d2.Mean(), 2), ShouldEqual, 30)      // actual: 32
-					So(testutil.Round(d2.MAD(), 2), ShouldEqual, 11)       // actual: 12
-					So(testutil.Round(d2.Variance(), 2), ShouldEqual, 200) // actual: 230
+					So(testutil.Round(d2.Mean(), 2), ShouldEqual, 32)      // actual: 32
+					So(testutil.Round(d2.MAD(), 2), ShouldEqual, 12)       // actual: 12
+					So(testutil.Round(d2.Variance(), 2), ShouldEqual, 210) // actual: 230
 				})
 			})
 		})
@@ -207,7 +207,7 @@ func TestDistribution(t *testing.T) {
 			Convey("fast compounding", func() {
 				d2 := FastCompoundRandDistribution(ctx, d, 16, &compCfg)
 				d2.Seed(seed)
-				So(testutil.Round(d2.Mean(), 2), ShouldEqual, 30.0) // actual: 32
+				So(testutil.Round(d2.Mean(), 2), ShouldEqual, 32.0) // actual: 32
 				// Test MAD with up to 10% precision, hence the ratio.
 				So(testutil.Round(d.MAD()*4.0/d2.MAD(), 2), ShouldEqual, 1.0)
 			})
