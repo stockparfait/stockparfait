@@ -571,14 +571,14 @@ func FastCompoundRandDistribution(ctx context.Context, source Distribution, n in
 			if len(state) > 0 {
 				state = state[1:]
 			}
-			for len(state) < n {
+			for len(state) <= n {
 				var last float64
 				if len(state) > 0 {
 					last = state[len(state)-1]
 				}
 				state = append(state, last+d.Rand())
 			}
-			return state[n-1] - state[0], state
+			return state[n] - state[0], state
 		},
 	}
 	return NewRandDistribution(ctx, source, xform, cfg)
