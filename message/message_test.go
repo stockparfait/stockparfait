@@ -15,6 +15,8 @@
 package message
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stockparfait/testutil"
@@ -84,16 +86,27 @@ func TestMessage(t *testing.T) {
 			So(len(d.Pups), ShouldEqual, 0)
 		})
 
-		Convey("with recursive Message entries", func() {
+		Convey("with recursive Message entries, from file", func() {
+			tmpdir, tmpdirErr := os.MkdirTemp("", "test_dog")
+			defer os.RemoveAll(tmpdir)
+
+			Convey("Test setup succeeded", func() {
+				So(tmpdirErr, ShouldBeNil)
+			})
+			filePath := filepath.Join(tmpdir, "dog.json")
+			JSON := `
+{
+  "name": "Mommy", "Legs": null, "HasBone": false, "Age": 5.2, "Dead": true,
+  "parent": {"name": "Oldie"},
+  "tags": {"tag1": "foo", "tag2": "bar"},
+  "pups": [
+    {"name": "Bad Boy", "Age": 0.1, "Sex": "male"},
+    {"name": "Good Girl", "Legs": 3}]
+}`
+			So(testutil.WriteFile(filePath, JSON), ShouldBeNil)
+
 			var d Dog
-			So(d.InitMessage(testutil.JSON(`{
-        "name": "Mommy", "Legs": null, "HasBone": false, "Age": 5.2, "Dead": true,
-        "parent": {"name": "Oldie"},
-        "tags": {"tag1": "foo", "tag2": "bar"},
-        "pups": [
-          {"name": "Bad Boy", "Age": 0.1, "Sex": "male"},
-          {"name": "Good Girl", "Legs": 3}]
-      }`)), ShouldBeNil)
+			So(FromFile(&d, filePath), ShouldBeNil)
 			So(d.Name, ShouldEqual, "Mommy")
 			So(d.Sex, ShouldEqual, "female")
 			So(d.Legs, ShouldBeNil)

@@ -15,6 +15,9 @@
 package message
 
 import (
+	"encoding/json"
+	"io"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -373,4 +376,28 @@ func StringIn(s string, values ...string) bool {
 		}
 	}
 	return false
+}
+
+// FromReader reads a JSON stream and initializes a Message.
+func FromReader(m Message, r io.Reader) error {
+	dec := json.NewDecoder(r)
+	var jv any
+	if err := dec.Decode(&jv); err != nil && err != io.EOF {
+		return errors.Annotate(err, "failed to decode JSON")
+	}
+
+	if err := m.InitMessage(jv); err != nil {
+		return errors.Annotate(err, "cannot interpret JSON as %T", m)
+	}
+	return nil
+}
+
+// FromFile reads a JSON file and initializes a Message.
+func FromFile(m Message, filePath string) error {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return errors.Annotate(err, "cannot open file '%s'", filePath)
+	}
+	defer f.Close()
+	return FromReader(m, f)
 }
