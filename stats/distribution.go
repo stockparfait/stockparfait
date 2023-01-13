@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/stockparfait/errors"
-	"github.com/stockparfait/parallel"
+	"github.com/stockparfait/iterator"
 	"github.com/stockparfait/stockparfait/message"
 
 	"golang.org/x/exp/rand"
@@ -378,12 +378,12 @@ type randJobsIter[S any] struct {
 	i int
 }
 
-var _ parallel.JobsIter[*Histogram] = &randJobsIter[int]{}
+var _ iterator.Iterator[func() *Histogram] = &randJobsIter[int]{}
 
-func (r *randJobsIter[S]) Next() (parallel.Job[*Histogram], error) {
+func (r *randJobsIter[S]) Next() (func() *Histogram, bool) {
 	c := r.d.config
 	if r.i >= c.Samples {
-		return nil, parallel.Done
+		return nil, false
 	}
 	batchSize := c.Samples / c.Workers
 	if batchSize < c.BatchMin {
@@ -408,10 +408,10 @@ func (r *randJobsIter[S]) Next() (parallel.Job[*Histogram], error) {
 		}
 		return h
 	}
-	return job, nil
+	return job, true
 }
 
-func (d *RandDistribution[S]) jobsIter() parallel.JobsIter[*Histogram] {
+func (d *RandDistribution[S]) jobsIter() iterator.Iterator[func() *Histogram] {
 	return &randJobsIter[S]{
 		d: d.Copy().(*RandDistribution[S]),
 	}
@@ -422,12 +422,9 @@ func (d *RandDistribution[S]) Histogram() *Histogram {
 	// The method will panic if parallel jobs return unexpected results.
 	if d.histogram == nil {
 		d.histogram = NewHistogram(&d.config.Buckets)
-		m := parallel.Map[*Histogram](d.context, d.config.Workers, d.jobsIter())
-		for {
-			h, err := m.Next()
-			if err != nil { // can only be parallel.Done
-				break
-			}
+		f := func(j func() *Histogram) *Histogram { return j() }
+		m := iterator.ParallelMap[func() *Histogram, *Histogram](d.context, d.config.Workers, d.jobsIter(), f)
+		for h, ok := m.Next(); ok; h, ok = m.Next() {
 			if err := d.histogram.AddHistogram(h); err != nil {
 				panic(errors.Annotate(err, "failed to merge histogram"))
 			}
@@ -607,12 +604,12 @@ type compHistJobsIter struct {
 	i    int // samples counter
 }
 
-var _ parallel.JobsIter[*Histogram] = &compHistJobsIter{}
+var _ iterator.Iterator[func() *Histogram] = &compHistJobsIter{}
 
-func (it *compHistJobsIter) Next() (parallel.Job[*Histogram], error) {
+func (it *compHistJobsIter) Next() (func() *Histogram, bool) {
 	c := it.c
 	if it.i >= c.Samples {
-		return nil, parallel.Done
+		return nil, false
 	}
 	batchSize := c.Samples / c.Workers
 	if batchSize < c.BatchMin {
@@ -661,7 +658,7 @@ func (it *compHistJobsIter) Next() (parallel.Job[*Histogram], error) {
 		}
 		return h
 	}
-	return job, nil
+	return job, true
 }
 
 // CompoundHistogram computes a histogram of an n-compounded source distribution
@@ -678,12 +675,9 @@ func CompoundHistogram(ctx context.Context, source Distribution, n int, c *Paral
 		it.rand = rand.New(rand.NewSource(uint64(c.Seed)))
 	}
 	h := NewHistogram(&c.Buckets)
-	m := parallel.Map[*Histogram](ctx, c.Workers, it)
-	for {
-		hj, err := m.Next()
-		if err != nil { // can only be parallel.Done
-			break
-		}
+	f := func(j func() *Histogram) *Histogram { return j() }
+	m := iterator.ParallelMap[func() *Histogram, *Histogram](ctx, c.Workers, it, f)
+	for hj, ok := m.Next(); ok; hj, ok = m.Next() {
 		if err := h.AddHistogram(hj); err != nil {
 			panic(errors.Annotate(err, "failed to merge histogram"))
 		}

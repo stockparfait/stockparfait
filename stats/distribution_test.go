@@ -19,7 +19,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/stockparfait/parallel"
+	"github.com/stockparfait/iterator"
 	"github.com/stockparfait/testutil"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -121,7 +121,7 @@ func TestDistribution(t *testing.T) {
 	})
 
 	Convey("RandDistribution works", t, func() {
-		ctx := parallel.TestSerialize(context.Background())
+		ctx := iterator.TestSerialize(context.Background())
 		xform := &Transform[struct{}]{
 			InitState: func() struct{} { return struct{}{} },
 			Fn: func(d Distribution, s struct{}) (float64, struct{}) {
