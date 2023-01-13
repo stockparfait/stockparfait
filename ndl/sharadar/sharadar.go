@@ -22,8 +22,8 @@ import (
 	"strings"
 
 	"github.com/stockparfait/errors"
+	"github.com/stockparfait/iterator"
 	"github.com/stockparfait/logging"
-	"github.com/stockparfait/parallel"
 	"github.com/stockparfait/stockparfait/db"
 	"github.com/stockparfait/stockparfait/ndl"
 )
@@ -150,24 +150,29 @@ type pricesResult struct {
 
 type pricesJobsIter struct {
 	Reader    *ndl.CSVReader
+	Error     error // from the CSVReader
 	ColMap    map[string]int
 	BatchSize int // for efficient parallelization should be at least 1000
 	Done      bool
 }
 
-var _ parallel.JobsIter[pricesResult] = &pricesJobsIter{}
+var _ iterator.Iterator[func() pricesResult] = &pricesJobsIter{}
 
-func (it *pricesJobsIter) Next() (parallel.Job[pricesResult], error) {
+func (it *pricesJobsIter) Next() (func() pricesResult, bool) {
 	if it.BatchSize <= 0 {
-		return nil, errors.Reason("batch size = %d must be > 0", it.BatchSize)
+		it.Error = errors.Reason("batch size = %d must be > 0", it.BatchSize)
+		return nil, false
 	}
 	if it.Done {
-		return nil, parallel.Done
+		return nil, false
 	}
 	rows := [][]string{}
 	for i := 0; i < it.BatchSize; i++ {
 		row, err := it.Reader.Read()
-		if err == io.EOF {
+		if err != nil {
+			if err != io.EOF {
+				it.Error = err
+			}
 			it.Done = true
 			break
 		}
@@ -175,7 +180,7 @@ func (it *pricesJobsIter) Next() (parallel.Job[pricesResult], error) {
 	}
 	if len(rows) == 0 {
 		it.Done = true
-		return nil, parallel.Done
+		return nil, false
 	}
 	job := func() pricesResult {
 		prices := map[string][]db.PriceRow{}
@@ -198,7 +203,7 @@ func (it *pricesJobsIter) Next() (parallel.Job[pricesResult], error) {
 			Prices: prices,
 		}
 	}
-	return job, nil
+	return job, true
 }
 
 // BulkDownloadPrices downloads daily prices using bulk download API. It must be
@@ -236,23 +241,17 @@ func (d *Dataset) BulkDownloadPrices(ctx context.Context, table TableName) error
 	cctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	m := parallel.Map[pricesResult](cctx, runtime.NumCPU(), &pricesJobsIter{
+	jobs := &pricesJobsIter{
 		Reader:    r,
 		ColMap:    colMap,
 		BatchSize: 10000,
-	})
-	for {
-		pr, err := m.Next()
-		if err != nil {
-			if err == parallel.Done {
-				break
-			}
-			return errors.Annotate(err, "failed to read CSV")
-		}
+	}
+	f := func(f func() pricesResult) pricesResult { return f() }
+	m := iterator.ParallelMap[func() pricesResult, pricesResult](cctx, runtime.NumCPU(), jobs, f)
+	for pr, ok := m.Next(); ok; pr, ok = m.Next() {
 		if pr.Error != nil {
-			cancel() // flush the parallel jobs
-			for err == nil {
-				_, err = m.Next()
+			cancel()
+			for ; ok; _, ok = m.Next() { // flush the iterator
 			}
 			return errors.Annotate(pr.Error, "failed to parse CSV")
 		}
@@ -269,6 +268,9 @@ func (d *Dataset) BulkDownloadPrices(ctx context.Context, table TableName) error
 				}
 			}
 		}
+	}
+	if jobs.Error != nil {
+		return errors.Annotate(jobs.Error, "failed to read CSV")
 	}
 
 	logging.Infof(ctx, "sorting prices...")
