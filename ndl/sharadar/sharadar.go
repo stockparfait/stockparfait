@@ -248,6 +248,7 @@ func (d *Dataset) BulkDownloadPrices(ctx context.Context, table TableName) error
 	}
 	f := func(f func() pricesResult) pricesResult { return f() }
 	m := iterator.ParallelMap[func() pricesResult, pricesResult](cctx, runtime.NumCPU(), jobs, f)
+	skippedTickers := make(map[string]struct{}) // dedup log messages
 	for pr, ok := m.Next(); ok; pr, ok = m.Next() {
 		if pr.Error != nil {
 			cancel()
@@ -257,7 +258,10 @@ func (d *Dataset) BulkDownloadPrices(ctx context.Context, table TableName) error
 		}
 		for t, prices := range pr.Prices {
 			if _, ok := d.Tickers[t]; !ok {
-				logging.Warningf(ctx, "skipping %s prices, it's not in TICKERS table", t)
+				if _, ok = skippedTickers[t]; !ok {
+					logging.Warningf(ctx, "skipping %s prices, it's not in TICKERS table", t)
+					skippedTickers[t] = struct{}{}
+				}
 				continue
 			}
 			for _, p := range prices {
