@@ -73,6 +73,11 @@ func TestSchema(t *testing.T) {
 			So(NewDateFromTime(t), ShouldResemble, d)
 		})
 
+		Convey("Zero time value yields zero Date value", func() {
+			var zero time.Time
+			So(NewDateFromTime(zero).IsZero(), ShouldBeTrue)
+		})
+
 		Convey("converts to string correctly", func() {
 			d := NewDate(2019, 1, 2)
 			So(d.String(), ShouldEqual, "2019-01-02")

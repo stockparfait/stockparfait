@@ -84,6 +84,10 @@ func NewDate(year uint16, month, day uint8) Date {
 
 // NewDateFromTime creates a Date instance from a time.Time value in UTC.
 func NewDateFromTime(t time.Time) Date {
+	var zero time.Time
+	if t == zero {
+		return Date{}
+	}
 	return Date{
 		YearVal:  uint16(t.Year()),
 		MonthVal: uint8(t.Month()),
