@@ -93,6 +93,7 @@ func TestTimeseries(t *testing.T) {
 		Convey("LogProfits", func() {
 			dts := ts.LogProfits(1)
 			So(ts.Data(), ShouldResemble, data()) // the original ts is not modified
+			So(dts.Dates(), ShouldResemble, ts.Dates()[1:])
 			So(testutil.RoundSlice(dts.Data(), 5), ShouldResemble,
 				testutil.RoundSlice([]float64{
 					math.Log(2.0),
