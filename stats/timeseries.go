@@ -140,8 +140,9 @@ func (t *Timeseries) Shift(shift int) *Timeseries {
 	return NewTimeseries().Init(t.dates[:l+shift], t.data[-shift:])
 }
 
-// LogProfits computes a Sample of log-profits {log(x[t+n]) - log(x[t])}.
-func (t *Timeseries) LogProfits(n int) *Sample {
+// LogProfits computes a new Timeseries of log-profits {log(x[t+n]) -
+// log(x[t])}. The associated log-profit date is t+n.
+func (t *Timeseries) LogProfits(n int) *Timeseries {
 	if n < 1 {
 		panic(errors.Reason("n=%d must be >= 1", n))
 	}
@@ -153,7 +154,7 @@ func (t *Timeseries) LogProfits(n int) *Sample {
 	for i := n; i < len(data); i++ {
 		deltas = append(deltas, data[i]-data[i-n])
 	}
-	return NewSample().Init(deltas)
+	return NewTimeseries().Init(t.Dates()[n:], deltas)
 }
 
 // PriceField is an enum type indicating which PriceRow field to use.
