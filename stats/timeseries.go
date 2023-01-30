@@ -188,3 +188,59 @@ func (t *Timeseries) FromPrices(prices []db.PriceRow, f PriceField) *Timeseries 
 	}
 	return t.Init(dates, data)
 }
+
+// TimeseriesIntersectIndices returns the slice of indices S effectively
+// intersecting the given Timeseries by Date. That is:
+//
+// - len(S) is the number of distinct Dates present in all of the tss;
+//
+// - len(S[i]) = len(tss) for any i<len(S), so each S[i] is the slice of indices
+// in the corresponding Timeseries such that tss[j].Dates()[S[i][j]] ==
+// tss[k].Dates()[S[i][k]] for any j, k < len(tss).
+func TimeseriesIntersectIndices(tss ...*Timeseries) [][]int {
+	var res [][]int
+	if len(tss) == 0 {
+		return res
+	}
+	curr := make([]int, len(tss)) // current set of indices into Timeseries
+	var currDate db.Date
+	done := false // there are no more common Dates
+
+	for !done {
+		match := true // found a common Date in all of tss
+
+		for i := 0; i < len(tss); i++ {
+			if curr[i] >= len(tss[i].Dates()) {
+				done = true
+				match = false
+				break
+			}
+			if currDate.IsZero() {
+				currDate = tss[i].Dates()[curr[i]]
+			}
+			for curr[i] < len(tss[i].Dates()) && tss[i].Dates()[curr[i]].Before(currDate) {
+				curr[i]++
+			}
+			if curr[i] >= len(tss[i].Dates()) {
+				done = true
+				match = false
+				break
+			}
+			if tss[i].Dates()[curr[i]] != currDate {
+				currDate = tss[i].Dates()[curr[i]]
+				match = false
+				break
+			}
+		}
+		if match {
+			cp := make([]int, len(curr))
+			copy(cp, curr)
+			res = append(res, cp)
+			currDate = db.Date{}
+			for j := 0; j < len(curr); j++ {
+				curr[j]++
+			}
+		}
+	}
+	return res
+}
