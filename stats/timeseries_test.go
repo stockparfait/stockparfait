@@ -148,57 +148,65 @@ func TestTimeseries(t *testing.T) {
 			})
 		})
 
-		Convey("TimeseriesIntersectIndices", func() {
+		Convey("TimeseriesIntersect", func() {
 			Convey("Second sequence ends before first", func() {
 				t1 := NewTimeseries().Init([]db.Date{
 					d("2020-01-01"), d("2020-01-03"), d("2020-01-04"), d("2020-01-05"),
 					d("2020-01-08")},
-					make([]float64, 5))
+					[]float64{0, 1, 2, 3, 4})
 				t2 := NewTimeseries().Init([]db.Date{
 					d("2020-01-02"), d("2020-01-03"), d("2020-01-05"), d("2020-01-06")},
-					make([]float64, 4))
+					[]float64{5, 6, 7, 8})
 				t3 := NewTimeseries().Init([]db.Date{
 					d("2020-01-03"), d("2020-01-05"), d("2020-01-06")},
-					make([]float64, 3))
-				So(TimeseriesIntersectIndices(t1, t2, t3), ShouldResemble, [][]int{
-					{1, 1, 0},
-					{3, 2, 1},
+					[]float64{9, 10, 11})
+				dates := []db.Date{d("2020-01-03"), d("2020-01-05")}
+				So(TimeseriesIntersect(t1, t2, t3), ShouldResemble, []*Timeseries{
+					NewTimeseries().Init(dates, []float64{1, 3}),
+					NewTimeseries().Init(dates, []float64{6, 7}),
+					NewTimeseries().Init(dates, []float64{9, 10}),
 				})
 			})
 
 			Convey("Second sequence is shorter than first", func() {
 				t1 := NewTimeseries().Init([]db.Date{
 					d("2020-01-01"), d("2020-01-03"), d("2020-01-04"), d("2020-01-05")},
-					make([]float64, 4))
+					[]float64{0, 1, 2, 3})
 				t2 := NewTimeseries().Init([]db.Date{
 					d("2020-01-02"), d("2020-01-03"), d("2020-01-05")},
-					make([]float64, 3))
+					[]float64{5, 6, 7})
 				t3 := NewTimeseries().Init([]db.Date{
 					d("2020-01-03"), d("2020-01-05"), d("2020-01-06")},
-					make([]float64, 3))
-				So(TimeseriesIntersectIndices(t1, t2, t3), ShouldResemble, [][]int{
-					{1, 1, 0},
-					{3, 2, 1},
+					[]float64{9, 10, 11})
+				dates := []db.Date{d("2020-01-03"), d("2020-01-05")}
+				So(TimeseriesIntersect(t1, t2, t3), ShouldResemble, []*Timeseries{
+					NewTimeseries().Init(dates, []float64{1, 3}),
+					NewTimeseries().Init(dates, []float64{6, 7}),
+					NewTimeseries().Init(dates, []float64{9, 10}),
 				})
 			})
 
 			Convey("Empty intersection", func() {
 				t1 := NewTimeseries().Init([]db.Date{
 					d("2020-01-01"), d("2020-01-03"), d("2020-01-05")},
-					make([]float64, 3))
+					[]float64{0, 1, 2})
 				t2 := NewTimeseries().Init([]db.Date{d("2020-01-02"), d("2020-01-04")},
-					make([]float64, 2))
-				So(len(TimeseriesIntersectIndices(t1, t2)), ShouldEqual, 0)
+					[]float64{5, 6})
+				So(TimeseriesIntersect(t1, t2), ShouldResemble, []*Timeseries{
+					NewTimeseries(),
+					NewTimeseries(),
+				})
 			})
 
 			Convey("No timeseries", func() {
 				So(len(TimeseriesIntersectIndices()), ShouldEqual, 0)
+				So(len(TimeseriesIntersect()), ShouldEqual, 0)
 			})
 
 			Convey("Single timeseries", func() {
-				t := NewTimeseries().Init([]db.Date{d("2020-01-02"), d("2020-01-04")},
-					make([]float64, 2))
-				So(TimeseriesIntersectIndices(t), ShouldResemble, [][]int{{0}, {1}})
+				dates := []db.Date{d("2020-01-02"), d("2020-01-04")}
+				t := NewTimeseries().Init(dates, []float64{1, 2})
+				So(TimeseriesIntersect(t), ShouldResemble, []*Timeseries{t})
 			})
 		})
 	})

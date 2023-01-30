@@ -244,3 +244,33 @@ func TimeseriesIntersectIndices(tss ...*Timeseries) [][]int {
 	}
 	return res
 }
+
+// TimeseriesIntersect creates new list of Timeseries whose Dates are identical
+// by dropping the mismatching Dates and Data elements out. The resulting slice
+// is guaranteed to be of the same length as the number of arguments and contain
+// valid Timeseries, even if they are empty.
+func TimeseriesIntersect(tss ...*Timeseries) []*Timeseries {
+	if len(tss) == 0 {
+		return nil
+	}
+	res := make([]*Timeseries, len(tss))
+	for i := 0; i < len(res); i++ {
+		res[i] = NewTimeseries()
+	}
+	ind := TimeseriesIntersectIndices(tss...)
+	if len(ind) == 0 {
+		return res
+	}
+	dates := make([]db.Date, len(ind))
+	for j := 0; j < len(ind); j++ {
+		dates[j] = tss[0].Dates()[ind[j][0]]
+	}
+	for i := 0; i < len(res); i++ {
+		data := make([]float64, len(ind))
+		for j := 0; j < len(ind); j++ {
+			data[j] = tss[i].Data()[ind[j][i]]
+		}
+		res[i].Init(dates, data)
+	}
+	return res
+}
