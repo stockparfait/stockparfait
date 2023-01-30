@@ -149,18 +149,46 @@ func TestTimeseries(t *testing.T) {
 		})
 
 		Convey("TimeseriesIntersectIndices", func() {
-			t1 := NewTimeseries().Init([]db.Date{
-				d("2020-01-01"), d("2020-01-03"), d("2020-01-04"), d("2020-01-05")},
-				make([]float64, 4))
-			t2 := NewTimeseries().Init([]db.Date{
-				d("2020-01-02"), d("2020-01-03"), d("2020-01-05")},
-				make([]float64, 3))
-			t3 := NewTimeseries().Init([]db.Date{
-				d("2020-01-03"), d("2020-01-05"), d("2020-01-06"), d("2020-01-07")},
-				make([]float64, 4))
-			So(TimeseriesIntersectIndices(t1, t2, t3), ShouldResemble, [][]int{
-				{1, 1, 0},
-				{3, 2, 1},
+			Convey("Second sequence ends before first", func() {
+				t1 := NewTimeseries().Init([]db.Date{
+					d("2020-01-01"), d("2020-01-03"), d("2020-01-04"), d("2020-01-05"),
+					d("2020-01-08")},
+					make([]float64, 5))
+				t2 := NewTimeseries().Init([]db.Date{
+					d("2020-01-02"), d("2020-01-03"), d("2020-01-05"), d("2020-01-06")},
+					make([]float64, 4))
+				t3 := NewTimeseries().Init([]db.Date{
+					d("2020-01-03"), d("2020-01-05"), d("2020-01-06")},
+					make([]float64, 3))
+				So(TimeseriesIntersectIndices(t1, t2, t3), ShouldResemble, [][]int{
+					{1, 1, 0},
+					{3, 2, 1},
+				})
+			})
+
+			Convey("Second sequence is shorter than first", func() {
+				t1 := NewTimeseries().Init([]db.Date{
+					d("2020-01-01"), d("2020-01-03"), d("2020-01-04"), d("2020-01-05")},
+					make([]float64, 4))
+				t2 := NewTimeseries().Init([]db.Date{
+					d("2020-01-02"), d("2020-01-03"), d("2020-01-05")},
+					make([]float64, 3))
+				t3 := NewTimeseries().Init([]db.Date{
+					d("2020-01-03"), d("2020-01-05"), d("2020-01-06")},
+					make([]float64, 3))
+				So(TimeseriesIntersectIndices(t1, t2, t3), ShouldResemble, [][]int{
+					{1, 1, 0},
+					{3, 2, 1},
+				})
+			})
+
+			Convey("Empty intersection", func() {
+				t1 := NewTimeseries().Init([]db.Date{
+					d("2020-01-01"), d("2020-01-03"), d("2020-01-05")},
+					make([]float64, 3))
+				t2 := NewTimeseries().Init([]db.Date{d("2020-01-02"), d("2020-01-04")},
+					make([]float64, 2))
+				So(len(TimeseriesIntersectIndices(t1, t2)), ShouldEqual, 0)
 			})
 		})
 	})
