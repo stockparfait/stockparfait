@@ -199,6 +199,9 @@ func (t *Timeseries) FromPrices(prices []db.PriceRow, f PriceField) *Timeseries 
 // tss[k].Dates()[S[i][k]] for any j, k < len(tss).
 func TimeseriesIntersectIndices(tss ...*Timeseries) [][]int {
 	var res [][]int
+	if len(tss) == 0 {
+		return res
+	}
 	curr := make([]int, len(tss)) // current set of indices into Timeseries
 	var currDate db.Date
 	done := false // there are no more common Dates

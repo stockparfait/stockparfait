@@ -190,6 +190,16 @@ func TestTimeseries(t *testing.T) {
 					make([]float64, 2))
 				So(len(TimeseriesIntersectIndices(t1, t2)), ShouldEqual, 0)
 			})
+
+			Convey("No timeseries", func() {
+				So(len(TimeseriesIntersectIndices()), ShouldEqual, 0)
+			})
+
+			Convey("Single timeseries", func() {
+				t := NewTimeseries().Init([]db.Date{d("2020-01-02"), d("2020-01-04")},
+					make([]float64, 2))
+				So(TimeseriesIntersectIndices(t), ShouldResemble, [][]int{{0}, {1}})
+			})
 		})
 	})
 }
