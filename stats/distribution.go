@@ -373,17 +373,22 @@ func (d *RandDistribution[S]) Rand() float64 {
 	return x
 }
 
+type randJob struct {
+	source    Distribution
+	batchSize int
+}
+
 type randJobsIter[S any] struct {
 	d *RandDistribution[S]
 	i int
 }
 
-var _ iterator.Iterator[func() *Histogram] = &randJobsIter[int]{}
+var _ iterator.Iterator[randJob] = &randJobsIter[int]{}
 
-func (r *randJobsIter[S]) Next() (func() *Histogram, bool) {
+func (r *randJobsIter[S]) Next() (randJob, bool) {
 	c := r.d.config
 	if r.i >= c.Samples {
-		return nil, false
+		return randJob{}, false
 	}
 	batchSize := c.Samples / c.Workers
 	if batchSize < c.BatchMin {
@@ -396,22 +401,22 @@ func (r *randJobsIter[S]) Next() (func() *Histogram, bool) {
 		batchSize = c.Samples - r.i
 	}
 	r.i += batchSize
-	srcCopy := r.d.source.Copy()
-	job := func() *Histogram {
-		h := NewHistogram(&c.Buckets)
-		xform := r.d.xform
-		s := xform.InitState()
-		for i := 0; i < batchSize; i++ {
-			var x float64
-			x, s = xform.Fn(srcCopy, s)
-			h.Add(x)
-		}
-		return h
-	}
+	job := randJob{source: r.d.source.Copy(), batchSize: batchSize}
 	return job, true
 }
 
-func (d *RandDistribution[S]) jobsIter() iterator.Iterator[func() *Histogram] {
+func (d *RandDistribution[S]) doJob(j randJob) *Histogram {
+	h := NewHistogram(&d.config.Buckets)
+	s := d.xform.InitState()
+	for i := 0; i < j.batchSize; i++ {
+		var x float64
+		x, s = d.xform.Fn(j.source, s)
+		h.Add(x)
+	}
+	return h
+}
+
+func (d *RandDistribution[S]) jobsIter() iterator.Iterator[randJob] {
 	return &randJobsIter[S]{
 		d: d.Copy().(*RandDistribution[S]),
 	}
@@ -422,8 +427,7 @@ func (d *RandDistribution[S]) Histogram() *Histogram {
 	// The method will panic if parallel jobs return unexpected results.
 	if d.histogram == nil {
 		d.histogram = NewHistogram(&d.config.Buckets)
-		f := func(j func() *Histogram) *Histogram { return j() }
-		m := iterator.ParallelMap[func() *Histogram, *Histogram](d.context, d.config.Workers, d.jobsIter(), f)
+		m := iterator.ParallelMap[randJob, *Histogram](d.context, d.config.Workers, d.jobsIter(), d.doJob)
 		for h, ok := m.Next(); ok; h, ok = m.Next() {
 			if err := d.histogram.AddHistogram(h); err != nil {
 				panic(errors.Annotate(err, "failed to merge histogram"))
