@@ -148,62 +148,52 @@ type pricesResult struct {
 	Error  error
 }
 
-type pricesJobsIter struct {
-	Reader    *ndl.CSVReader
-	Error     error // from the CSVReader
-	ColMap    map[string]int
-	BatchSize int // for efficient parallelization should be at least 1000
-	Done      bool
+type rowIter struct {
+	reader *ndl.CSVReader
+	done   bool
+	Error  error
 }
 
-var _ iterator.Iterator[func() pricesResult] = &pricesJobsIter{}
+var _ iterator.Iterator[[]string] = &rowIter{}
 
-func (it *pricesJobsIter) Next() (func() pricesResult, bool) {
-	if it.BatchSize <= 0 {
-		it.Error = errors.Reason("batch size = %d must be > 0", it.BatchSize)
+func (it *rowIter) Next() ([]string, bool) {
+	if it.done {
 		return nil, false
 	}
-	if it.Done {
+	row, err := it.reader.Read()
+	if err != nil {
+		if err != io.EOF {
+			it.Error = err
+		}
+		it.done = true
 		return nil, false
 	}
-	rows := [][]string{}
-	for i := 0; i < it.BatchSize; i++ {
-		row, err := it.Reader.Read()
-		if err != nil {
-			if err != io.EOF {
-				it.Error = err
+	return row, true
+}
+
+func row2res(colMap map[string]int) func([]string, pricesResult) pricesResult {
+	return func(row []string, res pricesResult) pricesResult {
+		if res.Error != nil {
+			return res
+		}
+		var p Price
+		if err := p.FromCSV(row, colMap); err != nil {
+			return pricesResult{
+				Error: errors.Annotate(err, "failed to parse CSV row"),
 			}
-			it.Done = true
-			break
 		}
-		rows = append(rows, row)
-	}
-	if len(rows) == 0 {
-		it.Done = true
-		return nil, false
-	}
-	job := func() pricesResult {
-		prices := map[string][]db.PriceRow{}
-		for _, row := range rows {
-			var p Price
-			if err := p.FromCSV(row, it.ColMap); err != nil {
-				return pricesResult{
-					Error: errors.Annotate(err, "failed to parse CSV row"),
-				}
-			}
-			prices[p.Ticker] = append(prices[p.Ticker], db.PriceRow{
-				Date:               p.Date,
-				Close:              p.CloseUnadjusted,
-				CloseSplitAdjusted: p.Close,
-				CloseFullyAdjusted: p.CloseAdjusted,
-				CashVolume:         p.Close * p.Volume,
-			})
+		if res.Prices == nil {
+			res.Prices = make(map[string][]db.PriceRow)
 		}
-		return pricesResult{
-			Prices: prices,
-		}
+		res.Prices[p.Ticker] = append(res.Prices[p.Ticker], db.PriceRow{
+			Date:               p.Date,
+			Close:              p.CloseUnadjusted,
+			CloseSplitAdjusted: p.Close,
+			CloseFullyAdjusted: p.CloseAdjusted,
+			CashVolume:         p.Close * p.Volume,
+		})
+		return res
 	}
-	return job, true
 }
 
 // BulkDownloadPrices downloads daily prices using bulk download API. It must be
@@ -241,13 +231,10 @@ func (d *Dataset) BulkDownloadPrices(ctx context.Context, table TableName) error
 	cctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	jobs := &pricesJobsIter{
-		Reader:    r,
-		ColMap:    colMap,
-		BatchSize: 10000,
-	}
-	f := func(f func() pricesResult) pricesResult { return f() }
-	m := iterator.ParallelMap[func() pricesResult, pricesResult](cctx, runtime.NumCPU(), jobs, f)
+	rows := &rowIter{reader: r}
+	f := row2res(colMap)
+	m := iterator.BatchReduce[[]string, pricesResult](cctx, runtime.NumCPU(), rows, 10000, pricesResult{}, f)
+
 	skippedTickers := make(map[string]struct{}) // dedup log messages
 	for pr, ok := m.Next(); ok; pr, ok = m.Next() {
 		if pr.Error != nil {
@@ -273,8 +260,8 @@ func (d *Dataset) BulkDownloadPrices(ctx context.Context, table TableName) error
 			}
 		}
 	}
-	if jobs.Error != nil {
-		return errors.Annotate(jobs.Error, "failed to read CSV")
+	if rows.Error != nil {
+		return errors.Annotate(rows.Error, "failed to read CSV")
 	}
 
 	logging.Infof(ctx, "sorting prices...")

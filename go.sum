@@ -17,8 +17,8 @@ github.com/stockparfait/errors v0.2.0 h1:LQSUrh+bFz+lXaQRIS+0U+Hbrwo+Zmnx6m3nSmA
 github.com/stockparfait/errors v0.2.0/go.mod h1:tQW05CIhDc776OHjHzIHtmsK3FRCTviij+S06R0sgIY=
 github.com/stockparfait/fetch v0.0.5 h1:tFOA8b3MZ6DC0tsNJ/iRH/hgubD4Htep9FulNXblVcQ=
 github.com/stockparfait/fetch v0.0.5/go.mod h1:bGE3nHwY31B1o/0CcgTfMwBvRBcO0tVbheFQkP0vqPA=
-github.com/stockparfait/iterator v0.1.1 h1:LCBLR4F52/if5y+mTiKh9Y1Ttx9KM9iJfcLZReTw6Ic=
-github.com/stockparfait/iterator v0.1.1/go.mod h1:Fv3mu8K38oBeZnDH3NNdgC65bulgpX2OrJtTDWe5gxw=
+github.com/stockparfait/iterator v0.1.2 h1:rzU0IZIZlukN7MRAp77CaHQvGJW6tjV2zPnolg/bynw=
+github.com/stockparfait/iterator v0.1.2/go.mod h1:8EdJTJXxLDOOCYKAWi3c28Ajl7jJgzYxUAmwkuREVuc=
 github.com/stockparfait/logging v0.2.0 h1:KTRNyL2bK5Edopj51uDY9eth0K7VfqrFjz0948OtdH8=
 github.com/stockparfait/logging v0.2.0/go.mod h1:nvvnmIwvQ4Vktsnxjvvw5v72S4OYwyUD81KYPuXZH1o=
 github.com/stockparfait/testutil v0.0.1/go.mod h1:Tr0oAxbuEQ+XjD0BlQLG2wkKDhE2EotCuPAchxH6zew=
