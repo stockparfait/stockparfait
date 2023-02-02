@@ -274,3 +274,79 @@ func TimeseriesIntersect(tss ...*Timeseries) []*Timeseries {
 	}
 	return res
 }
+
+// BinaryOp applies f to the two Timeseries element-wise. It panics if the
+// lengths or dates (pointwise) differ.
+func (t *Timeseries) BinaryOp(f func(x, y float64) float64, t2 *Timeseries) *Timeseries {
+	if len(t.Data()) != len(t2.Data()) {
+		panic(errors.Reason("len(t1)=%d != len(t2)=%d", len(t.Data()), len(t2.Data())))
+	}
+	data := make([]float64, len(t.Data()))
+	for i := range t.Data() {
+		if t.Dates()[i] != t2.Dates()[i] {
+			panic(errors.Reason("t.Dates[%d] = %s != t2.Dates[%d] = %s",
+				i, t.Dates()[i].String(), i, t2.Dates()[i].String()))
+		}
+		data[i] = f(t.Data()[i], t2.Data()[i])
+	}
+	return NewTimeseries().Init(t.Dates(), data)
+}
+
+// UnaryOp applies f pointwise to the Timeseries data.
+func (t *Timeseries) UnaryOp(f func(float64) float64) *Timeseries {
+	data := make([]float64, len(t.Data()))
+	for i, d := range t.Data() {
+		data[i] = f(d)
+	}
+	return NewTimeseries().Init(t.Dates(), data)
+}
+
+// Add two Timeseries pointwise.
+func (t *Timeseries) Add(t2 *Timeseries) *Timeseries {
+	return t.BinaryOp(func(x, y float64) float64 { return x + y }, t2)
+}
+
+// Sub subtracts another Timeseries from self, pointwise.
+func (t *Timeseries) Sub(t2 *Timeseries) *Timeseries {
+	return t.BinaryOp(func(x, y float64) float64 { return x - y }, t2)
+}
+
+// Mult multiplies two Timeseries pointwise.
+func (t *Timeseries) Mult(t2 *Timeseries) *Timeseries {
+	return t.BinaryOp(func(x, y float64) float64 { return x * y }, t2)
+}
+
+// Div divides Timeseries by another, pointwise.
+func (t *Timeseries) Div(t2 *Timeseries) *Timeseries {
+	return t.BinaryOp(func(x, y float64) float64 { return x / y }, t2)
+}
+
+// AddC adds a constant to Timeseries data, pointwise.
+func (t *Timeseries) AddC(c float64) *Timeseries {
+	return t.UnaryOp(func(x float64) float64 { return x + c })
+}
+
+// SubC subtracts a constant from Timeseries, pointwise.
+func (t *Timeseries) SubC(c float64) *Timeseries {
+	return t.UnaryOp(func(x float64) float64 { return x - c })
+}
+
+// MultC multiplies Timeseries data by a constant, pointwise.
+func (t *Timeseries) MultC(c float64) *Timeseries {
+	return t.UnaryOp(func(x float64) float64 { return x * c })
+}
+
+// DivC divides Timeseries by a constant, pointwise.
+func (t *Timeseries) DivC(c float64) *Timeseries {
+	return t.UnaryOp(func(x float64) float64 { return x / c })
+}
+
+// Log of the Timeseries data, pointwise.
+func (t *Timeseries) Log() *Timeseries {
+	return t.UnaryOp(func(x float64) float64 { return math.Log(x) })
+}
+
+// Exp of the Timeseries data, pointwise.
+func (t *Timeseries) Exp() *Timeseries {
+	return t.UnaryOp(func(x float64) float64 { return math.Exp(x) })
+}

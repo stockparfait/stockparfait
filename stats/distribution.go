@@ -427,7 +427,13 @@ func (d *RandDistribution[S]) Histogram() *Histogram {
 	// The method will panic if parallel jobs return unexpected results.
 	if d.histogram == nil {
 		d.histogram = NewHistogram(&d.config.Buckets)
-		m := iterator.ParallelMap[randJob, *Histogram](d.context, d.config.Workers, d.jobsIter(), d.doJob)
+		ctx, cancel := context.WithCancel(d.context)
+		m := iterator.ParallelMap[randJob, *Histogram](ctx, d.config.Workers, d.jobsIter(), d.doJob)
+		stop := func() {
+			cancel()
+			iterator.Flush(m)
+		}
+		defer stop()
 		for h, ok := m.Next(); ok; h, ok = m.Next() {
 			if err := d.histogram.AddHistogram(h); err != nil {
 				panic(errors.Annotate(err, "failed to merge histogram"))
