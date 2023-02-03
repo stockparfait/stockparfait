@@ -228,16 +228,11 @@ func (d *Dataset) BulkDownloadPrices(ctx context.Context, table TableName) error
 	}
 
 	logging.Infof(ctx, "unzipping the prices CSV file...")
-	cctx, cancel := context.WithCancel(ctx)
 
 	rows := &rowIter{reader: r}
 	f := row2res(colMap)
-	m := iterator.BatchReduce[[]string, pricesResult](cctx, runtime.NumCPU(), rows, 10000, pricesResult{}, f)
-	stop := func() {
-		cancel()
-		iterator.Flush(m)
-	}
-	defer stop()
+	m := iterator.BatchReduce[[]string, pricesResult](ctx, runtime.NumCPU(), rows, 10000, pricesResult{}, f)
+	defer m.Close()
 
 	skippedTickers := make(map[string]struct{}) // dedup log messages
 	for pr, ok := m.Next(); ok; pr, ok = m.Next() {
