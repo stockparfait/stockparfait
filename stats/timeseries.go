@@ -75,7 +75,7 @@ func (t *Timeseries) Check() error {
 		}
 		if !t.dates[i-1].Before(d) {
 			return errors.Reason("dates[%d] = %s >= dates[%d] = %s",
-				i-1, t.dates[i-1].String(), i, d.String())
+				i-1, t.dates[i-1], i, d)
 		}
 	}
 	return nil
@@ -285,7 +285,7 @@ func (t *Timeseries) BinaryOp(f func(x, y float64) float64, t2 *Timeseries) *Tim
 	for i := range t.Data() {
 		if t.Dates()[i] != t2.Dates()[i] {
 			panic(errors.Reason("t.Dates[%d] = %s != t2.Dates[%d] = %s",
-				i, t.Dates()[i].String(), i, t2.Dates()[i].String()))
+				i, t.Dates()[i], i, t2.Dates()[i]))
 		}
 		data[i] = f(t.Data()[i], t2.Data()[i])
 	}
