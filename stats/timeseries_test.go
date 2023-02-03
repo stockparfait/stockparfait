@@ -209,5 +209,71 @@ func TestTimeseries(t *testing.T) {
 				So(TimeseriesIntersect(t), ShouldResemble, []*Timeseries{t})
 			})
 		})
+
+		Convey("Pointwise operations", func() {
+			Convey("Add", func() {
+				res := ts.Add(ts)
+				So(res.Dates(), ShouldResemble, dates())
+				So(res.Data(), ShouldResemble, []float64{2.0, 4.0, 6.0, 8.0, 10.0})
+			})
+
+			Convey("Sub", func() {
+				res := ts.Sub(ts)
+				So(res.Dates(), ShouldResemble, dates())
+				So(res.Data(), ShouldResemble, []float64{0.0, 0.0, 0.0, 0.0, 0.0})
+			})
+
+			Convey("Mult", func() {
+				res := ts.Mult(ts)
+				So(res.Dates(), ShouldResemble, dates())
+				So(res.Data(), ShouldResemble, []float64{1.0, 4.0, 9.0, 16.0, 25.0})
+			})
+
+			Convey("Div", func() {
+				res := ts.Div(ts)
+				So(res.Dates(), ShouldResemble, dates())
+				So(res.Data(), ShouldResemble, []float64{1.0, 1.0, 1.0, 1.0, 1.0})
+			})
+
+			Convey("AddC", func() {
+				res := ts.AddC(1.0)
+				So(res.Dates(), ShouldResemble, dates())
+				So(res.Data(), ShouldResemble, []float64{2.0, 3.0, 4.0, 5.0, 6.0})
+			})
+
+			Convey("SubC", func() {
+				res := ts.SubC(1.0)
+				So(res.Dates(), ShouldResemble, dates())
+				So(res.Data(), ShouldResemble, []float64{0.0, 1.0, 2.0, 3.0, 4.0})
+			})
+
+			Convey("MultC", func() {
+				res := ts.MultC(2.0)
+				So(res.Dates(), ShouldResemble, dates())
+				So(res.Data(), ShouldResemble, []float64{2.0, 4.0, 6.0, 8.0, 10.0})
+			})
+
+			Convey("DivC", func() {
+				res := ts.DivC(2.0)
+				So(res.Dates(), ShouldResemble, dates())
+				So(res.Data(), ShouldResemble, []float64{0.5, 1.0, 1.5, 2.0, 2.5})
+			})
+
+			Convey("Log", func() {
+				res := ts.Log()
+				So(res.Dates(), ShouldResemble, dates())
+				So(res.Data(), ShouldResemble, []float64{
+					math.Log(1.0), math.Log(2.0), math.Log(3.0),
+					math.Log(4.0), math.Log(5.0)})
+			})
+
+			Convey("Exp", func() {
+				res := ts.Exp()
+				So(res.Dates(), ShouldResemble, dates())
+				So(res.Data(), ShouldResemble, []float64{
+					math.Exp(1.0), math.Exp(2.0), math.Exp(3.0),
+					math.Exp(4.0), math.Exp(5.0)})
+			})
+		})
 	})
 }
