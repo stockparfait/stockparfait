@@ -7,7 +7,7 @@ require (
 	github.com/smartystreets/goconvey v1.7.2
 	github.com/stockparfait/errors v0.2.0
 	github.com/stockparfait/fetch v0.0.5
-	github.com/stockparfait/iterator v0.1.4
+	github.com/stockparfait/iterator v0.1.5
 	github.com/stockparfait/logging v0.2.0
 	github.com/stockparfait/testutil v0.2.0
 	golang.org/x/exp v0.0.0-20220602145555-4a0574d9293f
