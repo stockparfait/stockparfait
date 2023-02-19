@@ -62,7 +62,7 @@ func (e *StandardError) AddZeros(n uint) {
 	e.Merge(StandardError{n: n})
 }
 
-// Merge the other StardandError into e, so the resulting error estimate is for
+// Merge the other StandardError into e, so the resulting error estimate is for
 // the union of samples.
 func (e *StandardError) Merge(other StandardError) {
 	if e.n == 0 {
