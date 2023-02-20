@@ -230,7 +230,7 @@ func (p *Plot) GetTimeseries() *stats.Timeseries {
 	if p.Kind != KindSeries {
 		panic(errors.Reason("Kind is not KindSeries"))
 	}
-	return stats.NewTimeseries().Init(p.Dates, p.Y)
+	return stats.NewTimeseries(p.Dates, p.Y)
 }
 
 // GetXY extracts X and Y slices from an untimed Plot. Panics if Kind != KindXY.

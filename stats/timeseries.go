@@ -28,9 +28,16 @@ type Timeseries struct {
 	data  []float64
 }
 
-// NewTimeseries creates a new empty Timeseries.
-func NewTimeseries() *Timeseries {
-	return &Timeseries{}
+// NewTimeseries creates a new Timeseries. The dates are expected to be sorted
+// in ascending order (not checked). It panics if dates and data have different
+// lengths.  Note, that the argument slices are used as is, not copied.  Use
+// Copy() if arguments need to be modified after the call.
+func NewTimeseries(dates []db.Date, data []float64) *Timeseries {
+	if len(dates) != len(data) {
+		panic(errors.Reason("len(dates) [%d] != len(data) [%d]",
+			len(dates), len(data)))
+	}
+	return &Timeseries{dates: dates, data: data}
 }
 
 // Dates of the Timeseries.
@@ -39,27 +46,13 @@ func (t *Timeseries) Dates() []db.Date { return t.dates }
 // Data of the Timeseries.
 func (t *Timeseries) Data() []float64 { return t.data }
 
-// Init assigns values to the Timeseries. The dates are expected to be sorted in
-// ascending order (not checked). It returns self for inline declarations, and
-// panics if the arguments don't have the same length.
-func (t *Timeseries) Init(dates []db.Date, data []float64) *Timeseries {
-	if len(dates) != len(data) {
-		panic(errors.Reason("len(dates) [%d] != len(data) [%d]",
-			len(dates), len(data)))
-	}
-	t.dates = dates
-	t.data = data
-	return t
-}
-
-// Copy makes a copy of the data before assigning it to the
-// Timeseries. Otherwise it's the same as Init.
-func (t *Timeseries) Copy(dates []db.Date, data []float64) *Timeseries {
-	da := make([]db.Date, len(dates))
-	dt := make([]float64, len(data))
-	copy(da, dates)
-	copy(dt, data)
-	return t.Init(da, dt)
+// Copy makes a deep copy of the Timeseries.
+func (t *Timeseries) Copy() *Timeseries {
+	dates := make([]db.Date, len(t.dates))
+	data := make([]float64, len(t.data))
+	copy(dates, t.dates)
+	copy(data, t.data)
+	return NewTimeseries(dates, data)
 }
 
 // Check that Timeseries is consistent: the lengths of dates and data are the
@@ -116,7 +109,7 @@ func (t *Timeseries) Range(start, end db.Date) *Timeseries {
 	if s == 0 && e == len(t.dates) {
 		return t
 	}
-	return NewTimeseries().Init(t.dates[s:e], t.data[s:e])
+	return NewTimeseries(t.dates[s:e], t.data[s:e])
 }
 
 // Shift the timeseries in time.  A positive shift moves the values into the
@@ -132,12 +125,12 @@ func (t *Timeseries) Shift(shift int) *Timeseries {
 	}
 	l := len(t.dates)
 	if absShift >= l {
-		return NewTimeseries()
+		return NewTimeseries(nil, nil)
 	}
 	if shift > 0 {
-		return NewTimeseries().Init(t.dates[shift:], t.data[:l-shift])
+		return NewTimeseries(t.dates[shift:], t.data[:l-shift])
 	}
-	return NewTimeseries().Init(t.dates[:l+shift], t.data[-shift:])
+	return NewTimeseries(t.dates[:l+shift], t.data[-shift:])
 }
 
 // LogProfits computes a new Timeseries of log-profits {log(x[t+n]) -
@@ -154,7 +147,7 @@ func (t *Timeseries) LogProfits(n int) *Timeseries {
 	for i := n; i < len(data); i++ {
 		deltas = append(deltas, data[i]-data[i-n])
 	}
-	return NewTimeseries().Init(t.Dates()[n:], deltas)
+	return NewTimeseries(t.Dates()[n:], deltas)
 }
 
 // PriceField is an enum type indicating which PriceRow field to use.
@@ -167,8 +160,8 @@ const (
 	PriceCashVolume
 )
 
-// FromPrices initializes the Timeseries from PriceRow slice.
-func (t *Timeseries) FromPrices(prices []db.PriceRow, f PriceField) *Timeseries {
+// NewTimeseriesFromPrices initializes Timeseries from PriceRow slice.
+func NewTimeseriesFromPrices(prices []db.PriceRow, f PriceField) *Timeseries {
 	dates := make([]db.Date, len(prices))
 	data := make([]float64, len(prices))
 	for i, p := range prices {
@@ -186,7 +179,7 @@ func (t *Timeseries) FromPrices(prices []db.PriceRow, f PriceField) *Timeseries 
 			panic(errors.Reason("unsupported PriceField: %d", f))
 		}
 	}
-	return t.Init(dates, data)
+	return NewTimeseries(dates, data)
 }
 
 // TimeseriesIntersectIndices returns the slice of indices S effectively
@@ -254,11 +247,11 @@ func TimeseriesIntersect(tss ...*Timeseries) []*Timeseries {
 		return nil
 	}
 	res := make([]*Timeseries, len(tss))
-	for i := 0; i < len(res); i++ {
-		res[i] = NewTimeseries()
-	}
 	ind := TimeseriesIntersectIndices(tss...)
 	if len(ind) == 0 {
+		for i := 0; i < len(res); i++ {
+			res[i] = NewTimeseries(nil, nil)
+		}
 		return res
 	}
 	dates := make([]db.Date, len(ind))
@@ -270,7 +263,7 @@ func TimeseriesIntersect(tss ...*Timeseries) []*Timeseries {
 		for j := 0; j < len(ind); j++ {
 			data[j] = tss[i].Data()[ind[j][i]]
 		}
-		res[i].Init(dates, data)
+		res[i] = NewTimeseries(dates, data)
 	}
 	return res
 }
@@ -289,7 +282,7 @@ func (t *Timeseries) BinaryOp(f func(x, y float64) float64, t2 *Timeseries) *Tim
 		}
 		data[i] = f(t.Data()[i], t2.Data()[i])
 	}
-	return NewTimeseries().Init(t.Dates(), data)
+	return NewTimeseries(t.Dates(), data)
 }
 
 // UnaryOp applies f pointwise to the Timeseries data.
@@ -298,7 +291,7 @@ func (t *Timeseries) UnaryOp(f func(float64) float64) *Timeseries {
 	for i, d := range t.Data() {
 		data[i] = f(d)
 	}
-	return NewTimeseries().Init(t.Dates(), data)
+	return NewTimeseries(t.Dates(), data)
 }
 
 // Add two Timeseries pointwise.

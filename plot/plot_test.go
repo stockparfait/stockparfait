@@ -117,7 +117,7 @@ func TestPlot(t *testing.T) {
 				db.NewDate(2020, 1, 2),
 				db.NewDate(2020, 1, 3),
 			}
-			ts1 := stats.NewTimeseries().Init(dates1, y1)
+			ts1 := stats.NewTimeseries(dates1, y1)
 
 			x2 := []float64{-1.5, 1.0, 3.5}
 			y2 := []float64{20.0, 30.0, 10.0}
@@ -126,7 +126,7 @@ func TestPlot(t *testing.T) {
 				db.NewDate(2020, 1, 2),
 				db.NewDate(2020, 3, 1),
 			}
-			ts2 := stats.NewTimeseries().Init(dates2, y2)
+			ts2 := stats.NewTimeseries(dates2, y2)
 
 			xyPlot1, err := NewXYPlot(x1, y1)
 			So(err, ShouldBeNil)
