@@ -46,7 +46,7 @@ func TestTimeseries(t *testing.T) {
 
 	Convey("Timeseries methods work", t, func() {
 
-		ts := NewTimeseries().Init(dates(), data())
+		ts := NewTimeseries(dates(), data())
 
 		Convey("Init initializes correctly", func() {
 			So(ts.Dates(), ShouldResemble, dates())
@@ -57,7 +57,7 @@ func TestTimeseries(t *testing.T) {
 		Convey("Copy actually makes a copy", func() {
 			dates2 := dates()
 			data2 := data()
-			ts := NewTimeseries().Copy(dates2, data2)
+			ts := NewTimeseries(dates2, data2).Copy()
 			dates2[3] = d("2000-10-10")
 			data2[3] = 200.0
 			So(ts.Dates(), ShouldResemble, dates())
@@ -104,7 +104,7 @@ func TestTimeseries(t *testing.T) {
 		})
 
 		Convey("LogProfits with zeros", func() {
-			ts = NewTimeseries().Init(dates(), []float64{1.0, 0.0, 2.0, 4.0, 5.0})
+			ts = NewTimeseries(dates(), []float64{1.0, 0.0, 2.0, 4.0, 5.0})
 			dts := ts.LogProfits(1)
 			So(testutil.RoundSlice(dts.Data(), 5), ShouldResemble,
 				testutil.RoundSlice([]float64{
@@ -124,25 +124,25 @@ func TestTimeseries(t *testing.T) {
 			}
 
 			Convey("Unadjusted", func() {
-				ts := NewTimeseries().FromPrices(prices, PriceUnadjusted)
+				ts := NewTimeseriesFromPrices(prices, PriceUnadjusted)
 				So(ts.Dates(), ShouldResemble, []db.Date{dt1, dt2})
 				So(ts.Data(), ShouldResemble, []float64{10.0, 12.0})
 			})
 
 			Convey("Split Adjusted", func() {
-				ts := NewTimeseries().FromPrices(prices, PriceSplitAdjusted)
+				ts := NewTimeseriesFromPrices(prices, PriceSplitAdjusted)
 				So(ts.Dates(), ShouldResemble, []db.Date{dt1, dt2})
 				So(ts.Data(), ShouldResemble, []float64{5.0, 6.0})
 			})
 
 			Convey("Fully Adjusted", func() {
-				ts := NewTimeseries().FromPrices(prices, PriceFullyAdjusted)
+				ts := NewTimeseriesFromPrices(prices, PriceFullyAdjusted)
 				So(ts.Dates(), ShouldResemble, []db.Date{dt1, dt2})
 				So(ts.Data(), ShouldResemble, []float64{5.0, 6.0})
 			})
 
 			Convey("Cash Volume", func() {
-				ts := NewTimeseries().FromPrices(prices, PriceCashVolume)
+				ts := NewTimeseriesFromPrices(prices, PriceCashVolume)
 				So(ts.Dates(), ShouldResemble, []db.Date{dt1, dt2})
 				So(ts.Data(), ShouldResemble, []float64{1000.0, 2000.0})
 			})
@@ -150,51 +150,51 @@ func TestTimeseries(t *testing.T) {
 
 		Convey("TimeseriesIntersect", func() {
 			Convey("Second sequence ends before first", func() {
-				t1 := NewTimeseries().Init([]db.Date{
+				t1 := NewTimeseries([]db.Date{
 					d("2020-01-01"), d("2020-01-03"), d("2020-01-04"), d("2020-01-05"),
 					d("2020-01-08")},
 					[]float64{0, 1, 2, 3, 4})
-				t2 := NewTimeseries().Init([]db.Date{
+				t2 := NewTimeseries([]db.Date{
 					d("2020-01-02"), d("2020-01-03"), d("2020-01-05"), d("2020-01-06")},
 					[]float64{5, 6, 7, 8})
-				t3 := NewTimeseries().Init([]db.Date{
+				t3 := NewTimeseries([]db.Date{
 					d("2020-01-03"), d("2020-01-05"), d("2020-01-06")},
 					[]float64{9, 10, 11})
 				dates := []db.Date{d("2020-01-03"), d("2020-01-05")}
 				So(TimeseriesIntersect(t1, t2, t3), ShouldResemble, []*Timeseries{
-					NewTimeseries().Init(dates, []float64{1, 3}),
-					NewTimeseries().Init(dates, []float64{6, 7}),
-					NewTimeseries().Init(dates, []float64{9, 10}),
+					NewTimeseries(dates, []float64{1, 3}),
+					NewTimeseries(dates, []float64{6, 7}),
+					NewTimeseries(dates, []float64{9, 10}),
 				})
 			})
 
 			Convey("Second sequence is shorter than first", func() {
-				t1 := NewTimeseries().Init([]db.Date{
+				t1 := NewTimeseries([]db.Date{
 					d("2020-01-01"), d("2020-01-03"), d("2020-01-04"), d("2020-01-05")},
 					[]float64{0, 1, 2, 3})
-				t2 := NewTimeseries().Init([]db.Date{
+				t2 := NewTimeseries([]db.Date{
 					d("2020-01-02"), d("2020-01-03"), d("2020-01-05")},
 					[]float64{5, 6, 7})
-				t3 := NewTimeseries().Init([]db.Date{
+				t3 := NewTimeseries([]db.Date{
 					d("2020-01-03"), d("2020-01-05"), d("2020-01-06")},
 					[]float64{9, 10, 11})
 				dates := []db.Date{d("2020-01-03"), d("2020-01-05")}
 				So(TimeseriesIntersect(t1, t2, t3), ShouldResemble, []*Timeseries{
-					NewTimeseries().Init(dates, []float64{1, 3}),
-					NewTimeseries().Init(dates, []float64{6, 7}),
-					NewTimeseries().Init(dates, []float64{9, 10}),
+					NewTimeseries(dates, []float64{1, 3}),
+					NewTimeseries(dates, []float64{6, 7}),
+					NewTimeseries(dates, []float64{9, 10}),
 				})
 			})
 
 			Convey("Empty intersection", func() {
-				t1 := NewTimeseries().Init([]db.Date{
+				t1 := NewTimeseries([]db.Date{
 					d("2020-01-01"), d("2020-01-03"), d("2020-01-05")},
 					[]float64{0, 1, 2})
-				t2 := NewTimeseries().Init([]db.Date{d("2020-01-02"), d("2020-01-04")},
+				t2 := NewTimeseries([]db.Date{d("2020-01-02"), d("2020-01-04")},
 					[]float64{5, 6})
 				So(TimeseriesIntersect(t1, t2), ShouldResemble, []*Timeseries{
-					NewTimeseries(),
-					NewTimeseries(),
+					NewTimeseries(nil, nil),
+					NewTimeseries(nil, nil),
 				})
 			})
 
@@ -205,7 +205,7 @@ func TestTimeseries(t *testing.T) {
 
 			Convey("Single timeseries", func() {
 				dates := []db.Date{d("2020-01-02"), d("2020-01-04")}
-				t := NewTimeseries().Init(dates, []float64{1, 2})
+				t := NewTimeseries(dates, []float64{1, 2})
 				So(TimeseriesIntersect(t), ShouldResemble, []*Timeseries{t})
 			})
 		})
