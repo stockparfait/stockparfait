@@ -250,7 +250,7 @@ func NewSampleDistribution(sample []float64, buckets *Buckets) *SampleDistributi
 		buckets.FitTo(sample) // ignore the error, it preserves the value
 	}
 	return &SampleDistribution{
-		sample:  NewSample().Init(sample),
+		sample:  NewSample(sample),
 		buckets: buckets,
 		rand:    rand.New(rand.NewSource(uint64(time.Now().UnixNano()))),
 	}
