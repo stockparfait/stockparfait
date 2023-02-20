@@ -29,31 +29,29 @@ type Sample struct {
 	sumSqDev *float64  // cached sum of squared deviations (for variance)
 }
 
-// NewSample creates a new empty sample.
-func NewSample() *Sample {
-	return &Sample{}
+// NewSample creates a new sample initialized with data. Note, that it reuses
+// the slice without copying. Use Copy() if you need to decouple your input from
+// the Sample.
+func NewSample(data []float64) *Sample {
+	return &Sample{data: data}
 }
 
 // Data returns the sample data.
 func (s *Sample) Data() []float64 { return s.data }
 
-// Init sets the data in the sample to the provided slice. Note, that it reuses
-// the same slice without copying. Use Copy() if you need to decouple your input
-// from the Sample. It returns self for inlined declarations.
-func (s *Sample) Init(data []float64) *Sample {
-	s.data = data
-	s.sum = nil
-	s.sumDev = nil
-	s.sumSqDev = nil
-	return s
-}
-
-// Copy the data into Sample. The input can then be safely modified without
-// affecting the Sample. It returns self for inline declarations.
-func (s *Sample) Copy(data []float64) *Sample {
-	cp := make([]float64, len(data))
-	copy(cp, data)
-	return s.Init(cp)
+// Copy creates a deep copy of the Sample. This can be useful, e.g. like this:
+//
+//	s := NewSample(data).Copy()
+//	// can safely modify data in place without affecting s.
+func (s *Sample) Copy() *Sample {
+	data := make([]float64, len(s.data))
+	copy(data, s.data)
+	return &Sample{
+		data:     data,
+		sum:      s.sum,
+		sumDev:   s.sumDev,
+		sumSqDev: s.sumSqDev,
+	}
 }
 
 // Sum of samples, cached.
@@ -126,14 +124,14 @@ func (s *Sample) Sigma() float64 {
 // Normalize creates a new Sample of {(x - mean) / MAD}, thus its Mean and MAD
 // are 0 and 1, respectively.
 func (s *Sample) Normalize() (*Sample, error) {
-	ns := NewSample().Copy(s.Data())
 	mad := s.MAD()
 	if mad == 0.0 || math.IsInf(mad, 0) {
 		return nil, errors.Reason("MAD=%g must be non-zero and finite", mad)
 	}
 	mean := s.Mean()
-	for i, d := range ns.data {
-		ns.data[i] = (d - mean) / mad
+	data := make([]float64, len(s.data))
+	for i, d := range s.data {
+		data[i] = (d - mean) / mad
 	}
-	return ns, nil
+	return NewSample(data), nil
 }

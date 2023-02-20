@@ -24,16 +24,16 @@ import (
 func TestSample(t *testing.T) {
 	t.Parallel()
 	Convey("Sample works correctly", t, func() {
-		s := NewSample().Init([]float64{1.5, 2.0, 2.5, 0.0})
+		data := []float64{1.5, 2.0, 2.5, 0.0}
 
 		Convey("Data is correct", func() {
-			So(s.Data(), ShouldResemble, []float64{1.5, 2.0, 2.5, 0.0})
+			So(NewSample(data).Data(), ShouldResemble, data)
 		})
 
 		Convey("Copy indeed copies data", func() {
 			d := []float64{1.0, 2.0}
-			s.Init(d) // baseline for reference
-			s2 := NewSample().Copy(d)
+			s := NewSample(d)
+			s2 := s.Copy()
 			So(s.Data(), ShouldResemble, d)
 			So(s2.Data(), ShouldResemble, d)
 
@@ -43,39 +43,31 @@ func TestSample(t *testing.T) {
 		})
 
 		Convey("Mean", func() {
-			So(s.Mean(), ShouldEqual, 1.5)
-			s.Init([]float64{2.0, 4.0})
-			So(s.Mean(), ShouldEqual, 3.0)
-			s.Init([]float64{})
-			So(s.Mean(), ShouldEqual, 0.0)
+			So(NewSample(data).Mean(), ShouldEqual, 1.5)
+			So(NewSample([]float64{2.0, 4.0}).Mean(), ShouldEqual, 3.0)
+			So(NewSample([]float64{}).Mean(), ShouldEqual, 0.0)
 		})
 
 		Convey("MAD", func() {
-			So(s.MAD(), ShouldEqual, 0.75)
-			s.Init([]float64{2.0, 4.0})
-			So(s.MAD(), ShouldEqual, 1.0)
-			s.Init([]float64{})
-			So(s.MAD(), ShouldEqual, 0.0)
+			So(NewSample(data).MAD(), ShouldEqual, 0.75)
+			So(NewSample([]float64{2.0, 4.0}).MAD(), ShouldEqual, 1.0)
+			So(NewSample([]float64{}).MAD(), ShouldEqual, 0.0)
 		})
 
 		Convey("Variance", func() {
-			So(s.Variance(), ShouldEqual, 0.875)
-			s.Init([]float64{2.0, 4.0})
-			So(s.Variance(), ShouldEqual, 1.0)
-			s.Init([]float64{})
-			So(s.Variance(), ShouldEqual, 0.0)
+			So(NewSample(data).Variance(), ShouldEqual, 0.875)
+			So(NewSample([]float64{2.0, 4.0}).Variance(), ShouldEqual, 1.0)
+			So(NewSample([]float64{}).Variance(), ShouldEqual, 0.0)
 		})
 
 		Convey("Sigma", func() {
-			So(s.Sigma(), ShouldEqual, math.Sqrt(0.875))
-			s.Init([]float64{2.0, 4.0})
-			So(s.Sigma(), ShouldEqual, 1.0)
-			s.Init([]float64{})
-			So(s.Sigma(), ShouldEqual, 0.0)
+			So(NewSample(data).Sigma(), ShouldEqual, math.Sqrt(0.875))
+			So(NewSample([]float64{2.0, 4.0}).Sigma(), ShouldEqual, 1.0)
+			So(NewSample([]float64{}).Sigma(), ShouldEqual, 0.0)
 		})
 
 		Convey("Normalize", func() {
-			normalized, err := s.Normalize()
+			normalized, err := NewSample(data).Normalize()
 			So(err, ShouldBeNil)
 			So(normalized.Data(), ShouldResemble, []float64{
 				0.0, // == (1.5 - 1.5) / 0.75
