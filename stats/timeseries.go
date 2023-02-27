@@ -139,6 +139,9 @@ func (t *Timeseries) LogProfits(n int) *Timeseries {
 	if n < 1 {
 		panic(errors.Reason("n=%d must be >= 1", n))
 	}
+	if n >= len(t.Data()) {
+		return NewTimeseries(nil, nil)
+	}
 	data := make([]float64, len(t.Data()))
 	for i, d := range t.Data() {
 		data[i] = math.Log(d)
