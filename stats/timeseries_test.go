@@ -115,6 +115,11 @@ func TestTimeseries(t *testing.T) {
 				}, 5))
 		})
 
+		Convey("LogProfits on too short Timeseries", func() {
+			lp := ts.LogProfits(len(data()) + 1)
+			So(len(lp.Data()), ShouldEqual, 0)
+		})
+
 		Convey("FromPrices", func() {
 			dt1 := db.NewDate(2000, 1, 1)
 			dt2 := db.NewDate(2005, 1, 1)
