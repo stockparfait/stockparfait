@@ -144,6 +144,9 @@ type PriceRowConfig struct {
 	Close              string `json:"Close" default:"Close"`
 	CloseSplitAdjusted string `json:"Close split adj" default:"Close split adj"`
 	CloseFullyAdjusted string `json:"Close fully adj" default:"Close fully adj"`
+	OpenFullyAdjusted  string `json:"Open fully adj" default:"Open fully adj"`
+	HighFullyAdjusted  string `json:"High fully adj" default:"High fully adj"`
+	LowFullyAdjusted   string `json:"Low fully adj" default:"Low fully adj"`
 	CashVolume         string `json:"Cash Volume" default:"Cash Volume"`
 	Active             string `json:"Active" default:"Active"`
 }
@@ -162,7 +165,7 @@ func NewPriceRowConfig() *PriceRowConfig {
 	return &c
 }
 
-// HasPrice checks that the header contains at least one price column.
+// HasPrice checks that the header contains at least one closing price column.
 func (c *PriceRowConfig) HasPrice(header []string) bool {
 	for _, h := range header {
 		if h == c.Close || h == c.CloseSplitAdjusted || h == c.CloseFullyAdjusted {
@@ -182,6 +185,9 @@ func (c *PriceRowConfig) MapColumns(header []string) [][]int {
 		c.Close,
 		c.CloseSplitAdjusted,
 		c.CloseFullyAdjusted,
+		c.OpenFullyAdjusted,
+		c.HighFullyAdjusted,
+		c.LowFullyAdjusted,
 		c.CashVolume,
 		c.Active,
 	}
@@ -234,11 +240,32 @@ func (c *PriceRowConfig) Parse(row []string, colMap [][]int) (pr PriceRow, err e
 			case 4:
 				v, err = strconv.ParseFloat(r, 32)
 				if err != nil {
+					err = errors.Annotate(err, "failed to parse fully adjusted Open: %s", r)
+					return
+				}
+				pr.OpenFullyAdjusted = float32(v)
+			case 5:
+				v, err = strconv.ParseFloat(r, 32)
+				if err != nil {
+					err = errors.Annotate(err, "failed to parse fully adjusted High: %s", r)
+					return
+				}
+				pr.HighFullyAdjusted = float32(v)
+			case 6:
+				v, err = strconv.ParseFloat(r, 32)
+				if err != nil {
+					err = errors.Annotate(err, "failed to parse fully adjusted Low: %s", r)
+					return
+				}
+				pr.LowFullyAdjusted = float32(v)
+			case 7:
+				v, err = strconv.ParseFloat(r, 32)
+				if err != nil {
 					err = errors.Annotate(err, "failed to parse cash volume: %s", r)
 					return
 				}
 				pr.CashVolume = float32(v)
-			case 5:
+			case 8:
 				active = str2bool(r)
 			}
 		}

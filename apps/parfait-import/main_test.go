@@ -176,9 +176,9 @@ t,Y
 
 		Convey("import prices with default reordered schema", func() {
 			So(testutil.WriteFile(pricesFile, `
-Active,Close,Close split adj,Date,Close fully adj,Cash Volume
-TRUE,10,5,2020-01-01,4.5,1000
-FALSE,11,5.5,2020-01-02,4.6,100
+Active,Open fully adj,High fully adj,Low fully adj,Close,Close split adj,Date,Close fully adj,Cash Volume
+TRUE,4.5,4.5,4.5,10,5,2020-01-01,4.5,1000
+FALSE,4.6,4.6,4.6,11,5.5,2020-01-02,4.6,100
 `),
 				ShouldBeNil)
 			So(run(append(args, "-prices", pricesFile, "-ticker", "A")), ShouldBeNil)
@@ -228,6 +228,9 @@ FALSE,11,2020-01-04,ignored,Inf
   "Close": "price",
   "Close split adj": "price",
   "Close fully adj": "price",
+  "Open fully adj": "price",
+  "High fully adj": "price",
+  "Low fully adj": "price",
   "Cash Volume": "vol*price"
 }
 `),

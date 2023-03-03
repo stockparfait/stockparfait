@@ -173,7 +173,7 @@ func TestSchema(t *testing.T) {
 
 	Convey("PriceRow", t, func() {
 		Convey("has correct size", func() {
-			So(unsafe.Sizeof(PriceRow{}), ShouldEqual, 20)
+			So(unsafe.Sizeof(PriceRow{}), ShouldEqual, 32)
 		})
 
 		Convey("TestPrice works", func() {
@@ -188,13 +188,13 @@ func TestSchema(t *testing.T) {
 		})
 
 		Convey("PriceRowHeader works", func() {
-			So(len(PriceRowHeader()), ShouldEqual, 6)
+			So(len(PriceRowHeader()), ShouldEqual, 9)
 		})
 
 		Convey("CSV works", func() {
-			p := TestPrice(NewDate(2019, 1, 2), 100.0, 50.0, 50.0, 1000.0, false)
+			p := TestPrice(NewDate(2019, 1, 2), 100.0, 50.0, 49.0, 1000.0, false)
 			So(p.CSV(), ShouldResemble, []string{
-				"2019-01-02", "100", "50", "50", "1000", "FALSE"})
+				"2019-01-02", "100", "50", "49", "49", "49", "49", "1000", "FALSE"})
 		})
 	})
 

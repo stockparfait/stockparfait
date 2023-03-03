@@ -190,7 +190,7 @@ func TestSharadar(t *testing.T) {
 		bulkCSVRaw := `ticker,date,open,high,low,close,volume,closeadj,closeunadj,lastupdated
 A,2021-11-09,0.3,0.33,0.3,0.33,7500.0,0.33,0.33,2021-11-09
 A,2021-11-08,0.35,0.35,0.35,0.35,10.0,0.35,0.35,2021-11-09
-B,2021-09-23,9.95,9.95,10.9,5.0,2692.0,5.0,10.0,2021-09-24
+B,2021-09-23,9.95,10.9,9.5,5.0,2692.0,5.0,10.0,2021-09-24
 B,2021-09-24,9.74,9.75,9.73,9.75,38502.0,9.75,9.75,2021-09-24
 C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 `
@@ -215,6 +215,9 @@ C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 						CashVolume:         10.0 * 0.35,
 						CloseSplitAdjusted: 0.35,
 						CloseFullyAdjusted: 0.35,
+						OpenFullyAdjusted:  0.35,
+						HighFullyAdjusted:  0.35,
+						LowFullyAdjusted:   0.35,
 					},
 					{
 						Date:               db.NewDate(2021, 11, 9),
@@ -222,6 +225,9 @@ C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 						CashVolume:         7500.0 * 0.33,
 						CloseSplitAdjusted: 0.33,
 						CloseFullyAdjusted: 0.33,
+						OpenFullyAdjusted:  0.3,
+						HighFullyAdjusted:  0.33,
+						LowFullyAdjusted:   0.3,
 					},
 				},
 				"B": {
@@ -231,6 +237,9 @@ C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 						CashVolume:         5.0 * 2692.0,
 						CloseSplitAdjusted: 5.0,
 						CloseFullyAdjusted: 5.0,
+						OpenFullyAdjusted:  9.95,
+						HighFullyAdjusted:  10.9,
+						LowFullyAdjusted:   9.5,
 					},
 					{
 						Date:               db.NewDate(2021, 9, 24),
@@ -238,6 +247,9 @@ C,2019-09-24,19.74,19.75,19.73,19.75,138502.0,19.75,19.75,2019-09-24
 						CashVolume:         9.75 * 38502.0,
 						CloseSplitAdjusted: 9.75,
 						CloseFullyAdjusted: 9.75,
+						OpenFullyAdjusted:  9.74,
+						HighFullyAdjusted:  9.75,
+						LowFullyAdjusted:   9.73,
 					},
 				},
 			}
