@@ -101,8 +101,8 @@ TRUE,B Co.,blah,B,cat2,more blah
 		Convey("with default schema", func() {
 			c := NewPriceRowConfig()
 			csvRows := strings.NewReader(strings.Join(PriceRowHeader(), ",") + `
-2020-01-01,10.2,5.2,5.1,1000,TRUE
-2020-01-02,20.2,10.2,10.1,2000,FALSE
+2020-01-01,10.2,5.2,5.1,5.1,5.1,5.1,1000,TRUE
+2020-01-02,20.2,10.2,10.1,10.1,10.1,10.1,2000,FALSE
 `)
 			prices, err := ReadCSVPrices(csvRows, c)
 			So(err, ShouldBeNil)
@@ -119,6 +119,9 @@ TRUE,B Co.,blah,B,cat2,more blah
   "Date":            "time",
   "Close":           "eod",
   "Close split adj": "eod",
+  "Open fully adj":  "eod",
+  "High fully adj":  "eod",
+  "Low fully adj":   "eod",
   "Close fully adj": "eod"
 }`)
 			var c PriceRowConfig

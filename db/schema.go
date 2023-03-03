@@ -360,7 +360,7 @@ func uint2str(x uint16) string {
 }
 
 // PriceRow is a row in the prices table. It is intended for daily price points.
-// Size: 20 bytes.
+// Size: 32 bytes.
 //
 // Note, that the sign of the (unadjusted) Close price indicates whether the
 // ticker is listed at the close of the day (negate = delisted). Therefore, use
@@ -373,6 +373,9 @@ type PriceRow struct {
 	Close              float32 // unadjusted; negative means delisted
 	CloseSplitAdjusted float32 // adjusted only for splits
 	CloseFullyAdjusted float32 // adjusted for splits, dividends, spinoffs
+	OpenFullyAdjusted  float32
+	HighFullyAdjusted  float32
+	LowFullyAdjusted   float32
 	CashVolume         float32 // shares volume * closing price
 }
 
@@ -384,6 +387,9 @@ func PriceRowHeader() []string {
 		"Close",
 		"Close split adj",
 		"Close fully adj",
+		"Open fully adj",
+		"High fully adj",
+		"Low fully adj",
 		"Cash Volume",
 		"Active",
 	}
@@ -395,6 +401,9 @@ func (p PriceRow) CSV() []string {
 		float2str(p.CloseUnadjusted()),
 		float2str(p.CloseSplitAdjusted),
 		float2str(p.CloseFullyAdjusted),
+		float2str(p.OpenFullyAdjusted),
+		float2str(p.HighFullyAdjusted),
+		float2str(p.LowFullyAdjusted),
 		float2str(p.CashVolume),
 		bool2str(p.Active()),
 	}
@@ -428,6 +437,9 @@ func TestPrice(date Date, close, splitAdj, fullyAdj, dv float32, active bool) Pr
 		Close:              close,
 		CloseSplitAdjusted: splitAdj,
 		CloseFullyAdjusted: fullyAdj,
+		OpenFullyAdjusted:  fullyAdj,
+		HighFullyAdjusted:  fullyAdj,
+		LowFullyAdjusted:   fullyAdj,
 		CashVolume:         dv,
 	}
 	p.SetActive(active)
