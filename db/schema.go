@@ -409,6 +409,48 @@ func (p PriceRow) CSV() []string {
 	}
 }
 
+func (p PriceRow) OpenUnadjusted() float32 {
+	if p.CloseFullyAdjusted == 0 {
+		return 0
+	}
+	return p.OpenFullyAdjusted / p.CloseFullyAdjusted * p.CloseUnadjusted()
+}
+
+func (p PriceRow) OpenSplitAdjusted() float32 {
+	if p.CloseFullyAdjusted == 0 {
+		return 0
+	}
+	return p.OpenFullyAdjusted / p.CloseFullyAdjusted * p.CloseSplitAdjusted
+}
+
+func (p PriceRow) HighUnadjusted() float32 {
+	if p.CloseFullyAdjusted == 0 {
+		return 0
+	}
+	return p.HighFullyAdjusted / p.CloseFullyAdjusted * p.CloseUnadjusted()
+}
+
+func (p PriceRow) HighSplitAdjusted() float32 {
+	if p.CloseFullyAdjusted == 0 {
+		return 0
+	}
+	return p.HighFullyAdjusted / p.CloseFullyAdjusted * p.CloseSplitAdjusted
+}
+
+func (p PriceRow) LowUnadjusted() float32 {
+	if p.CloseFullyAdjusted == 0 {
+		return 0
+	}
+	return p.LowFullyAdjusted / p.CloseFullyAdjusted * p.CloseUnadjusted()
+}
+
+func (p PriceRow) LowSplitAdjusted() float32 {
+	if p.CloseFullyAdjusted == 0 {
+		return 0
+	}
+	return p.LowFullyAdjusted / p.CloseFullyAdjusted * p.CloseSplitAdjusted
+}
+
 // CloseUnadjusted price, separated from the activity status.
 func (p PriceRow) CloseUnadjusted() float32 {
 	if p.Close < 0.0 {
@@ -430,16 +472,24 @@ func (p *PriceRow) SetActive(active bool) {
 	}
 }
 
-// TestPrice creates a PriceRow instance for use in tests.
-func TestPrice(date Date, close, splitAdj, fullyAdj, dv float32, active bool) PriceRow {
+// TestPrice creates a PriceRow instance for use in tests. It uses the closing
+// price to assign the other OHL prices.
+func TestPrice(date Date, closeUnadj, splitAdj, fullyAdj, dv float32, active bool) PriceRow {
+	return TestPriceRow(date, closeUnadj, splitAdj, fullyAdj,
+		fullyAdj, fullyAdj, fullyAdj, dv, active)
+}
+
+// TestPriceRow is a complete version of TestPrice which allows to set all OHLC
+// prices directly. The OHL prices are always fully adjusted.
+func TestPriceRow(date Date, closeUnadj, closeSplitAdj, close, open, high, low, dv float32, active bool) PriceRow {
 	p := PriceRow{
 		Date:               date,
-		Close:              close,
-		CloseSplitAdjusted: splitAdj,
-		CloseFullyAdjusted: fullyAdj,
-		OpenFullyAdjusted:  fullyAdj,
-		HighFullyAdjusted:  fullyAdj,
-		LowFullyAdjusted:   fullyAdj,
+		Close:              closeUnadj,
+		CloseSplitAdjusted: closeSplitAdj,
+		CloseFullyAdjusted: close,
+		OpenFullyAdjusted:  open,
+		HighFullyAdjusted:  high,
+		LowFullyAdjusted:   low,
 		CashVolume:         dv,
 	}
 	p.SetActive(active)
