@@ -157,9 +157,18 @@ func (t *Timeseries) LogProfits(n int) *Timeseries {
 type PriceField uint8
 
 const (
-	PriceUnadjusted PriceField = iota
-	PriceSplitAdjusted
-	PriceFullyAdjusted
+	PriceOpenUnadjusted PriceField = iota
+	PriceOpenSplitAdjusted
+	PriceOpenFullyAdjusted
+	PriceHighUnadjusted
+	PriceHighSplitAdjusted
+	PriceHighFullyAdjusted
+	PriceLowUnadjusted
+	PriceLowSplitAdjusted
+	PriceLowFullyAdjusted
+	PriceCloseUnadjusted
+	PriceCloseSplitAdjusted
+	PriceCloseFullyAdjusted
 	PriceCashVolume
 )
 
@@ -170,11 +179,29 @@ func NewTimeseriesFromPrices(prices []db.PriceRow, f PriceField) *Timeseries {
 	for i, p := range prices {
 		dates[i] = p.Date
 		switch f {
-		case PriceUnadjusted:
+		case PriceOpenUnadjusted:
+			data[i] = float64(p.OpenUnadjusted())
+		case PriceOpenSplitAdjusted:
+			data[i] = float64(p.OpenSplitAdjusted())
+		case PriceOpenFullyAdjusted:
+			data[i] = float64(p.OpenFullyAdjusted)
+		case PriceHighUnadjusted:
+			data[i] = float64(p.HighUnadjusted())
+		case PriceHighSplitAdjusted:
+			data[i] = float64(p.HighSplitAdjusted())
+		case PriceHighFullyAdjusted:
+			data[i] = float64(p.HighFullyAdjusted)
+		case PriceLowUnadjusted:
+			data[i] = float64(p.LowUnadjusted())
+		case PriceLowSplitAdjusted:
+			data[i] = float64(p.LowSplitAdjusted())
+		case PriceLowFullyAdjusted:
+			data[i] = float64(p.LowFullyAdjusted)
+		case PriceCloseUnadjusted:
 			data[i] = float64(p.CloseUnadjusted())
-		case PriceSplitAdjusted:
+		case PriceCloseSplitAdjusted:
 			data[i] = float64(p.CloseSplitAdjusted)
-		case PriceFullyAdjusted:
+		case PriceCloseFullyAdjusted:
 			data[i] = float64(p.CloseFullyAdjusted)
 		case PriceCashVolume:
 			data[i] = float64(p.CashVolume)

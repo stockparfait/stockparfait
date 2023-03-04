@@ -123,27 +123,82 @@ func TestTimeseries(t *testing.T) {
 		Convey("FromPrices", func() {
 			dt1 := db.NewDate(2000, 1, 1)
 			dt2 := db.NewDate(2005, 1, 1)
+			// split factor = 2, full adj. factor = 3
 			prices := []db.PriceRow{
-				db.TestPrice(dt1, 10.0, 5.0, 5.0, 1000.0, true),
-				db.TestPrice(dt2, 12.0, 6.0, 6.0, 2000.0, true),
+				db.TestPriceRow(dt1, 12, 6, 4, 5, 6, 3, 1000.0, true),
+				db.TestPriceRow(dt2, 15, 7.5, 5, 4, 7, 3, 2000.0, true),
 			}
 
-			Convey("Unadjusted", func() {
-				ts := NewTimeseriesFromPrices(prices, PriceUnadjusted)
+			Convey("Open Unadjusted", func() {
+				ts := NewTimeseriesFromPrices(prices, PriceOpenUnadjusted)
 				So(ts.Dates(), ShouldResemble, []db.Date{dt1, dt2})
-				So(ts.Data(), ShouldResemble, []float64{10.0, 12.0})
+				So(ts.Data(), ShouldResemble, []float64{5.0 * 3, 4.0 * 3})
 			})
 
-			Convey("Split Adjusted", func() {
-				ts := NewTimeseriesFromPrices(prices, PriceSplitAdjusted)
+			Convey("Open Split Adjusted", func() {
+				ts := NewTimeseriesFromPrices(prices, PriceOpenSplitAdjusted)
 				So(ts.Dates(), ShouldResemble, []db.Date{dt1, dt2})
-				So(ts.Data(), ShouldResemble, []float64{5.0, 6.0})
+				So(ts.Data(), ShouldResemble, []float64{5.0 * 3 / 2, 4.0 * 3 / 2})
 			})
 
-			Convey("Fully Adjusted", func() {
-				ts := NewTimeseriesFromPrices(prices, PriceFullyAdjusted)
+			Convey("Open Fully Adjusted", func() {
+				ts := NewTimeseriesFromPrices(prices, PriceOpenFullyAdjusted)
 				So(ts.Dates(), ShouldResemble, []db.Date{dt1, dt2})
-				So(ts.Data(), ShouldResemble, []float64{5.0, 6.0})
+				So(ts.Data(), ShouldResemble, []float64{5.0, 4.0})
+			})
+
+			Convey("High Unadjusted", func() {
+				ts := NewTimeseriesFromPrices(prices, PriceHighUnadjusted)
+				So(ts.Dates(), ShouldResemble, []db.Date{dt1, dt2})
+				So(ts.Data(), ShouldResemble, []float64{6.0 * 3, 7.0 * 3})
+			})
+
+			Convey("High Split Adjusted", func() {
+				ts := NewTimeseriesFromPrices(prices, PriceHighSplitAdjusted)
+				So(ts.Dates(), ShouldResemble, []db.Date{dt1, dt2})
+				So(ts.Data(), ShouldResemble, []float64{6.0 * 3 / 2, 7.0 * 3 / 2})
+			})
+
+			Convey("High Fully Adjusted", func() {
+				ts := NewTimeseriesFromPrices(prices, PriceHighFullyAdjusted)
+				So(ts.Dates(), ShouldResemble, []db.Date{dt1, dt2})
+				So(ts.Data(), ShouldResemble, []float64{6.0, 7.0})
+			})
+
+			Convey("Low Unadjusted", func() {
+				ts := NewTimeseriesFromPrices(prices, PriceLowUnadjusted)
+				So(ts.Dates(), ShouldResemble, []db.Date{dt1, dt2})
+				So(ts.Data(), ShouldResemble, []float64{3.0 * 3, 3.0 * 3})
+			})
+
+			Convey("Low Split Adjusted", func() {
+				ts := NewTimeseriesFromPrices(prices, PriceLowSplitAdjusted)
+				So(ts.Dates(), ShouldResemble, []db.Date{dt1, dt2})
+				So(ts.Data(), ShouldResemble, []float64{3.0 * 3 / 2, 3.0 * 3 / 2})
+			})
+
+			Convey("Low Fully Adjusted", func() {
+				ts := NewTimeseriesFromPrices(prices, PriceLowFullyAdjusted)
+				So(ts.Dates(), ShouldResemble, []db.Date{dt1, dt2})
+				So(ts.Data(), ShouldResemble, []float64{3.0, 3.0})
+			})
+
+			Convey("Close Unadjusted", func() {
+				ts := NewTimeseriesFromPrices(prices, PriceCloseUnadjusted)
+				So(ts.Dates(), ShouldResemble, []db.Date{dt1, dt2})
+				So(ts.Data(), ShouldResemble, []float64{12, 15})
+			})
+
+			Convey("Close Split Adjusted", func() {
+				ts := NewTimeseriesFromPrices(prices, PriceCloseSplitAdjusted)
+				So(ts.Dates(), ShouldResemble, []db.Date{dt1, dt2})
+				So(ts.Data(), ShouldResemble, []float64{6, 7.5})
+			})
+
+			Convey("Close Fully Adjusted", func() {
+				ts := NewTimeseriesFromPrices(prices, PriceCloseFullyAdjusted)
+				So(ts.Dates(), ShouldResemble, []db.Date{dt1, dt2})
+				So(ts.Data(), ShouldResemble, []float64{4, 5})
 			})
 
 			Convey("Cash Volume", func() {
