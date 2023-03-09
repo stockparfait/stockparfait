@@ -78,18 +78,18 @@ var _ json.Marshaler = Date{}
 var _ json.Unmarshaler = &Date{}
 var _ message.Message = &Date{}
 
-// NewDate is the constructor for Date.
+// NewDate is a Date constructor without time of the day.
 func NewDate(year uint16, month, day uint8) Date {
 	return Date{YearVal: year, MonthVal: month, DayVal: day}
 }
 
-// NewDatetime is the constructor for Date with time of the day.
+// NewDatetime is a Date constructor with time of the day.
 func NewDatetime(year uint16, month, day, hour, minute, second uint8, msec uint32) Date {
 	return Date{
 		YearVal:  year,
 		MonthVal: month,
 		DayVal:   day,
-		MsecVal:  (uint32(hour)*3600+60*uint32(minute)+uint32(second))*1000 + uint32(msec),
+		MsecVal:  (uint32(hour)*3600+uint32(minute)*60+uint32(second))*1000 + uint32(msec),
 	}
 }
 
@@ -188,7 +188,9 @@ func (d Date) ToTime() time.Time {
 		int(d.Millisecond()*1000000), time.UTC)
 }
 
-// Monday return a new Date of the Monday midnight of the current date's week.
+// Monday returns a new Date of the Monday midnight of the current date's
+// week. Note: week is assumed to start on Sunday, so Monday(d=Sunday) returns
+// the next day.
 func (d Date) Monday() Date {
 	t := d.ToTime()
 	t = t.AddDate(0, 0, 1-int(t.Weekday()))
