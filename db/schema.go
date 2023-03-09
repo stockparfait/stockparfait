@@ -65,12 +65,13 @@ func parseTime(s string) (time.Time, error) {
 	return time.Time{}, err
 }
 
-// Date records a calendar date as year, month and day. The struct is designed
-// to fit into 4 bytes.
+// Date records a calendar date and time as year, month, day and millisecond
+// from the midnight. The struct is designed to fit into 8 bytes.
 type Date struct {
 	YearVal  uint16
 	MonthVal uint8
 	DayVal   uint8
+	MsecVal  uint32 // milliseconds from midnight
 }
 
 var _ json.Marshaler = Date{}
@@ -79,7 +80,17 @@ var _ message.Message = &Date{}
 
 // NewDate is the constructor for Date.
 func NewDate(year uint16, month, day uint8) Date {
-	return Date{year, month, day}
+	return Date{YearVal: year, MonthVal: month, DayVal: day}
+}
+
+// NewDatetime is the constructor for Date with time of the day.
+func NewDatetime(year uint16, month, day, hour, minute, second uint8, msec uint32) Date {
+	return Date{
+		YearVal:  year,
+		MonthVal: month,
+		DayVal:   day,
+		MsecVal:  (uint32(hour)*3600+60*uint32(minute)+uint32(second))*1000 + uint32(msec),
+	}
 }
 
 // NewDateFromTime creates a Date instance from a time.Time value in UTC.
@@ -92,6 +103,7 @@ func NewDateFromTime(t time.Time) Date {
 		YearVal:  uint16(t.Year()),
 		MonthVal: uint8(t.Month()),
 		DayVal:   uint8(t.Day()),
+		MsecVal:  uint32(((t.Hour()*60+t.Minute())*60+t.Second())*1000 + t.Nanosecond()/1000000),
 	}
 }
 
@@ -115,13 +127,21 @@ func DateInNY(now time.Time) Date {
 	return NewDateFromTime(t)
 }
 
-func (d Date) Year() uint16 { return d.YearVal }
-func (d Date) Month() uint8 { return d.MonthVal }
-func (d Date) Day() uint8   { return d.DayVal }
+func (d Date) Year() uint16        { return d.YearVal }
+func (d Date) Month() uint8        { return d.MonthVal }
+func (d Date) Day() uint8          { return d.DayVal }
+func (d Date) Hour() uint8         { return uint8(d.MsecVal / 3600000) }
+func (d Date) Minute() uint8       { return uint8((d.MsecVal % 3600000) / 60000) }
+func (d Date) Second() uint8       { return uint8((d.MsecVal % 60000) / 1000) }
+func (d Date) Millisecond() uint32 { return d.MsecVal % 1000 }
 
 // String representation of the value.
 func (d Date) String() string {
-	return fmt.Sprintf("%04d-%02d-%02d", d.Year(), d.Month(), d.Day())
+	if d.MsecVal == 0 {
+		return fmt.Sprintf("%04d-%02d-%02d", d.Year(), d.Month(), d.Day())
+	}
+	return fmt.Sprintf("%04d-%02d-%02dT%02d:%02d:%02d.%03d",
+		d.Year(), d.Month(), d.Day(), d.Hour(), d.Minute(), d.Second(), d.Millisecond())
 }
 
 // MarshalJSON implements json.Marshaler.
@@ -163,14 +183,16 @@ func (d *Date) InitMessage(js any) error {
 
 // ToTime converts Date to Time in UTC.
 func (d Date) ToTime() time.Time {
-	return time.Date(int(d.Year()), time.Month(d.Month()), int(d.Day()), 0, 0, 0, 0, time.UTC)
+	return time.Date(int(d.Year()), time.Month(d.Month()), int(d.Day()),
+		int(d.Hour()), int(d.Minute()), int(d.Second()),
+		int(d.Millisecond()*1000000), time.UTC)
 }
 
-// Monday return a new Date of the Monday of the current date's week.
+// Monday return a new Date of the Monday midnight of the current date's week.
 func (d Date) Monday() Date {
 	t := d.ToTime()
 	t = t.AddDate(0, 0, 1-int(t.Weekday()))
-	return NewDateFromTime(t)
+	return NewDate(uint16(t.Year()), uint8(t.Month()), uint8(t.Day()))
 }
 
 // MonthStart returns the 1st of the month of the current date.
@@ -185,8 +207,8 @@ func (d Date) QuarterStart() Date {
 
 // Before compares two Date objects for strict inequality (self < d2).
 func (d Date) Before(d2 Date) bool {
-	return lessLex([]int{int(d.Year()), int(d.Month()), int(d.Day())},
-		[]int{int(d2.Year()), int(d2.Month()), int(d2.Day())})
+	return lessLex([]int{int(d.Year()), int(d.Month()), int(d.Day()), int(d.MsecVal)},
+		[]int{int(d2.Year()), int(d2.Month()), int(d2.Day()), int(d2.MsecVal)})
 }
 
 // After compares two Date objects for strict inequality, self > d2.
@@ -196,7 +218,7 @@ func (d Date) After(d2 Date) bool {
 
 // IsZero checks whether the date has a zero value.
 func (d Date) IsZero() bool {
-	return d.Year() == 0 && d.Month() == 0 && d.Day() == 0
+	return d.Year() == 0 && d.Month() == 0 && d.Day() == 0 && d.MsecVal == 0
 }
 
 // MinDate returns the earliest date from the list, or zero value.
@@ -263,6 +285,7 @@ func (d Date) YearsTill(d2 Date) float64 {
 	years := float64(d2.Year()) - float64(d.Year())
 	years += (float64(d2.Month()) - float64(d.Month())) / 12.0
 	years += (float64(d2.Day())/float64(d2.DaysInMonth()) - float64(d.Day())/float64(d.DaysInMonth())) / 12.0
+	years += (float64(d2.MsecVal) - float64(d.MsecVal)) / (365.25 * 1000)
 	return years
 }
 

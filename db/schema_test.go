@@ -57,11 +57,15 @@ func TestSchema(t *testing.T) {
 	})
 
 	Convey("Date type", t, func() {
+		Convey("has correct size", func() {
+			So(unsafe.Sizeof(Date{}), ShouldEqual, 8)
+		})
+
 		Convey("creates New York's date", func() {
-			// 2am UTC is the previous day in NY
+			// 2am UTC is 9pm the previous day in NY.
 			now := time.Date(2009, time.November, 10, 2, 0, 0, 0, time.UTC)
 			d := DateInNY(now)
-			So(d.String(), ShouldEqual, "2009-11-09")
+			So(d.String(), ShouldEqual, "2009-11-09T21:00:00.000")
 		})
 
 		Convey("converts to and from time correctly", func() {
@@ -70,6 +74,7 @@ func TestSchema(t *testing.T) {
 			So(t.Year(), ShouldEqual, d.Year())
 			So(t.Month(), ShouldEqual, d.Month())
 			So(t.Day(), ShouldEqual, d.Day())
+			So(t.Nanosecond(), ShouldEqual, 0)
 			So(NewDateFromTime(t), ShouldResemble, d)
 		})
 
@@ -81,6 +86,8 @@ func TestSchema(t *testing.T) {
 		Convey("converts to string correctly", func() {
 			d := NewDate(2019, 1, 2)
 			So(d.String(), ShouldEqual, "2019-01-02")
+			d = NewDatetime(2019, 1, 2, 15, 4, 5, 678)
+			So(d.String(), ShouldEqual, "2019-01-02T15:04:05.678")
 		})
 
 		Convey("compares the dates correctly", func() {
@@ -173,7 +180,7 @@ func TestSchema(t *testing.T) {
 
 	Convey("PriceRow", t, func() {
 		Convey("has correct size", func() {
-			So(unsafe.Sizeof(PriceRow{}), ShouldEqual, 32)
+			So(unsafe.Sizeof(PriceRow{}), ShouldEqual, 36)
 		})
 
 		Convey("TestPrice works", func() {
@@ -206,7 +213,7 @@ func TestSchema(t *testing.T) {
 
 	Convey("ResampledRow", t, func() {
 		Convey("has correct size", func() {
-			So(unsafe.Sizeof(ResampledRow{}), ShouldEqual, 44)
+			So(unsafe.Sizeof(ResampledRow{}), ShouldEqual, 52)
 		})
 
 		Convey("TestResampled works", func() {
