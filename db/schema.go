@@ -188,6 +188,11 @@ func (d Date) ToTime() time.Time {
 		int(d.Millisecond()*1000000), time.UTC)
 }
 
+// Date returns the date value without time of day (MsecVal = 0).
+func (d Date) Date() Date {
+	return NewDate(d.Year(), d.Month(), d.Day())
+}
+
 // Monday returns a new Date of the Monday midnight of the current date's
 // week. Note: week is assumed to start on Sunday, so Monday(d=Sunday) returns
 // the next day.

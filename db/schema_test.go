@@ -136,9 +136,15 @@ func TestSchema(t *testing.T) {
 			So(d.InRange(Date{}, NewDate(2010, 3, 31)), ShouldBeFalse)
 		})
 
+		Convey("Date() works correctly", func() {
+			So(NewDatetime(2019, 1, 2, 3, 4, 5, 123).Date(), ShouldResemble, NewDate(2019, 1, 2))
+		})
+
 		Convey("Monday works correctly", func() {
 			// Jan 2, 2019 is Wednesday.
 			So(NewDate(2019, 1, 2).Monday(), ShouldResemble, NewDate(2018, 12, 31))
+			// Week starts on Sunday; Monday() becomes the next day.
+			So(NewDate(2018, 12, 30).Monday(), ShouldResemble, NewDate(2018, 12, 31))
 		})
 
 		Convey("MonthStart works correctly", func() {
