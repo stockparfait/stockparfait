@@ -63,19 +63,19 @@ B,test,exch2,B Co.,cat2,sec2,ind2,loc2,secf2,www2,TRUE
 			})
 		})
 
-		Convey("with custom schema", func() {
+		Convey("headless with custom schema (head in config)", func() {
 			cfgJSON := testutil.JSON(`
 {
   "Name": "long name",
   "Active": "listed",
-  "Ticker": "short name"
+  "Ticker": "short name",
+  "header": ["listed", "long name", "unused", "short name", "Category", "whatever"]
 }`)
 			var c TickerRowConfig
 			So(c.InitMessage(cfgJSON), ShouldBeNil)
 
 			// Custom names and reordered columns.
 			csvRows := strings.NewReader(`
-listed,long name,unused,short name,Category,whatever
 FALSE,A Co.,blah,A,cat,more blah
 TRUE,B Co.,blah,B,cat2,more blah
 `[1:])
@@ -112,7 +112,7 @@ TRUE,B Co.,blah,B,cat2,more blah
 			})
 		})
 
-		Convey("with custom schema, unsorted", func() {
+		Convey("headless with custom schema, unsorted", func() {
 			// Map "eod" to all three prices; skip Active and CashVolume.
 			cfgJSON := testutil.JSON(`
 {
@@ -122,12 +122,12 @@ TRUE,B Co.,blah,B,cat2,more blah
   "Open fully adj":  "eod",
   "High fully adj":  "eod",
   "Low fully adj":   "eod",
-  "Close fully adj": "eod"
+  "Close fully adj": "eod",
+  "header": ["eod", "time"]
 }`)
 			var c PriceRowConfig
 			So(c.InitMessage(cfgJSON), ShouldBeNil)
 			csvRows := strings.NewReader(`
-eod,time
 11.2,2020-01-02
 10,2020-01-01
 `[1:])

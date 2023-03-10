@@ -27,17 +27,18 @@ import (
 
 // TickerRowConfig sets the custom headers of input CSV file for ticker rows.
 type TickerRowConfig struct {
-	Ticker      string `json:"Ticker" default:"Ticker"`
-	Source      string `json:"Source" default:"Source"`
-	Exchange    string `json:"Exchange" default:"Exchange"`
-	Name        string `json:"Name" default:"Name"`
-	Category    string `json:"Category" default:"Category"`
-	Sector      string `json:"Sector" default:"Sector"`
-	Industry    string `json:"Industry" default:"Industry"`
-	Location    string `json:"Location" default:"Location"`
-	SECFilings  string `json:"SEC Filings" default:"SEC Filings"`
-	CompanySite string `json:"Company Site" default:"Company Site"`
-	Active      string `json:"Active" default:"Active"`
+	Ticker      string   `json:"Ticker" default:"Ticker"`
+	Source      string   `json:"Source" default:"Source"`
+	Exchange    string   `json:"Exchange" default:"Exchange"`
+	Name        string   `json:"Name" default:"Name"`
+	Category    string   `json:"Category" default:"Category"`
+	Sector      string   `json:"Sector" default:"Sector"`
+	Industry    string   `json:"Industry" default:"Industry"`
+	Location    string   `json:"Location" default:"Location"`
+	SECFilings  string   `json:"SEC Filings" default:"SEC Filings"`
+	CompanySite string   `json:"Company Site" default:"Company Site"`
+	Active      string   `json:"Active" default:"Active"`
+	Header      []string `json:"header"` // for headless CSV
 }
 
 var _ message.Message = &TickerRowConfig{}
@@ -140,15 +141,16 @@ func (c *TickerRowConfig) Parse(row []string, colMap []int) (ticker string, tr T
 // mapping is one-to-many; in particular, several price fields can map to the
 // same CSV column.
 type PriceRowConfig struct {
-	Date               string `json:"Date" default:"Date"`
-	Close              string `json:"Close" default:"Close"`
-	CloseSplitAdjusted string `json:"Close split adj" default:"Close split adj"`
-	CloseFullyAdjusted string `json:"Close fully adj" default:"Close fully adj"`
-	OpenFullyAdjusted  string `json:"Open fully adj" default:"Open fully adj"`
-	HighFullyAdjusted  string `json:"High fully adj" default:"High fully adj"`
-	LowFullyAdjusted   string `json:"Low fully adj" default:"Low fully adj"`
-	CashVolume         string `json:"Cash Volume" default:"Cash Volume"`
-	Active             string `json:"Active" default:"Active"`
+	Date               string   `json:"Date" default:"Date"`
+	Close              string   `json:"Close" default:"Close"`
+	CloseSplitAdjusted string   `json:"Close split adj" default:"Close split adj"`
+	CloseFullyAdjusted string   `json:"Close fully adj" default:"Close fully adj"`
+	OpenFullyAdjusted  string   `json:"Open fully adj" default:"Open fully adj"`
+	HighFullyAdjusted  string   `json:"High fully adj" default:"High fully adj"`
+	LowFullyAdjusted   string   `json:"Low fully adj" default:"Low fully adj"`
+	CashVolume         string   `json:"Cash Volume" default:"Cash Volume"`
+	Active             string   `json:"Active" default:"Active"`
+	Header             []string `json:"header"` // for headless CSV
 }
 
 var _ message.Message = &PriceRowConfig{}
@@ -277,10 +279,11 @@ func (c *PriceRowConfig) Parse(row []string, colMap [][]int) (pr PriceRow, err e
 // ReadCSVTickers reads raw CSV and updates the tickers table compatible with DB
 // Writer.
 //
-// The CSV file must have a header and at the minimum contain the Ticker column.
-// Columns with an unrecognized header are ignored, missing columns are assumed
-// to be of their default values, which are empty for all strings and true for
-// Active.
+// When config defines a header, CSV is assumed to be headless; otherwise the
+// CSV file must have a header. In either case, the header must contain a Ticker
+// column.  Columns with an unrecognized header are ignored, missing columns are
+// assumed to be of their default values, which are empty for all strings and
+// true for Active.
 func ReadCSVTickers(r io.Reader, c *TickerRowConfig, tickers map[string]TickerRow) error {
 	csvReader := csv.NewReader(r)
 	rows, err := csvReader.ReadAll()
@@ -290,8 +293,11 @@ func ReadCSVTickers(r io.Reader, c *TickerRowConfig, tickers map[string]TickerRo
 	if len(rows) <= 1 {
 		return nil
 	}
-	header := rows[0]
-	rows = rows[1:]
+	header := c.Header
+	if len(header) == 0 {
+		header = rows[0]
+		rows = rows[1:]
+	}
 	if !c.HasTicker(header) {
 		return errors.Reason("tickers CSV requires a Ticker column")
 	}
@@ -306,9 +312,11 @@ func ReadCSVTickers(r io.Reader, c *TickerRowConfig, tickers map[string]TickerRo
 // ReadCSVPrices reads raw CSV and creates a price series compatible with DB
 // Writer.
 //
-// The CSV file must have a header and contain at least one type of price. The
-// remaining prices can be set by mapping them to the same column name.  Columns
-// with an unrecognized header are ignored, missing columns are set to 0.
+// When config defines a header, CSV is assumed to be headless; otherwise the
+// CSV file must have a header. In either case, the header must contain at least
+// one type of price. The remaining prices can be set by mapping them to the
+// same column name.  Columns with an unrecognized header are ignored, missing
+// columns are set to 0.
 func ReadCSVPrices(r io.Reader, c *PriceRowConfig) ([]PriceRow, error) {
 	csvReader := csv.NewReader(r)
 	rows, err := csvReader.ReadAll()
@@ -318,8 +326,11 @@ func ReadCSVPrices(r io.Reader, c *PriceRowConfig) ([]PriceRow, error) {
 	if len(rows) <= 1 {
 		return nil, nil
 	}
-	header := rows[0]
-	rows = rows[1:]
+	header := c.Header
+	if len(header) == 0 {
+		header = rows[0]
+		rows = rows[1:]
+	}
 	if !c.HasPrice(header) {
 		return nil, errors.Reason("prices CSV requires at least one price column")
 	}
