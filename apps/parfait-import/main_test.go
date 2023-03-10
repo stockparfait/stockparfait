@@ -132,9 +132,8 @@ CBA,TEST,Exch2,CBA Co.,Cat2,Sec2,Ind2,Over There,sec.gov,cba.com,FALSE
 			So(err, ShouldBeNil)
 			So(tickers, ShouldResemble, expected)
 
-			// Add more tickers to the now-existing DB with a custom schema.
+			// Add more tickers to the now-existing DB with a custom headless schema.
 			So(testutil.WriteFile(tickersFile, `
-listed,junk,tkr
 TRUE,blah,C
 FALSE,foo,D
 `[1:]),
@@ -142,7 +141,8 @@ FALSE,foo,D
 			So(testutil.WriteFile(schemaFile, `
 {
   "Ticker": "tkr",
-  "Active": "listed"
+  "Active": "listed",
+  "header": ["listed", "junk", "tkr"]
 }
 `),
 				ShouldBeNil)
@@ -157,9 +157,8 @@ FALSE,foo,D
 
 			// Overwrite tickers in the existing DB.
 			So(testutil.WriteFile(tickersFile, `
-listed,tkr
-TRUE,X
-t,Y
+TRUE,,X
+t,,Y
 `[1:]),
 				ShouldBeNil)
 			So(run(append(args, "-tickers", tickersFile, "-schema",
@@ -212,9 +211,8 @@ FALSE,4.6,4.6,4.6,11,5.5,2020-01-02,4.6,100
 			}})
 		})
 
-		Convey("import prices with a custom schema, ignore invalid values", func() {
+		Convey("import prices with a custom headless schema, ignore invalid values", func() {
 			So(testutil.WriteFile(pricesFile, `
-listed,price,time,junk,vol*price
 TRUE,10,2020-01-01,blah,1000
 FALSE,11,2020-01-02,whatever,100
 FALSE,NaN,2020-01-03,ignored,100
@@ -231,7 +229,8 @@ FALSE,11,2020-01-04,ignored,Inf
   "Open fully adj": "price",
   "High fully adj": "price",
   "Low fully adj": "price",
-  "Cash Volume": "vol*price"
+  "Cash Volume": "vol*price",
+  "header": ["listed", "price", "time", "junk", "vol*price"]
 }
 `),
 				ShouldBeNil)
