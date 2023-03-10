@@ -134,23 +134,28 @@ func (t *Timeseries) Shift(shift int) *Timeseries {
 }
 
 // LogProfits computes a new Timeseries of log-profits {log(x[t+n]) -
-// log(x[t])}. The associated log-profit date is t+n.
-func (t *Timeseries) LogProfits(n int) *Timeseries {
+// log(x[t])}. The associated log-profit date is t+n. When intarday is true,
+// skip log-profits spanning more than one day.
+func (t *Timeseries) LogProfits(n int, intraday bool) *Timeseries {
 	if n < 1 {
 		panic(errors.Reason("n=%d must be >= 1", n))
 	}
 	if n >= len(t.Data()) {
 		return NewTimeseries(nil, nil)
 	}
-	data := make([]float64, len(t.Data()))
-	for i, d := range t.Data() {
-		data[i] = math.Log(d)
+	var dates []db.Date
+	var data []float64
+
+	logT := t.Log()
+	for i := n; i < len(logT.Data()); i++ {
+		if intraday && logT.Dates()[i].Date() != logT.Dates()[i-n].Date() {
+			continue
+		}
+		dates = append(dates, logT.Dates()[i])
+		data = append(data, logT.Data()[i]-logT.Data()[i-n])
+
 	}
-	deltas := []float64{}
-	for i := n; i < len(data); i++ {
-		deltas = append(deltas, data[i]-data[i-n])
-	}
-	return NewTimeseries(t.Dates()[n:], deltas)
+	return NewTimeseries(dates, data)
 }
 
 // PriceField is an enum type indicating which PriceRow field to use.
@@ -372,4 +377,17 @@ func (t *Timeseries) Log() *Timeseries {
 // Exp of the Timeseries data, pointwise.
 func (t *Timeseries) Exp() *Timeseries {
 	return t.UnaryOp(func(x float64) float64 { return math.Exp(x) })
+}
+
+// Filter elements of the Timeseries to only those that satisfy f, by index.
+func (t *Timeseries) Filter(f func(int) bool) *Timeseries {
+	var dates []db.Date
+	var data []float64
+	for i, d := range t.Data() {
+		if f(i) {
+			dates = append(dates, t.Dates()[i])
+			data = append(data, d)
+		}
+	}
+	return NewTimeseries(dates, data)
 }

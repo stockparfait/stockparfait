@@ -91,7 +91,7 @@ func TestTimeseries(t *testing.T) {
 		})
 
 		Convey("LogProfits", func() {
-			dts := ts.LogProfits(1)
+			dts := ts.LogProfits(1, false)
 			So(ts.Data(), ShouldResemble, data()) // the original ts is not modified
 			So(dts.Dates(), ShouldResemble, ts.Dates()[1:])
 			So(testutil.RoundSlice(dts.Data(), 5), ShouldResemble,
@@ -105,7 +105,7 @@ func TestTimeseries(t *testing.T) {
 
 		Convey("LogProfits with zeros", func() {
 			ts = NewTimeseries(dates(), []float64{1.0, 0.0, 2.0, 4.0, 5.0})
-			dts := ts.LogProfits(1)
+			dts := ts.LogProfits(1, false)
 			So(testutil.RoundSlice(dts.Data(), 5), ShouldResemble,
 				testutil.RoundSlice([]float64{
 					math.Inf(-1),
@@ -116,8 +116,21 @@ func TestTimeseries(t *testing.T) {
 		})
 
 		Convey("LogProfits on too short Timeseries", func() {
-			lp := ts.LogProfits(len(data()) + 1)
+			lp := ts.LogProfits(len(data())+1, false)
 			So(len(lp.Data()), ShouldEqual, 0)
+		})
+
+		Convey("LogProfits on intraday data", func() {
+			dates := []db.Date{
+				db.NewDatetime(2020, 1, 1, 9, 30, 0, 0),
+				db.NewDatetime(2020, 1, 1, 10, 30, 0, 0),
+				db.NewDatetime(2020, 1, 2, 9, 30, 0, 0),
+				db.NewDatetime(2020, 1, 2, 11, 30, 0, 0),
+			}
+			data := []float64{1, math.Exp(0.1), math.Exp(0.2), math.Exp(0.3)}
+			ts := NewTimeseries(dates, data).LogProfits(1, true)
+			So(ts.Dates(), ShouldResemble, []db.Date{dates[1], dates[3]})
+			So(testutil.RoundSlice(ts.Data(), 5), ShouldResemble, []float64{0.1, 0.1})
 		})
 
 		Convey("FromPrices", func() {
@@ -334,6 +347,13 @@ func TestTimeseries(t *testing.T) {
 					math.Exp(1.0), math.Exp(2.0), math.Exp(3.0),
 					math.Exp(4.0), math.Exp(5.0)})
 			})
+		})
+
+		Convey("Filter", func() {
+			t2 := ts.Filter(func(i int) bool { return ts.Data()[i] < 3 })
+			So(t2, ShouldResemble, NewTimeseries(
+				[]db.Date{d("2021-01-01"), d("2021-01-02")},
+				[]float64{1, 2}))
 		})
 	})
 }
