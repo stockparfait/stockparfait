@@ -49,6 +49,7 @@ func TestConstraints(t *testing.T) {
 				Category: "Do",
 				Sector:   "Domestic",
 				Industry: "Food",
+				Active:   true,
 			}
 			So(tc.CheckTickerRow(ticker), ShouldBeTrue)
 			ticker.Source = "ZZ"
@@ -74,6 +75,12 @@ func TestConstraints(t *testing.T) {
 			ticker.Industry = "Garbage"
 			So(tc.CheckTickerRow(ticker), ShouldBeFalse)
 			ticker.Industry = "Waste"
+			So(tc.CheckTickerRow(ticker), ShouldBeTrue)
+			ticker.Active = false // no constraint on Active yet, both values match.
+			So(tc.CheckTickerRow(ticker), ShouldBeTrue)
+			tc.SetActive(true)
+			So(tc.CheckTickerRow(ticker), ShouldBeFalse)
+			ticker.Active = true
 			So(tc.CheckTickerRow(ticker), ShouldBeTrue)
 		})
 	})

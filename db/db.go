@@ -100,6 +100,7 @@ type Reader struct {
 	Industries     []string  `json:"industries"`
 	Start          Date      `json:"start"`
 	End            Date      `json:"end"`
+	Active         *bool     `json:"active"`
 	YearlyGrowth   *Interval `json:"yearly growth"`
 	CashVolume     *Interval `json:"cash volume"`
 	Volatility     *Interval `json:"volatility"`
@@ -136,6 +137,9 @@ func (r *Reader) initConstraints() {
 		Category(r.Categories...).
 		Sector(r.Sectors...).
 		Industry(r.Industries...)
+	if r.Active != nil {
+		r.constraints.SetActive(*r.Active)
+	}
 }
 
 // InitMessage implements message.Message.

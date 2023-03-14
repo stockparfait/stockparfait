@@ -27,7 +27,7 @@ import (
 func TestMain(t *testing.T) {
 	t.Parallel()
 
-	tmpdir, tmpdirErr := os.MkdirTemp("", "testmain")
+	tmpdir, tmpdirErr := os.MkdirTemp("", "test_sharadar")
 	defer os.RemoveAll(tmpdir)
 
 	Convey("Setup succeeded", t, func() {
