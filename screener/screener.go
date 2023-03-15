@@ -27,6 +27,7 @@ import (
 	"github.com/stockparfait/stockparfait/table"
 )
 
+// Cell of a table Row which is a union of string or number (float64).
 type Cell struct {
 	IsNumber bool // which field to use as a value
 	number   float64
@@ -151,22 +152,18 @@ func Screen(ctx context.Context, c *Config) (*table.Table, error) {
 		}
 		return row
 	}
-	pm := iterator.ParallelMap(ctx, runtime.NumCPU(), iterator.FromSlice(tickers), f)
+	pm := iterator.ParallelMap(ctx, 2*runtime.NumCPU(), iterator.FromSlice(tickers), f)
 	defer pm.Close()
 
 	rows := iterator.Reduce[Row, []Row](pm, []Row{}, func(r Row, rows []Row) []Row {
 		return append(rows, r)
 	})
 	if sortIdx >= 0 {
-		if c.Columns[sortIdx].Sort == "ascending" {
-			sort.Slice(rows, func(i, j int) bool {
-				return rows[i][sortIdx].Less(rows[j][sortIdx])
-			})
-		} else {
-			sort.Slice(rows, func(i, j int) bool {
-				return rows[j][sortIdx].Less(rows[i][sortIdx])
-			})
+		less := func(i, j int) bool { return rows[i][sortIdx].Less(rows[j][sortIdx]) }
+		if c.Columns[sortIdx].Sort == "descending" {
+			less = func(i, j int) bool { return rows[j][sortIdx].Less(rows[i][sortIdx]) }
 		}
+		sort.Slice(rows, less)
 	}
 	tbl := table.NewTable(header...)
 	for _, row := range rows {
