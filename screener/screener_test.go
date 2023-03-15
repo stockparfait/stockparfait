@@ -12,43 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package screener
 
 import (
 	"bytes"
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"testing"
 
-	"github.com/stockparfait/logging"
 	"github.com/stockparfait/stockparfait/db"
+	"github.com/stockparfait/stockparfait/table"
 	"github.com/stockparfait/testutil"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestMain(t *testing.T) {
+func TestScreener(t *testing.T) {
 	t.Parallel()
 
-	tmpdir, tmpdirErr := os.MkdirTemp("", "test_screener_app")
+	tmpdir, tmpdirErr := os.MkdirTemp("", "test_screener")
 	defer os.RemoveAll(tmpdir)
 
 	Convey("Setup succeeded", t, func() {
 		So(tmpdirErr, ShouldBeNil)
 	})
 
-	Convey("parseFlags", t, func() {
-		flags, err := parseFlags([]string{
-			"-conf", "path/to/config", "-log-level", "warning", "-csv"})
-		So(err, ShouldBeNil)
-		So(flags.Config, ShouldEqual, "path/to/config")
-		So(flags.LogLevel, ShouldEqual, logging.Warning)
-		So(flags.CSV, ShouldBeTrue)
-	})
-
-	Convey("printData works", t, func() {
+	Convey("Screen works", t, func() {
 		dbName := "testdb"
 		tickers := map[string]db.TickerRow{
 			"A": {
@@ -92,32 +82,8 @@ func TestMain(t *testing.T) {
 		So(w.WritePrices("B", pricesB), ShouldBeNil)
 
 		ctx := context.Background()
-		configFile := filepath.Join(tmpdir, "config.json")
 
-		Convey("print text", func() {
-			So(testutil.WriteFile(configFile, fmt.Sprintf(`
-{
-  "data": {"DB path": "%s", "DB": "%s"},
-  "columns": [
-    {"kind": "ticker", "sort": "ascending"},
-    {"kind": "price", "date": "2019-01-02"}
-  ]
-}`, tmpdir, dbName)),
-				ShouldBeNil)
-			flags, err := parseFlags([]string{"-conf", configFile})
-			So(err, ShouldBeNil)
-			var buf bytes.Buffer
-			So(printData(ctx, flags, &buf), ShouldBeNil)
-			So("\n"+buf.String(), ShouldEqual, `
-Ticker | Split+Div Adjusted Close 2019-01-02
------- | -----------------------------------
-     A |                               11.00
-     B |                              110.00
-`)
-		})
-
-		Convey("print CSV", func() {
-			So(testutil.WriteFile(configFile, fmt.Sprintf(`
+		confJSON := fmt.Sprintf(`
 {
   "data": {"DB path": "%s", "DB": "%s"},
   "columns": [
@@ -130,17 +96,17 @@ Ticker | Split+Div Adjusted Close 2019-01-02
     {"kind": "price", "date": "2019-01-02"},
     {"kind": "volume", "date": "2019-01-02"}
   ]
-}`, tmpdir, dbName)),
-				ShouldBeNil)
-			flags, err := parseFlags([]string{"-conf", configFile, "-csv"})
-			So(err, ShouldBeNil)
-			var buf bytes.Buffer
-			So(printData(ctx, flags, &buf), ShouldBeNil)
-			So("\n"+buf.String(), ShouldEqual, `
+}`, tmpdir, dbName)
+		var config Config
+		So(config.InitMessage(testutil.JSON(confJSON)), ShouldBeNil)
+		tbl, err := Screen(ctx, &config)
+		So(err, ShouldBeNil)
+		var buf bytes.Buffer
+		So(tbl.WriteCSV(&buf, table.Params{}), ShouldBeNil)
+		So("\n"+buf.String(), ShouldEqual, `
 Ticker,Name,Exchange,Category,Sector,Industry,Split+Div Adjusted Close 2019-01-02,Cash Volume 2019-01-02
 B,Name B,ex B,cat B,sec B,ind B,110.00,1100.00
 A,Name A,ex A,cat A,sec A,ind A,11.00,1100.00
 `)
-		})
 	})
 }

@@ -106,7 +106,7 @@ func (c *Constraints) Industry(inds ...string) *Constraints {
 	return c
 }
 
-// SetActive bit (or reset when nil), if the ticker must be listed or delisted.
+// SetActive bit whether the ticker must be listed or delisted.
 func (c *Constraints) SetActive(active bool) *Constraints {
 	c.Active = &active
 	return c
