@@ -38,6 +38,7 @@ GOPATH` to find out where your `GOPATH` is). The apps currently include:
   e.g. downloaded from TradingView. The CSV format is compatible with
   `parfait-list` output, and in tandem these two apps allow for manual editing
   of the DB contents.
+- [parfait-screener] - generate a list of stocks that satisfy search criteria.
 
 ## Quick start
 
@@ -74,3 +75,4 @@ practice to prototype new features first in the [experiments] repository.
 [parfait-import]: apps/parfait-import
 [parfait-list]: apps/parfait-list
 [parfait-sharadar]: apps/parfait-sharadar
+[parfait-screener]: apps/parfait-screener
