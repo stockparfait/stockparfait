@@ -25,6 +25,7 @@ type Constraints struct {
 	Categories     map[string]struct{}
 	Sectors        map[string]struct{}
 	Industries     map[string]struct{}
+	Active         *bool // optional constraint on whether ticker is active
 }
 
 // NewConstraints creates a new Constraints with no constraints.
@@ -105,6 +106,12 @@ func (c *Constraints) Industry(inds ...string) *Constraints {
 	return c
 }
 
+// SetActive bit whether the ticker must be listed or delisted.
+func (c *Constraints) SetActive(active bool) *Constraints {
+	c.Active = &active
+	return c
+}
+
 // CheckTicker whether it satisfies the constraints.
 func (c *Constraints) CheckTicker(ticker string) bool {
 	if len(c.ExcludeTickers) > 0 {
@@ -122,6 +129,11 @@ func (c *Constraints) CheckTicker(ticker string) bool {
 
 // CheckTickerRow whether it satisfies the constraints.
 func (c *Constraints) CheckTickerRow(r TickerRow) bool {
+	if c.Active != nil {
+		if *c.Active != r.Active {
+			return false
+		}
+	}
 	if len(c.Sources) > 0 {
 		if _, ok := c.Sources[r.Source]; !ok {
 			return false

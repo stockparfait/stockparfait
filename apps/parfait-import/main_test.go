@@ -78,7 +78,7 @@ func TestMain(t *testing.T) {
 	})
 
 	Convey("run works", t, func() {
-		tmpdir, tmpdirErr := os.MkdirTemp("", "testmain")
+		tmpdir, tmpdirErr := os.MkdirTemp("", "test_import_app")
 		defer os.RemoveAll(tmpdir)
 
 		So(tmpdirErr, ShouldBeNil)
