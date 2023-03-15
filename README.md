@@ -29,15 +29,16 @@ make install
 This installs all the command line apps in your `${GOPATH}/bin` (run `go env
 GOPATH` to find out where your `GOPATH` is). The apps currently include:
 
-- [parfait-sharadar] - downloading financial data from Nasdaq Data Link [Sharadar
+- [parfait-sharadar] - download financial data from Nasdaq Data Link [Sharadar
   US Equities and Fund Prices](https://data.nasdaq.com/databases/SFB/data) data
   (requires subscription).
-- [parfait-list] - listing raw data from the downloaded DB, primarily for
+- [parfait-list] - list raw data from the downloaded DB, primarily for
   debugging or data export and/or editing.
-- [parfait-import] - populating database from external CSV files,
+- [parfait-import] - populate database from external CSV files,
   e.g. downloaded from TradingView. The CSV format is compatible with
   `parfait-list` output, and in tandem these two apps allow for manual editing
   of the DB contents.
+- [parfait-screener] - generate a list of stocks that satisfy search criteria.
 
 ## Quick start
 
@@ -74,3 +75,4 @@ practice to prototype new features first in the [experiments] repository.
 [parfait-import]: apps/parfait-import
 [parfait-list]: apps/parfait-list
 [parfait-sharadar]: apps/parfait-sharadar
+[parfait-screener]: apps/parfait-screener
