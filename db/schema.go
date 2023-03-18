@@ -403,9 +403,9 @@ type PriceRow struct {
 	Close              float32 // unadjusted; negative means delisted
 	CloseSplitAdjusted float32 // adjusted only for splits
 	CloseFullyAdjusted float32 // adjusted for splits, dividends, spinoffs
-	OpenFullyAdjusted  float32
-	HighFullyAdjusted  float32
-	LowFullyAdjusted   float32
+	Open               float32 // all other prices are unadjusted
+	High               float32
+	Low                float32
 	CashVolume         float32 // shares volume * closing price
 }
 
@@ -417,9 +417,9 @@ func PriceRowHeader() []string {
 		"Close",
 		"Close split adj",
 		"Close fully adj",
-		"Open fully adj",
-		"High fully adj",
-		"Low fully adj",
+		"Open",
+		"High",
+		"Low",
 		"Cash Volume",
 		"Active",
 	}
@@ -431,54 +431,54 @@ func (p PriceRow) CSV() []string {
 		float2str(p.CloseUnadjusted()),
 		float2str(p.CloseSplitAdjusted),
 		float2str(p.CloseFullyAdjusted),
-		float2str(p.OpenFullyAdjusted),
-		float2str(p.HighFullyAdjusted),
-		float2str(p.LowFullyAdjusted),
+		float2str(p.Open),
+		float2str(p.High),
+		float2str(p.Low),
 		float2str(p.CashVolume),
 		bool2str(p.Active()),
 	}
 }
 
-func (p PriceRow) OpenUnadjusted() float32 {
-	if p.CloseFullyAdjusted == 0 {
+func (p PriceRow) OpenFullyAdjusted() float32 {
+	if p.Close == 0 {
 		return 0
 	}
-	return p.OpenFullyAdjusted / p.CloseFullyAdjusted * p.CloseUnadjusted()
+	return p.Open / p.CloseUnadjusted() * p.CloseFullyAdjusted
 }
 
 func (p PriceRow) OpenSplitAdjusted() float32 {
-	if p.CloseFullyAdjusted == 0 {
+	if p.Close == 0 {
 		return 0
 	}
-	return p.OpenFullyAdjusted / p.CloseFullyAdjusted * p.CloseSplitAdjusted
+	return p.Open / p.CloseUnadjusted() * p.CloseSplitAdjusted
 }
 
-func (p PriceRow) HighUnadjusted() float32 {
-	if p.CloseFullyAdjusted == 0 {
+func (p PriceRow) HighFullyAdjusted() float32 {
+	if p.Close == 0 {
 		return 0
 	}
-	return p.HighFullyAdjusted / p.CloseFullyAdjusted * p.CloseUnadjusted()
+	return p.High / p.CloseUnadjusted() * p.CloseFullyAdjusted
 }
 
 func (p PriceRow) HighSplitAdjusted() float32 {
-	if p.CloseFullyAdjusted == 0 {
+	if p.Close == 0 {
 		return 0
 	}
-	return p.HighFullyAdjusted / p.CloseFullyAdjusted * p.CloseSplitAdjusted
+	return p.High / p.CloseUnadjusted() * p.CloseSplitAdjusted
 }
 
-func (p PriceRow) LowUnadjusted() float32 {
-	if p.CloseFullyAdjusted == 0 {
+func (p PriceRow) LowFullyAdjusted() float32 {
+	if p.Close == 0 {
 		return 0
 	}
-	return p.LowFullyAdjusted / p.CloseFullyAdjusted * p.CloseUnadjusted()
+	return p.Low / p.CloseUnadjusted() * p.CloseFullyAdjusted
 }
 
 func (p PriceRow) LowSplitAdjusted() float32 {
-	if p.CloseFullyAdjusted == 0 {
+	if p.Close == 0 {
 		return 0
 	}
-	return p.LowFullyAdjusted / p.CloseFullyAdjusted * p.CloseSplitAdjusted
+	return p.Low / p.CloseUnadjusted() * p.CloseSplitAdjusted
 }
 
 // CloseUnadjusted price, separated from the activity status.
@@ -506,7 +506,7 @@ func (p *PriceRow) SetActive(active bool) {
 // price to assign the other OHL prices.
 func TestPrice(date Date, closeUnadj, splitAdj, fullyAdj, dv float32, active bool) PriceRow {
 	return TestPriceRow(date, closeUnadj, splitAdj, fullyAdj,
-		fullyAdj, fullyAdj, fullyAdj, dv, active)
+		closeUnadj, closeUnadj, closeUnadj, dv, active)
 }
 
 // TestPriceRow is a complete version of TestPrice which allows to set all OHLC
@@ -517,9 +517,9 @@ func TestPriceRow(date Date, closeUnadj, closeSplitAdj, close, open, high, low, 
 		Close:              closeUnadj,
 		CloseSplitAdjusted: closeSplitAdj,
 		CloseFullyAdjusted: close,
-		OpenFullyAdjusted:  open,
-		HighFullyAdjusted:  high,
-		LowFullyAdjusted:   low,
+		Open:               open,
+		High:               high,
+		Low:                low,
 		CashVolume:         dv,
 	}
 	p.SetActive(active)

@@ -175,15 +175,15 @@ t,,Y
 
 		Convey("import prices with default reordered schema", func() {
 			So(testutil.WriteFile(pricesFile, `
-Active,Open fully adj,High fully adj,Low fully adj,Close,Close split adj,Date,Close fully adj,Cash Volume
-TRUE,4.5,4.5,4.5,10,5,2020-01-01,4.5,1000
-FALSE,4.6,4.6,4.6,11,5.5,2020-01-02,4.6,100
+Active,Open,High,Low,Close,Close split adj,Date,Close fully adj,Cash Volume
+TRUE,9,11,8,10,5,2020-01-01,4.5,1000
+FALSE,10,12,9,11,5.5,2020-01-02,4.6,100
 `),
 				ShouldBeNil)
 			So(run(append(args, "-prices", pricesFile, "-ticker", "A")), ShouldBeNil)
 			expected := []db.PriceRow{
-				db.TestPrice(db.NewDate(2020, 1, 1), 10, 5, 4.5, 1000, true),
-				db.TestPrice(db.NewDate(2020, 1, 2), 11, 5.5, 4.6, 100, false),
+				db.TestPriceRow(db.NewDate(2020, 1, 1), 10, 5, 4.5, 9, 11, 8, 1000, true),
+				db.TestPriceRow(db.NewDate(2020, 1, 2), 11, 5.5, 4.6, 10, 12, 9, 100, false),
 			}
 			reader := db.NewReader(tmpdir, dbName)
 			prices, err := reader.Prices("A")
