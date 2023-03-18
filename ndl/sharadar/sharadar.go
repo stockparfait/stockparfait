@@ -186,8 +186,8 @@ func row2res(colMap map[string]int) func([]string, pricesResult) pricesResult {
 			res.Prices = make(map[string][]db.PriceRow)
 		}
 		var adjCoeff float32
-		if p.CloseAdjusted != 0 {
-			adjCoeff = p.CloseUnadjusted / p.CloseAdjusted
+		if p.Close != 0 {
+			adjCoeff = p.CloseUnadjusted / p.Close
 		}
 		res.Prices[p.Ticker] = append(res.Prices[p.Ticker], db.PriceRow{
 			Date:               p.Date,
