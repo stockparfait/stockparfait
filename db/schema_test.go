@@ -216,7 +216,7 @@ func TestSchema(t *testing.T) {
 		Convey("CSV works", func() {
 			p := TestPrice(NewDate(2019, 1, 2), 100.0, 50.0, 49.0, 1000.0, false)
 			So(p.CSV(), ShouldResemble, []string{
-				"2019-01-02", "100", "50", "49", "100", "100", "100", "1000", "FALSE"})
+				"2019-01-02", "100", "100", "100", "100", "50", "49", "1000", "FALSE"})
 		})
 	})
 

@@ -101,8 +101,8 @@ TRUE,B Co.,blah,B,cat2,more blah
 		Convey("with default schema", func() {
 			c := NewPriceRowConfig()
 			csvRows := strings.NewReader(strings.Join(PriceRowHeader(), ",") + `
-2020-01-01,10.2,5.2,5.1,10.2,10.2,10.2,1000,TRUE
-2020-01-02,20.2,10.2,10.1,20.2,20.2,20.2,2000,FALSE
+2020-01-01,10.2,10.2,10.2,10.2,5.2,5.1,1000,TRUE
+2020-01-02,20.2,20.2,20.2,20.2,10.2,10.1,2000,FALSE
 `)
 			prices, err := ReadCSVPrices(csvRows, c)
 			So(err, ShouldBeNil)
@@ -113,7 +113,7 @@ TRUE,B Co.,blah,B,cat2,more blah
 		})
 
 		Convey("headless with custom schema, fully adjusted and unsorted", func() {
-			// Map "eod" to all three prices; skip Active and CashVolume.
+			// CashVolume derives from fully adjusted volume; default Active.
 			cfgJSON := testutil.JSON(`
 {
   "Date":            "time",
@@ -141,7 +141,7 @@ TRUE,B Co.,blah,B,cat2,more blah
 		})
 
 		Convey("split adjusted", func() {
-			// Map "eod" to all three prices; skip Active and CashVolume.
+			// CashVolume derives from split-adjusted volume; default Active.
 			cfgJSON := testutil.JSON(`
 {
   "Date":            "time",
@@ -165,6 +165,34 @@ TRUE,B Co.,blah,B,cat2,more blah
 			So(prices, ShouldResemble, []PriceRow{
 				TestPrice(NewDate(2020, 1, 1), 10, 5, 10, 1000*10, true),
 				TestPrice(NewDate(2020, 1, 2), 11.2, 5.6, 11.2, 500*11.2, true),
+			})
+		})
+
+		Convey("unadjusted volume in shares", func() {
+			// CashVolume derives from unadjusted volume; default Active.
+			cfgJSON := testutil.JSON(`
+{
+  "Date":            "time",
+  "Close":           "eod",
+  "Close split adj": "adj",
+  "Close fully adj": "adj",
+  "Open":            "eod",
+  "High":            "eod",
+  "Low":             "eod",
+  "Volume":          "volume",
+  "header": ["eod", "adj", "time", "volume"]
+}`)
+			var c PriceRowConfig
+			So(c.InitMessage(cfgJSON), ShouldBeNil)
+			csvRows := strings.NewReader(`
+11.2,5.6,2020-01-02,1000
+10,5,2020-01-01,2000
+`[1:])
+			prices, err := ReadCSVPrices(csvRows, &c)
+			So(err, ShouldBeNil)
+			So(prices, ShouldResemble, []PriceRow{
+				TestPrice(NewDate(2020, 1, 1), 10, 5, 5, 2000*10, true),
+				TestPrice(NewDate(2020, 1, 2), 11.2, 5.6, 5.6, 1000*11.2, true),
 			})
 		})
 	})

@@ -400,12 +400,12 @@ func uint2str(x uint16) string {
 // e.g. dollar for the US stocks.
 type PriceRow struct {
 	Date               Date
-	Close              float32 // unadjusted; negative means delisted
-	CloseSplitAdjusted float32 // adjusted only for splits
-	CloseFullyAdjusted float32 // adjusted for splits, dividends, spinoffs
 	Open               float32 // all other prices are unadjusted
 	High               float32
 	Low                float32
+	Close              float32 // unadjusted; negative means delisted
+	CloseSplitAdjusted float32 // adjusted only for splits
+	CloseFullyAdjusted float32 // adjusted for splits, dividends, spinoffs
 	CashVolume         float32 // shares volume * closing price
 }
 
@@ -414,12 +414,12 @@ var _ table.Row = PriceRow{}
 func PriceRowHeader() []string {
 	return []string{
 		"Date",
-		"Close",
-		"Close split adj",
-		"Close fully adj",
 		"Open",
 		"High",
 		"Low",
+		"Close",
+		"Close split adj",
+		"Close fully adj",
 		"Cash Volume",
 		"Active",
 	}
@@ -428,12 +428,12 @@ func PriceRowHeader() []string {
 func (p PriceRow) CSV() []string {
 	return []string{
 		p.Date.String(),
-		float2str(p.CloseUnadjusted()),
-		float2str(p.CloseSplitAdjusted),
-		float2str(p.CloseFullyAdjusted),
 		float2str(p.Open),
 		float2str(p.High),
 		float2str(p.Low),
+		float2str(p.CloseUnadjusted()),
+		float2str(p.CloseSplitAdjusted),
+		float2str(p.CloseFullyAdjusted),
 		float2str(p.CashVolume),
 		bool2str(p.Active()),
 	}

@@ -92,7 +92,7 @@ B,test,,,,,,,,,FALSE
 			var buf bytes.Buffer
 			So(printData(ctx, flags, &buf), ShouldBeNil)
 			So("\n"+buf.String(), ShouldEqual, `
-Date,Close,Close split adj,Close fully adj,Open,High,Low,Cash Volume,Active
+Date,Open,High,Low,Close,Close split adj,Close fully adj,Cash Volume,Active
 2019-01-01,10,10,10,10,10,10,1000,TRUE
 2019-01-02,11,11,11,11,11,11,1100,TRUE
 2019-01-03,12,12,12,12,12,12,1200,FALSE

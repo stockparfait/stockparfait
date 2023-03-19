@@ -66,28 +66,45 @@ func (c *TickerRowConfig) HasTicker(header []string) bool {
 	return false
 }
 
+type tickerField int
+
+const (
+	tickerTicker tickerField = iota
+	tickerSource
+	tickerExchange
+	tickerName
+	tickerCategory
+	tickerSector
+	tickerIndustry
+	tickerLocation
+	tickerSECFilings
+	tickerCompanySite
+	tickerActive
+	tickerLast // keep it last; not a real value
+)
+
 // MapColumns maps the i'th header column to the j'th TickerTableRow field.
 // Headers that don't match any configured column are mapped to -1.
-func (c *TickerRowConfig) MapColumns(header []string) []int {
-	m := make([]int, len(header))
-	cols := []string{
-		c.Ticker,
-		c.Source,
-		c.Exchange,
-		c.Name,
-		c.Category,
-		c.Sector,
-		c.Industry,
-		c.Location,
-		c.SECFilings,
-		c.CompanySite,
-		c.Active,
-	}
+func (c *TickerRowConfig) MapColumns(header []string) []tickerField {
+	m := make([]tickerField, len(header))
+	cols := make([]string, tickerLast)
+	cols[tickerTicker] = c.Ticker
+	cols[tickerSource] = c.Source
+	cols[tickerExchange] = c.Exchange
+	cols[tickerName] = c.Name
+	cols[tickerCategory] = c.Category
+	cols[tickerSector] = c.Sector
+	cols[tickerIndustry] = c.Industry
+	cols[tickerLocation] = c.Location
+	cols[tickerSECFilings] = c.SECFilings
+	cols[tickerCompanySite] = c.CompanySite
+	cols[tickerActive] = c.Active
+
 	for i, h := range header {
 		m[i] = -1
 		for j, n := range cols {
 			if h == n {
-				m[i] = j
+				m[i] = tickerField(j)
 				break
 			}
 		}
@@ -103,34 +120,34 @@ func str2bool(s string) bool {
 	return false
 }
 
-func (c *TickerRowConfig) Parse(row []string, colMap []int) (ticker string, tr TickerRow) {
+func (c *TickerRowConfig) Parse(row []string, colMap []tickerField) (ticker string, tr TickerRow) {
 	tr.Active = true
 	for i, r := range row {
 		if i >= len(colMap) {
 			break
 		}
 		switch colMap[i] {
-		case 0:
+		case tickerTicker:
 			ticker = r
-		case 1:
+		case tickerSource:
 			tr.Source = r
-		case 2:
+		case tickerExchange:
 			tr.Exchange = r
-		case 3:
+		case tickerName:
 			tr.Name = r
-		case 4:
+		case tickerCategory:
 			tr.Category = r
-		case 5:
+		case tickerSector:
 			tr.Sector = r
-		case 6:
+		case tickerIndustry:
 			tr.Industry = r
-		case 7:
+		case tickerLocation:
 			tr.Location = r
-		case 8:
+		case tickerSECFilings:
 			tr.SECFilings = r
-		case 9:
+		case tickerCompanySite:
 			tr.CompanySite = r
-		case 10:
+		case tickerActive:
 			tr.Active = str2bool(r)
 		}
 	}
@@ -203,7 +220,9 @@ func (p *priceRaw) ToPriceRow() PriceRow {
 	}
 	pr.CashVolume = p.CashVolume
 	if p.CashVolume == 0 {
-		if p.VolumeSplitAdjusted != 0 && p.CloseSplitAdjusted != 0 {
+		if p.Volume != 0 && p.Close != 0 {
+			pr.CashVolume = p.Volume * p.Close
+		} else if p.VolumeSplitAdjusted != 0 && p.CloseSplitAdjusted != 0 {
 			pr.CashVolume = p.VolumeSplitAdjusted * p.CloseSplitAdjusted
 		} else if p.VolumeFullyAdjusted != 0 && p.CloseFullyAdjusted != 0 {
 			pr.CashVolume = p.VolumeFullyAdjusted * p.CloseFullyAdjusted
@@ -218,7 +237,7 @@ func (p *priceRaw) ToPriceRow() PriceRow {
 // same CSV column.
 //
 // Note, that the DB stores natively only unadjusted OHLC, split- and fully
-// adjusted Close prices, and cash volume defined as close*volume in shares.
+// adjusted Close prices, and cash volume defined as close*<volume in shares>.
 // When other fields are configured and imported, such as adjusted OHL and
 // adjusted or unadjusted volume (in shares), the actual values stored in the DB
 // are derived from the ratios of the corresponding Close prices.
@@ -272,8 +291,10 @@ func (c *PriceRowConfig) HasPrice(header []string) bool {
 	return false
 }
 
+type priceField int
+
 const (
-	priceDate int = iota
+	priceDate priceField = iota
 	priceOpen
 	priceHigh
 	priceLow
@@ -297,8 +318,8 @@ const (
 // MapColumns maps the i'th header column to the list of PriceRow fields. In
 // particular, a single price column can map to several price fields in
 // PriceRow.
-func (c *PriceRowConfig) MapColumns(header []string) [][]int {
-	m := make([][]int, len(header))
+func (c *PriceRowConfig) MapColumns(header []string) [][]priceField {
+	m := make([][]priceField, len(header))
 	cols := make([]string, priceLast)
 	cols[priceDate] = c.Date
 	cols[priceOpen] = c.Open
@@ -321,14 +342,14 @@ func (c *PriceRowConfig) MapColumns(header []string) [][]int {
 	for i, h := range header {
 		for j, n := range cols {
 			if h == n {
-				m[i] = append(m[i], j)
+				m[i] = append(m[i], priceField(j))
 			}
 		}
 	}
 	return m
 }
 
-func (c *PriceRowConfig) Parse(row []string, colMap [][]int) (pr PriceRow, err error) {
+func (c *PriceRowConfig) Parse(row []string, colMap [][]priceField) (pr PriceRow, err error) {
 	p := priceRaw{Active: true}
 	for i, r := range row {
 		if i >= len(colMap) {
