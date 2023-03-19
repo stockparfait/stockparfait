@@ -182,8 +182,8 @@ FALSE,10,12,9,11,5.5,2020-01-02,4.6,100
 				ShouldBeNil)
 			So(run(append(args, "-prices", pricesFile, "-ticker", "A")), ShouldBeNil)
 			expected := []db.PriceRow{
-				db.TestPriceRow(db.NewDate(2020, 1, 1), 10, 5, 4.5, 9, 11, 8, 1000, true),
-				db.TestPriceRow(db.NewDate(2020, 1, 2), 11, 5.5, 4.6, 10, 12, 9, 100, false),
+				db.TestPriceRow(db.NewDate(2020, 1, 1), 9, 11, 8, 10, 5, 4.5, 1000, true),
+				db.TestPriceRow(db.NewDate(2020, 1, 2), 10, 12, 9, 11, 5.5, 4.6, 100, false),
 			}
 			reader := db.NewReader(tmpdir, dbName)
 			prices, err := reader.Prices("A")

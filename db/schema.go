@@ -504,22 +504,21 @@ func (p *PriceRow) SetActive(active bool) {
 
 // TestPrice creates a PriceRow instance for use in tests. It uses the closing
 // price to assign the other OHL prices.
-func TestPrice(date Date, closeUnadj, splitAdj, fullyAdj, dv float32, active bool) PriceRow {
-	return TestPriceRow(date, closeUnadj, splitAdj, fullyAdj,
-		closeUnadj, closeUnadj, closeUnadj, dv, active)
+func TestPrice(date Date, close, splitAdj, fullyAdj, dv float32, active bool) PriceRow {
+	return TestPriceRow(date, close, close, close, close, splitAdj, fullyAdj, dv, active)
 }
 
 // TestPriceRow is a complete version of TestPrice which allows to set all OHLC
 // prices directly. The OHL prices are always fully adjusted.
-func TestPriceRow(date Date, closeUnadj, closeSplitAdj, close, open, high, low, dv float32, active bool) PriceRow {
+func TestPriceRow(date Date, open, high, low, close, closeSplitAdj, closeFullyAdj, dv float32, active bool) PriceRow {
 	p := PriceRow{
 		Date:               date,
-		Close:              closeUnadj,
-		CloseSplitAdjusted: closeSplitAdj,
-		CloseFullyAdjusted: close,
 		Open:               open,
 		High:               high,
 		Low:                low,
+		Close:              close,
+		CloseSplitAdjusted: closeSplitAdj,
+		CloseFullyAdjusted: closeFullyAdj,
 		CashVolume:         dv,
 	}
 	p.SetActive(active)

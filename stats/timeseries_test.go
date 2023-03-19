@@ -138,8 +138,8 @@ func TestTimeseries(t *testing.T) {
 			dt2 := db.NewDate(2005, 1, 1)
 			// split factor = 2, full adj. factor = 3
 			prices := []db.PriceRow{
-				db.TestPriceRow(dt1, 12, 6, 4, 15, 18, 9, 1000.0, true),
-				db.TestPriceRow(dt2, 15, 7.5, 5, 12, 21, 9, 2000.0, true),
+				db.TestPriceRow(dt1, 15, 18, 9, 12, 6, 4, 1000.0, true),
+				db.TestPriceRow(dt2, 12, 21, 9, 15, 7.5, 5, 2000.0, true),
 			}
 
 			Convey("Open Unadjusted", func() {
