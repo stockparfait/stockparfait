@@ -185,23 +185,23 @@ func NewTimeseriesFromPrices(prices []db.PriceRow, f PriceField) *Timeseries {
 		dates[i] = p.Date
 		switch f {
 		case PriceOpenUnadjusted:
-			data[i] = float64(p.OpenUnadjusted())
+			data[i] = float64(p.Open)
 		case PriceOpenSplitAdjusted:
 			data[i] = float64(p.OpenSplitAdjusted())
 		case PriceOpenFullyAdjusted:
-			data[i] = float64(p.OpenFullyAdjusted)
+			data[i] = float64(p.OpenFullyAdjusted())
 		case PriceHighUnadjusted:
-			data[i] = float64(p.HighUnadjusted())
+			data[i] = float64(p.High)
 		case PriceHighSplitAdjusted:
 			data[i] = float64(p.HighSplitAdjusted())
 		case PriceHighFullyAdjusted:
-			data[i] = float64(p.HighFullyAdjusted)
+			data[i] = float64(p.HighFullyAdjusted())
 		case PriceLowUnadjusted:
-			data[i] = float64(p.LowUnadjusted())
+			data[i] = float64(p.Low)
 		case PriceLowSplitAdjusted:
 			data[i] = float64(p.LowSplitAdjusted())
 		case PriceLowFullyAdjusted:
-			data[i] = float64(p.LowFullyAdjusted)
+			data[i] = float64(p.LowFullyAdjusted())
 		case PriceCloseUnadjusted:
 			data[i] = float64(p.CloseUnadjusted())
 		case PriceCloseSplitAdjusted:

@@ -101,8 +101,8 @@ TRUE,B Co.,blah,B,cat2,more blah
 		Convey("with default schema", func() {
 			c := NewPriceRowConfig()
 			csvRows := strings.NewReader(strings.Join(PriceRowHeader(), ",") + `
-2020-01-01,10.2,5.2,5.1,5.1,5.1,5.1,1000,TRUE
-2020-01-02,20.2,10.2,10.1,10.1,10.1,10.1,2000,FALSE
+2020-01-01,10.2,10.2,10.2,10.2,5.2,5.1,1000,TRUE
+2020-01-02,20.2,20.2,20.2,20.2,10.2,10.1,2000,FALSE
 `)
 			prices, err := ReadCSVPrices(csvRows, c)
 			So(err, ShouldBeNil)
@@ -112,30 +112,87 @@ TRUE,B Co.,blah,B,cat2,more blah
 			})
 		})
 
-		Convey("headless with custom schema, unsorted", func() {
-			// Map "eod" to all three prices; skip Active and CashVolume.
+		Convey("headless with custom schema, fully adjusted and unsorted", func() {
+			// CashVolume derives from fully adjusted volume; default Active.
 			cfgJSON := testutil.JSON(`
 {
   "Date":            "time",
   "Close":           "eod",
   "Close split adj": "eod",
-  "Open fully adj":  "eod",
-  "High fully adj":  "eod",
-  "Low fully adj":   "eod",
-  "Close fully adj": "eod",
-  "header": ["eod", "time"]
+  "Close fully adj": "adj",
+  "Open fully adj":  "adj",
+  "High fully adj":  "adj",
+  "Low fully adj":   "adj",
+  "Volume fully adj": "volume",
+  "header": ["eod", "adj", "time", "volume"]
 }`)
 			var c PriceRowConfig
 			So(c.InitMessage(cfgJSON), ShouldBeNil)
 			csvRows := strings.NewReader(`
-11.2,2020-01-02
-10,2020-01-01
+11.2,5.6,2020-01-02,1000
+10,5,2020-01-01,2000
 `[1:])
 			prices, err := ReadCSVPrices(csvRows, &c)
 			So(err, ShouldBeNil)
 			So(prices, ShouldResemble, []PriceRow{
-				TestPrice(NewDate(2020, 1, 1), 10, 10, 10, 0, true),
-				TestPrice(NewDate(2020, 1, 2), 11.2, 11.2, 11.2, 0, true),
+				TestPrice(NewDate(2020, 1, 1), 10, 10, 5, 1000*10, true),
+				TestPrice(NewDate(2020, 1, 2), 11.2, 11.2, 5.6, 500*11.2, true),
+			})
+		})
+
+		Convey("split adjusted", func() {
+			// CashVolume derives from split-adjusted volume; default Active.
+			cfgJSON := testutil.JSON(`
+{
+  "Date":            "time",
+  "Close":           "eod",
+  "Close split adj": "adj",
+  "Close fully adj": "eod",
+  "Open split adj":  "adj",
+  "High split adj":  "adj",
+  "Low split adj":   "adj",
+  "Volume split adj": "volume",
+  "header": ["eod", "adj", "time", "volume"]
+}`)
+			var c PriceRowConfig
+			So(c.InitMessage(cfgJSON), ShouldBeNil)
+			csvRows := strings.NewReader(`
+11.2,5.6,2020-01-02,1000
+10,5,2020-01-01,2000
+`[1:])
+			prices, err := ReadCSVPrices(csvRows, &c)
+			So(err, ShouldBeNil)
+			So(prices, ShouldResemble, []PriceRow{
+				TestPrice(NewDate(2020, 1, 1), 10, 5, 10, 1000*10, true),
+				TestPrice(NewDate(2020, 1, 2), 11.2, 5.6, 11.2, 500*11.2, true),
+			})
+		})
+
+		Convey("unadjusted volume in shares", func() {
+			// CashVolume derives from unadjusted volume; default Active.
+			cfgJSON := testutil.JSON(`
+{
+  "Date":            "time",
+  "Close":           "eod",
+  "Close split adj": "adj",
+  "Close fully adj": "adj",
+  "Open":            "eod",
+  "High":            "eod",
+  "Low":             "eod",
+  "Volume":          "volume",
+  "header": ["eod", "adj", "time", "volume"]
+}`)
+			var c PriceRowConfig
+			So(c.InitMessage(cfgJSON), ShouldBeNil)
+			csvRows := strings.NewReader(`
+11.2,5.6,2020-01-02,1000
+10,5,2020-01-01,2000
+`[1:])
+			prices, err := ReadCSVPrices(csvRows, &c)
+			So(err, ShouldBeNil)
+			So(prices, ShouldResemble, []PriceRow{
+				TestPrice(NewDate(2020, 1, 1), 10, 5, 5, 2000*10, true),
+				TestPrice(NewDate(2020, 1, 2), 11.2, 5.6, 5.6, 1000*11.2, true),
 			})
 		})
 	})
