@@ -89,7 +89,21 @@ func (t *TimeOfDay) InitMessage(js any) error {
 	return nil
 }
 
+// NewTimeOfDay creates TimeOfDay out of components. It panics if any of the
+// arguments is out of range: hour>23, minute, second>59 or msec>999.
 func NewTimeOfDay(hour, minute, second uint8, msec uint32) TimeOfDay {
+	if hour > 23 {
+		panic(errors.Reason("hour=%d > 23", hour))
+	}
+	if minute > 59 {
+		panic(errors.Reason("minute=%d > 59", minute))
+	}
+	if second > 59 {
+		panic(errors.Reason("second=%d > 59", second))
+	}
+	if msec > 999 {
+		panic(errors.Reason("msec=%d > 999", msec))
+	}
 	return TimeOfDay(((uint32(hour)*60+uint32(minute))*60+uint32(second))*1000 + msec)
 }
 
@@ -130,15 +144,15 @@ func NewTimeOfDayFromString(s string) (TimeOfDay, error) {
 }
 
 func (t TimeOfDay) Hour() uint8 {
-	return uint8(t / 3600000)
+	return uint8(t / 3_600_000)
 }
 
 func (t TimeOfDay) Minute() uint8 {
-	return uint8((t % 3600000) / 60000)
+	return uint8((t % 3_600_000) / 60_000)
 }
 
 func (t TimeOfDay) Second() uint8 {
-	return uint8((t % 60000) / 1000)
+	return uint8((t % 60_000) / 1000)
 }
 
 func (t TimeOfDay) Millisecond() uint32 {
@@ -282,7 +296,7 @@ func (d *Date) InitMessage(js any) error {
 func (d Date) ToTime() time.Time {
 	return time.Date(int(d.Year()), time.Month(d.Month()), int(d.Day()),
 		int(d.Hour()), int(d.Minute()), int(d.Second()),
-		int(d.Millisecond()*1000000), time.UTC)
+		int(d.Millisecond()*1_000_000), time.UTC)
 }
 
 // Date returns the date value without time of day (Time = 0).

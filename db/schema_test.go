@@ -65,7 +65,7 @@ func TestSchema(t *testing.T) {
 			So(t.InitMessage(testutil.JSON(`"9:05:44"`)), ShouldBeNil)
 			So(t.String(), ShouldEqual, "09:05:44.000")
 
-			So(t.InitMessage(testutil.JSON(`"9:06"`)), ShouldBeNil)
+			So(t.InitMessage(testutil.JSON(`" 9:06"`)), ShouldBeNil)
 			So(t, ShouldEqual, NewTimeOfDay(9, 6, 0, 0))
 
 			So(t.InitMessage(testutil.JSON(`{}`)), ShouldBeNil)
