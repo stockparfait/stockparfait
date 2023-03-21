@@ -56,6 +56,30 @@ func TestSchema(t *testing.T) {
 		})
 	})
 
+	Convey("TimeOfDay type", t, func() {
+		Convey("works as Message", func() {
+			var t TimeOfDay
+			So(t.InitMessage(testutil.JSON(`"12:05:44.123"`)), ShouldBeNil)
+			So(t, ShouldEqual, NewTimeOfDay(12, 5, 44, 123))
+
+			So(t.InitMessage(testutil.JSON(`"9:05:44"`)), ShouldBeNil)
+			So(t.String(), ShouldEqual, "09:05:44.000")
+
+			So(t.InitMessage(testutil.JSON(`" 9:06"`)), ShouldBeNil)
+			So(t, ShouldEqual, NewTimeOfDay(9, 6, 0, 0))
+
+			So(t.InitMessage(testutil.JSON(`{}`)), ShouldBeNil)
+			So(t, ShouldEqual, TimeOfDay(0))
+		})
+
+		Convey("Before and After", func() {
+			So(NewTimeOfDay(9, 10, 11, 123).Before(NewTimeOfDay(9, 11, 10, 123)), ShouldBeTrue)
+			So(NewTimeOfDay(9, 10, 11, 123).Before(NewTimeOfDay(9, 10, 11, 124)), ShouldBeTrue)
+			So(NewTimeOfDay(9, 10, 11, 123).Before(NewTimeOfDay(9, 10, 11, 122)), ShouldBeFalse)
+			So(NewTimeOfDay(9, 10, 11, 123).After(NewTimeOfDay(9, 10, 11, 122)), ShouldBeTrue)
+		})
+	})
+
 	Convey("Date type", t, func() {
 		Convey("has correct size", func() {
 			So(unsafe.Sizeof(Date{}), ShouldEqual, 8)
