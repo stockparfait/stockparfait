@@ -28,7 +28,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestInterval(t *testing.T) {
+func TestRanges(t *testing.T) {
 	t.Parallel()
 
 	Convey("Interval works", t, func() {
@@ -62,6 +62,29 @@ func TestInterval(t *testing.T) {
 			So(i.DateInRange(NewDate(2020, 1, 1)), ShouldBeTrue)
 		})
 	})
+
+	Convey("IntradayRange works", t, func() {
+		var r IntradayRange
+		Convey("with all bounds", func() {
+			So(r.InitMessage(testutil.JSON(`
+{
+  "start": "9:30:00.001",
+  "end": "16:00"
+}`)), ShouldBeNil)
+			So(r.InRange(NewTimeOfDay(9, 30, 0, 1)), ShouldBeTrue)
+			So(r.InRange(NewTimeOfDay(9, 29, 59, 999)), ShouldBeFalse)
+			So(r.InRange(NewTimeOfDay(16, 0, 0, 1)), ShouldBeFalse)
+		})
+
+		Convey("without start", func() {
+			So(r.InitMessage(testutil.JSON(`
+{
+  "end": "16:00"
+}`)), ShouldBeNil)
+			So(r.InRange(NewTimeOfDay(0, 30, 0, 1)), ShouldBeTrue)
+			So(r.InRange(NewTimeOfDay(16, 0, 0, 1)), ShouldBeFalse)
+		})
+	})
 }
 
 func TestDB(t *testing.T) {
@@ -81,9 +104,9 @@ func TestDB(t *testing.T) {
 			"B": {},
 		}
 		pricesA := []PriceRow{
-			TestPrice(NewDate(2019, 1, 1), 10.0, 10.0, 10.0, 1000.0, true),
-			TestPrice(NewDate(2019, 1, 2), 11.0, 11.0, 11.0, 1100.0, true),
-			TestPrice(NewDate(2019, 1, 3), 12.0, 12.0, 12.0, 1200.0, true),
+			TestPrice(NewDatetime(2019, 1, 1, 9, 30, 0, 0), 10.0, 10.0, 10.0, 1000.0, true),
+			TestPrice(NewDatetime(2019, 1, 2, 12, 0, 0, 0), 11.0, 11.0, 11.0, 1100.0, true),
+			TestPrice(NewDatetime(2019, 1, 3, 17, 9, 59, 0), 12.0, 12.0, 12.0, 1200.0, true),
 		}
 		pricesB := []PriceRow{
 			TestPrice(NewDate(2019, 1, 1), 100.0, 100.0, 100.0, 100.0, true),
@@ -218,6 +241,19 @@ func TestDB(t *testing.T) {
 			So(len(tickers), ShouldEqual, 0)
 		})
 
+		Convey("filtering intraday prices", func() {
+			start := NewTimeOfDay(10, 0, 0, 0)
+			end := NewTimeOfDay(16, 0, 0, 0)
+			db := NewReader(tmpdir, dbName)
+			db.Intraday = &IntradayRange{
+				Start: &start,
+				End:   &end,
+			}
+			p, err := db.Prices("A")
+			So(err, ShouldBeNil)
+			So(p, ShouldResemble, []PriceRow{pricesA[1]})
+		})
+
 		Convey("price access methods work", func() {
 			db := NewReader(tmpdir, dbName)
 			p, err := db.Prices("A")
@@ -254,7 +290,7 @@ func TestDB(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(m, ShouldResemble, Metadata{
 				Start:      NewDate(2019, 1, 1),
-				End:        NewDate(2019, 1, 3),
+				End:        NewDatetime(2019, 1, 3, 17, 9, 59, 0),
 				NumTickers: 2,
 				NumPrices:  6,
 				NumMonthly: 4,

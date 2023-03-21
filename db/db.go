@@ -85,25 +85,46 @@ func (i Interval) DateInRange(d Date) bool {
 	return d.InRange(i.Start, i.End)
 }
 
+// IntradayRange configures inclusive time range within each trading day.
+type IntradayRange struct {
+	Start *TimeOfDay `json:"start"`
+	End   *TimeOfDay `json:"end"`
+}
+
+func (i *IntradayRange) InitMessage(js any) error {
+	return errors.Annotate(message.Init(i, js), "failed to init from JSON")
+}
+
+func (i IntradayRange) InRange(t TimeOfDay) bool {
+	if i.Start != nil && i.Start.After(t) {
+		return false
+	}
+	if i.End != nil && i.End.Before(t) {
+		return false
+	}
+	return true
+}
+
 // Reader of the database, which also implements message.Message and can be used
 // directly in a config.
 type Reader struct {
-	DBPath         string    `json:"DB path"`            // default: ~/.stockparfait
-	DB             string    `json:"DB" required:"true"` // specific DB in path
-	UseTickers     []string  `json:"tickers"`
-	ExcludeTickers []string  `json:"exclude tickers"`
-	Sources        []string  `json:"sources"`
-	Exchanges      []string  `json:"exchanges"`
-	Names          []string  `json:"names"`
-	Categories     []string  `json:"categories"`
-	Sectors        []string  `json:"sectors"`
-	Industries     []string  `json:"industries"`
-	Start          Date      `json:"start"`
-	End            Date      `json:"end"`
-	Active         *bool     `json:"active"`
-	YearlyGrowth   *Interval `json:"yearly growth"`
-	CashVolume     *Interval `json:"cash volume"`
-	Volatility     *Interval `json:"volatility"`
+	DBPath         string         `json:"DB path"`            // default: ~/.stockparfait
+	DB             string         `json:"DB" required:"true"` // specific DB in path
+	UseTickers     []string       `json:"tickers"`
+	ExcludeTickers []string       `json:"exclude tickers"`
+	Sources        []string       `json:"sources"`
+	Exchanges      []string       `json:"exchanges"`
+	Names          []string       `json:"names"`
+	Categories     []string       `json:"categories"`
+	Sectors        []string       `json:"sectors"`
+	Industries     []string       `json:"industries"`
+	Start          Date           `json:"start"`
+	End            Date           `json:"end"`
+	Active         *bool          `json:"active"`
+	YearlyGrowth   *Interval      `json:"yearly growth"`
+	CashVolume     *Interval      `json:"cash volume"`
+	Volatility     *Interval      `json:"volatility"`
+	Intraday       *IntradayRange `json:"intraday"`
 	constraints    *Constraints
 	tickers        map[string]TickerRow
 	monthly        map[string][]ResampledRow
@@ -394,9 +415,13 @@ func (r *Reader) Prices(ticker string) ([]PriceRow, error) {
 	}
 	res := []PriceRow{}
 	for _, p := range prices {
-		if p.Date.InRange(r.Start, r.End) {
-			res = append(res, p)
+		if !p.Date.InRange(r.Start, r.End) {
+			continue
 		}
+		if r.Intraday != nil && !r.Intraday.InRange(p.Date.Time) {
+			continue
+		}
+		res = append(res, p)
 	}
 	return res, nil
 }

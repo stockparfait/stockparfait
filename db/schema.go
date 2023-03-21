@@ -18,6 +18,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/stockparfait/errors"
@@ -65,13 +68,107 @@ func parseTime(s string) (time.Time, error) {
 	return time.Time{}, err
 }
 
+// TimeOfDay as milliseconds from midnight.
+type TimeOfDay uint32
+
+var _ message.Message = new(TimeOfDay)
+
+func (t *TimeOfDay) InitMessage(js any) error {
+	switch s := js.(type) {
+	case string:
+		tm, err := NewTimeOfDayFromString(s)
+		if err != nil {
+			return errors.Annotate(err, "failed to parse Time string")
+		}
+		*t = tm
+	case map[string]any:
+		*t = TimeOfDay(0)
+	default:
+		return errors.Reason("expected a string or {}, got %v", js)
+	}
+	return nil
+}
+
+func NewTimeOfDay(hour, minute, second uint8, msec uint32) TimeOfDay {
+	return TimeOfDay(((uint32(hour)*60+uint32(minute))*60+uint32(second))*1000 + msec)
+}
+
+// todRegexp matches "hh:mm", "hh:mm:ss" or "hh:mm:ss.xxx" formats.
+var todRegexp = regexp.MustCompile(
+	`^(?P<h>(\s|\d)?\d):(?P<m>\d\d)(:(?P<s>\d\d)(\.(?P<ms>\d\d\d))?)?$`)
+
+// NewTimeOfDayFromString parses a string "hh:mm:ss.xxx" with optional seconds
+// and milliseconds.
+func NewTimeOfDayFromString(s string) (TimeOfDay, error) {
+	submatches := todRegexp.FindSubmatch([]byte(s))
+	if len(submatches) == 0 {
+		return TimeOfDay(0), errors.Reason("expected hh:mm[:ss[.xxx]]: '%s'", s)
+	}
+	hs := strings.Trim(string(submatches[todRegexp.SubexpIndex("h")]), " \t")
+	hour, err := strconv.ParseUint(hs, 10, 8)
+	if err != nil {
+		return TimeOfDay(0), errors.Reason("cannot parse hour in '%s'", s)
+	}
+	minute, err := strconv.ParseUint(string(submatches[todRegexp.SubexpIndex("m")]), 10, 8)
+	if err != nil {
+		return TimeOfDay(0), errors.Reason("cannot parse minute in '%s'", s)
+	}
+	var second, msec uint64
+	if str := string(submatches[todRegexp.SubexpIndex("s")]); str != "" {
+		second, err = strconv.ParseUint(str, 10, 8)
+		if err != nil {
+			return TimeOfDay(0), errors.Reason("cannot parse second in '%s'", s)
+		}
+	}
+	if str := string(submatches[todRegexp.SubexpIndex("ms")]); str != "" {
+		msec, err = strconv.ParseUint(str, 10, 16)
+		if err != nil {
+			return TimeOfDay(0), errors.Reason("cannot parse milliseconds in '%s'", s)
+		}
+	}
+	return NewTimeOfDay(uint8(hour), uint8(minute), uint8(second), uint32(msec)), nil
+}
+
+func (t TimeOfDay) Hour() uint8 {
+	return uint8(t / 3600000)
+}
+
+func (t TimeOfDay) Minute() uint8 {
+	return uint8((t % 3600000) / 60000)
+}
+
+func (t TimeOfDay) Second() uint8 {
+	return uint8((t % 60000) / 1000)
+}
+
+func (t TimeOfDay) Millisecond() uint32 {
+	return uint32(t) % 1000
+}
+
+func (t TimeOfDay) String() string {
+	return fmt.Sprintf("%02d:%02d:%02d.%03d",
+		t.Hour(), t.Minute(), t.Second(), t.Millisecond())
+}
+
+func (t TimeOfDay) Before(t2 TimeOfDay) bool {
+	return t < t2
+}
+
+func (t TimeOfDay) After(t2 TimeOfDay) bool {
+	return t > t2
+}
+
+func (t TimeOfDay) IsZero() bool {
+	return t == TimeOfDay(0)
+}
+
 // Date records a calendar date and time as year, month, day and millisecond
 // from the midnight. The struct is designed to fit into 8 bytes.
 type Date struct {
 	YearVal  uint16
 	MonthVal uint8
 	DayVal   uint8
-	MsecVal  uint32 // milliseconds from midnight
+	Time     TimeOfDay
 }
 
 var _ json.Marshaler = Date{}
@@ -89,7 +186,7 @@ func NewDatetime(year uint16, month, day, hour, minute, second uint8, msec uint3
 		YearVal:  year,
 		MonthVal: month,
 		DayVal:   day,
-		MsecVal:  (uint32(hour)*3600+uint32(minute)*60+uint32(second))*1000 + uint32(msec),
+		Time:     NewTimeOfDay(hour, minute, second, msec),
 	}
 }
 
@@ -103,7 +200,7 @@ func NewDateFromTime(t time.Time) Date {
 		YearVal:  uint16(t.Year()),
 		MonthVal: uint8(t.Month()),
 		DayVal:   uint8(t.Day()),
-		MsecVal:  uint32(((t.Hour()*60+t.Minute())*60+t.Second())*1000 + t.Nanosecond()/1000000),
+		Time:     NewTimeOfDay(uint8(t.Hour()), uint8(t.Minute()), uint8(t.Second()), uint32(t.Nanosecond()/1_000_000)),
 	}
 }
 
@@ -130,14 +227,14 @@ func DateInNY(now time.Time) Date {
 func (d Date) Year() uint16        { return d.YearVal }
 func (d Date) Month() uint8        { return d.MonthVal }
 func (d Date) Day() uint8          { return d.DayVal }
-func (d Date) Hour() uint8         { return uint8(d.MsecVal / 3600000) }
-func (d Date) Minute() uint8       { return uint8((d.MsecVal % 3600000) / 60000) }
-func (d Date) Second() uint8       { return uint8((d.MsecVal % 60000) / 1000) }
-func (d Date) Millisecond() uint32 { return d.MsecVal % 1000 }
+func (d Date) Hour() uint8         { return d.Time.Hour() }
+func (d Date) Minute() uint8       { return d.Time.Minute() }
+func (d Date) Second() uint8       { return d.Time.Second() }
+func (d Date) Millisecond() uint32 { return d.Time.Millisecond() }
 
 // String representation of the value.
 func (d Date) String() string {
-	if d.MsecVal == 0 {
+	if d.Time == TimeOfDay(0) {
 		return fmt.Sprintf("%04d-%02d-%02d", d.Year(), d.Month(), d.Day())
 	}
 	return fmt.Sprintf("%04d-%02d-%02dT%02d:%02d:%02d.%03d",
@@ -188,7 +285,7 @@ func (d Date) ToTime() time.Time {
 		int(d.Millisecond()*1000000), time.UTC)
 }
 
-// Date returns the date value without time of day (MsecVal = 0).
+// Date returns the date value without time of day (Time = 0).
 func (d Date) Date() Date {
 	return NewDate(d.Year(), d.Month(), d.Day())
 }
@@ -214,8 +311,8 @@ func (d Date) QuarterStart() Date {
 
 // Before compares two Date objects for strict inequality (self < d2).
 func (d Date) Before(d2 Date) bool {
-	return lessLex([]int{int(d.Year()), int(d.Month()), int(d.Day()), int(d.MsecVal)},
-		[]int{int(d2.Year()), int(d2.Month()), int(d2.Day()), int(d2.MsecVal)})
+	return lessLex([]int{int(d.Year()), int(d.Month()), int(d.Day()), int(d.Time)},
+		[]int{int(d2.Year()), int(d2.Month()), int(d2.Day()), int(d2.Time)})
 }
 
 // After compares two Date objects for strict inequality, self > d2.
@@ -225,7 +322,7 @@ func (d Date) After(d2 Date) bool {
 
 // IsZero checks whether the date has a zero value.
 func (d Date) IsZero() bool {
-	return d.Year() == 0 && d.Month() == 0 && d.Day() == 0 && d.MsecVal == 0
+	return d.Year() == 0 && d.Month() == 0 && d.Day() == 0 && d.Time == TimeOfDay(0)
 }
 
 // MinDate returns the earliest date from the list, or zero value.
@@ -292,7 +389,7 @@ func (d Date) YearsTill(d2 Date) float64 {
 	years := float64(d2.Year()) - float64(d.Year())
 	years += (float64(d2.Month()) - float64(d.Month())) / 12.0
 	years += (float64(d2.Day())/float64(d2.DaysInMonth()) - float64(d.Day())/float64(d.DaysInMonth())) / 12.0
-	years += (float64(d2.MsecVal) - float64(d.MsecVal)) / (365.25 * 1000)
+	years += (float64(d2.Time) - float64(d.Time)) / (365.25 * 1000)
 	return years
 }
 
